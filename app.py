@@ -380,10 +380,24 @@ def chart(code: str = DEFAULT_CODE, days: int = 365):
 
 @app.get("/api/ohlc")
 def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
-    from datetime import datetime
+    from datetime import datetime, timedelta
     end_ymd = date.replace("-", "") if date else datetime.now().strftime("%Y%m%d")
-    rows = fetch_day_ohlc(code, end_ymd)
-    rows = rows[-5:]  # 최근 5 거래일
+    end = datetime.strptime(end_ymd, "%Y%m%d")
+    start = end - timedelta(days=210)  # 약 30주치
+    data = _get(
+        "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+        "FHKST03010100",
+        {
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_INPUT_ISCD": code,
+            "FID_INPUT_DATE_1": start.strftime("%Y%m%d"),
+            "FID_INPUT_DATE_2": end_ymd,
+            "FID_PERIOD_DIV_CODE": "W",  # 주봉 (5일봉)
+            "FID_ORG_ADJ_PRC": "0",
+        },
+    )
+    rows = [r for r in (data.get("output2") or []) if r.get("stck_bsop_date")]
+    rows.sort(key=lambda r: r["stck_bsop_date"])
     result = [
         {
             "date": r.get("stck_bsop_date", ""),
