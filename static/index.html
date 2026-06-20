@@ -248,9 +248,6 @@
     <div class="wcard pr">
       <div class="tag"><span class="dot"></span><span class="nm">홍보</span><span class="en">Public Relations</span></div>
       <div class="body" data-k="pr" contenteditable="true">
-        <p>1. 'BIO USA 2026 참가' 보도자료 초안 작성·검토</p>
-        <p>2. 유튜브 KORGLUTIDE 소개 건(모모약사) 점검</p>
-        <p class="ind">- 조회수 7.4만회↑, 11번가 구매정보 등 댓글 공유中</p>
       </div>
     </div>
   </section>
@@ -270,7 +267,6 @@
     </div>
     <div class="body">
       <p class="auto" id="narCaregen"><span class="lead"></span>조회 시 케어젠 동향 문장이 자동 생성됩니다.</p>
-      <div class="macro-label">거시·시황 해설 (직접 입력)</div>
       <div class="macro" data-k="flowMacro" contenteditable="true">
         <p><span class="lead"></span></p>
       </div>
@@ -456,9 +452,7 @@ async function loadNews(){
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
     const d=await r.json();
     const macroEl=document.querySelector("[data-k='flowMacro']");
-    if(macroEl)macroEl.innerHTML=fmtNews("증시·매크로",d.macro)+fmtNews("바이오/제약 섹터",d.sector);
-    const prEl=document.querySelector("[data-k='pr']");
-    if(prEl)prEl.innerHTML=fmtNews("케어젠 뉴스",d.company);
+    if(macroEl)macroEl.innerHTML=fmtNews("케어젠",d.company)+fmtNews("증시·매크로",d.macro)+fmtNews("바이오/제약 섹터",d.sector);
     saveAll();
     $("status").textContent="뉴스 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
