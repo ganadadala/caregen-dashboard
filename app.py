@@ -648,29 +648,36 @@ def news_summary(force: bool = False):
     if not force and time.time() - _news_cache["ts"] < NEWS_CACHE_TTL and _news_cache["data"]:
         return JSONResponse(_news_cache["data"])
 
-    # 시황·섹터: when:1d — Google 서버가 직접 최근 24시간으로 필터
-    macro_hl = fetch_gnews("코스닥 증시 시황 when:1d")
-    sector_hl = fetch_gnews("바이오 제약 신약 코스닥 when:1d")
-
-    # 케어젠: 당일 우선(when:1d), 없으면 최근 30일 폴백
-    cg_queries_today = ["케어젠 when:1d", "케어젠 214370 when:1d"]
-    cg_queries_recent = ["케어젠 when:30d", "케어젠 214370 when:30d"]
-
-    def _collect_cg(queries: list) -> list:
+    def _collect(queries: list, per_query: int = 5, cap: int = 15) -> list:
+        """여러 쿼리를 순서대로 수집, 제목 중복 제거 후 cap개까지 반환."""
         seen, result = set(), []
         for q in queries:
-            for item in fetch_gnews(q, max_items=10):
+            for item in fetch_gnews(q, max_items=per_query):
                 title = item["text"].split("\n")[0]
                 if title not in seen:
                     seen.add(title)
                     result.append(item)
-            if len(result) >= 10:
+            if len(result) >= cap:
                 break
         return result
 
-    company_hl = _collect_cg(cg_queries_today)
+    # 매크로: 지수·거시·해외 3개 쿼리로 폭넓게 수집
+    macro_hl = _collect([
+        "코스피 코스닥 when:1d",
+        "금리 환율 경기 when:1d",
+        "미국증시 나스닥 달러 when:1d",
+    ])
+
+    # 섹터: "코스닥" 제거해 바이오·제약 전반 수집
+    sector_hl = _collect([
+        "바이오 제약 임상 when:1d",
+        "신약 의약품 허가 when:1d",
+    ])
+
+    # 케어젠: 당일 우선, 없으면 최근 30일 폴백
+    company_hl = _collect(["케어젠 when:1d", "케어젠 214370 when:1d"], per_query=10)
     if not company_hl:
-        company_hl = _collect_cg(cg_queries_recent)  # 당일 없으면 최근 기사
+        company_hl = _collect(["케어젠 when:30d", "케어젠 214370 when:30d"], per_query=10)
 
     today_str = time.strftime("%Y-%m-%d")
     macro_lines = "\n".join(i["text"] for i in macro_hl) if macro_hl else "(없음)"
