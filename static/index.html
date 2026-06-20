@@ -157,7 +157,7 @@
   .memo-label{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:4px 0 7px;padding-top:9px;border-top:1px solid var(--line);}
 
   /* 내러티브 */
-  .flow{padding:22px 28px;}
+  .flow{padding:22px 28px;border-bottom:1px solid var(--line);}
   .flow .tag{display:flex;align-items:center;gap:8px;margin-bottom:13px;}
   .flow .tag .dot{width:9px;height:9px;border-radius:50%;background:var(--up);}
   .flow .tag h2{font-size:16px;font-weight:800;color:var(--ink);}
@@ -172,7 +172,7 @@
   .flow .body .lead{display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--up);margin-right:7px;vertical-align:middle;}
 
   /* 뉴스 브리핑 */
-  .newsbrf{padding:20px 28px;border-bottom:1px solid var(--line);}
+  .newsbrf{padding:20px 28px;}
   .newsbrf .nbtag{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
   .newsbrf .nbtag .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);}
   .newsbrf .nbtag h2{font-size:16px;font-weight:800;color:var(--ink);}
@@ -322,16 +322,6 @@
     </div>
   </section>
 
-  <!-- 뉴스 브리핑 -->
-  <section class="newsbrf">
-    <div class="nbtag"><span class="dot"></span><h2>뉴스 브리핑</h2><span class="en">News Briefing</span></div>
-    <div class="nbcols">
-      <div class="nbcol"><div class="nbtitle">케어젠</div><div class="nbbody" data-k="nbCompany" contenteditable="true"><p></p></div></div>
-      <div class="nbcol"><div class="nbtitle">증시 · 매크로</div><div class="nbbody" data-k="nbMacro" contenteditable="true"><p></p></div></div>
-      <div class="nbcol"><div class="nbtitle">바이오 / 제약 섹터</div><div class="nbbody" data-k="nbSector" contenteditable="true"><p></p></div></div>
-    </div>
-  </section>
-
   <!-- 주가 변동 및 투자자 동향 -->
   <section class="flow">
     <div class="tag"><span class="dot"></span><h2>주가 변동 및 투자자 동향</h2></div>
@@ -347,6 +337,16 @@
     </div>
     <div class="body">
       <p class="auto" id="narCaregen"><span class="lead"></span>조회 시 케어젠 동향 문장이 자동 생성됩니다.</p>
+    </div>
+  </section>
+
+  <!-- 뉴스 브리핑 -->
+  <section class="newsbrf">
+    <div class="nbtag"><span class="dot"></span><h2>뉴스 브리핑</h2><span class="en">News Briefing</span></div>
+    <div class="nbcols">
+      <div class="nbcol"><div class="nbtitle">케어젠</div><div class="nbbody" data-k="nbCompany" contenteditable="true"><p></p></div></div>
+      <div class="nbcol"><div class="nbtitle">증시 · 매크로</div><div class="nbbody" data-k="nbMacro" contenteditable="true"><p></p></div></div>
+      <div class="nbcol"><div class="nbtitle">바이오 / 제약 섹터</div><div class="nbbody" data-k="nbSector" contenteditable="true"><p></p></div></div>
     </div>
   </section>
 
