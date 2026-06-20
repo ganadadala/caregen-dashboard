@@ -244,7 +244,7 @@
     .toolbar,.sp,.err{display:none!important;}
     .page{box-shadow:none;border:none;max-width:none;border-radius:0;}
     [contenteditable]:focus{outline:none;}
-    header.rpt{background:#2A9D68!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    header.rpt{background:#2A9D68!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:visible;}
     /* 헤더 하위 블록 여백 축소 */
     .hlogo{padding:10px 24px 10px 28px;} .htitle{padding:10px 22px;} .hdate{padding:10px 28px 10px 0;}
     .htitle h1{font-size:16px;}
@@ -325,12 +325,6 @@
         <div class="big"><span id="mcap" contenteditable="true">4.01T</span> <span class="u">KRW</span></div>
         <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ #24 (-)</span>
         <span class="meta dn" data-k="rk2" contenteditable="true">KRX 통합 #140 (▼2)</span>
-      </div>
-      <div class="stat">
-        <div class="eyebrow">Highest · 52주</div>
-        <div class="big"><span id="highKrx" contenteditable="true">153,800</span></div>
-        <span class="meta" data-k="highNxt" contenteditable="true">NXT 153,300</span>
-        <span class="sub2" data-k="hicap" contenteditable="true">장중 최고가(KRX)</span>
       </div>
       <div class="stat">
         <div class="eyebrow">외국인 지분율</div>
@@ -433,7 +427,7 @@ const won=(n)=>(n||n===0)?Number(n).toLocaleString("ko-KR"):"—";
 /* 저장/복원 (날짜+종목별) */
 function keyName(){return "cg2:"+$("code").value+":"+$("date").value;}
 function eds(){return [...document.querySelectorAll("[data-k]")];}
-function autos(){return ["closeKrx","closeNxt","highKrx","frgnRatio","mcap","usDow","usNas","usSp"].map(id=>$(id)).filter(Boolean);}
+function autos(){return ["closeKrx","closeNxt","frgnRatio","mcap","usDow","usNas","usSp"].map(id=>$(id)).filter(Boolean);}
 function saveAll(){const o={};eds().forEach(el=>o[el.dataset.k]=el.innerHTML);autos().forEach(el=>o["#"+el.id]=el.innerHTML);localStorage.setItem(keyName(),JSON.stringify(o));}
 function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;const o=JSON.parse(raw);eds().forEach(el=>{if(o[el.dataset.k]!=null)el.innerHTML=o[el.dataset.k];});autos().forEach(el=>{if(o["#"+el.id]!=null)el.innerHTML=o["#"+el.id];});}
 document.addEventListener("input",(e)=>{if(e.target.closest("[contenteditable]"))saveAll();});
@@ -496,12 +490,13 @@ function drawCandleChart(ohlc){
   });
   chart._ohlc=ohlc;
   chart.update('none');
-  // 조회 직후 가장 최근 거래일 툴팁을 기본 표시 (봉을 누르지 않아도)
   if(ohlc.length){
-    const meta=chart.getDatasetMeta(0);
-    const lastBar=meta&&meta.data&&meta.data[ohlc.length-1];
-    const cx=lastBar?lastBar.x:chart.chartArea.right;
-    showChartInfo(ohlc[ohlc.length-1],cx,chart.chartArea);
+    setTimeout(function(){
+      const meta=chart.getDatasetMeta(0);
+      const lastBar=meta&&meta.data&&meta.data[ohlc.length-1];
+      const cx=lastBar?lastBar.x:chart.chartArea.right;
+      showChartInfo(ohlc[ohlc.length-1],cx,chart.chartArea);
+    },0);
   }
 }
 function hideChartInfo(){const el=document.getElementById("chartInfo");if(el)el.classList.remove("show");}
@@ -577,7 +572,9 @@ function setUs(id,o){
 }
 function renderDisc(items){
   const box=$("discList");
-  if(!items.length){box.innerHTML='<div class="disc-note">최근 30일 신규 공시 없음</div>';return;}
+  const card=box.parentElement;
+  if(!items.length){card.style.display="none";box.innerHTML="";return;}
+  card.style.display="";
   box.innerHTML=items.map(it=>{
     const d=it.date&&it.date.length===8?it.date.slice(4,6)+"/"+it.date.slice(6,8):it.date;
     const nm=it.name.replace(/\s+/g," ").trim();
@@ -594,7 +591,6 @@ async function load(){
     const d=await r.json();const p=d.price;const iv=d.investor||{};
     $("closeKrx").textContent=won(p.current);
     if(p.nxt)$("closeNxt").textContent=won(p.nxt);
-    $("highKrx").textContent=won(p.w52_high);
     const t=capT(p.market_cap);if(t)$("mcap").textContent=t;
     if(p.foreign_ratio)$("frgnRatio").textContent=p.foreign_ratio+"%";
     if(p.price_date&&p.price_date.length===8){const pd=p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8);$("closeBadge").textContent=pd+" 종가 기준";}

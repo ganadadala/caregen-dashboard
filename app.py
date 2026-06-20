@@ -477,17 +477,17 @@ def get_corp_code(stock_code: str):
 
 
 @app.get("/api/disclosures")
-def disclosures(code: str = DEFAULT_CODE, days: int = 30, limit: int = 12):
+def disclosures(code: str = DEFAULT_CODE, limit: int = 12):
     if not DART_KEY:
         raise HTTPException(status_code=500, detail="DART_API_KEY 미설정")
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     corp = get_corp_code(code)
     if not corp:
         return JSONResponse({"items": [], "msg": "corp_code 매핑 실패(종목코드 확인)"})
 
-    end = datetime.now()
-    start = end - timedelta(days=days)
+    start = _news_window_start()
+    end = datetime.now(tz=start.tzinfo)
     res = requests.get(
         f"{DART_BASE}/list.json",
         params={
