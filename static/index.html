@@ -177,6 +177,11 @@
   .usbar{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:14px;padding:9px 15px;background:var(--raise);border:1px solid var(--line);border-radius:10px;font-size:12.5px;color:var(--ink2);}
   .usbar .ut{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
   .usbar b{font-family:"IBM Plex Mono",monospace;font-weight:600;}
+  .flowgrid{display:flex;gap:16px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px;}
+  .flowleft{display:flex;flex-direction:column;gap:10px;flex:0 0 auto;}
+  .flowgrid .frbar,.flowgrid .usbar{margin-bottom:0;}
+  .flowgrid .invtbl{flex:1 1 320px;margin:0;align-self:flex-start;}
+  @media(max-width:680px){.flowgrid .invtbl{flex-basis:100%;}}
   .flow .body{font-size:12.8px;color:var(--ink2);line-height:1.72;max-width:75ch;}
   .flow .body p{margin:9px 0;}
   .flow .body .idx{font-size:11px;color:var(--muted);font-family:"IBM Plex Mono",monospace;}
@@ -337,18 +342,21 @@
   <!-- 주가 변동 및 투자자 동향 -->
   <section class="flow">
     <div class="tag"><span class="dot"></span><h2>주가 변동 및 투자자 동향</h2></div>
-    <div class="frbar">
-      <span>외국인 지분율 <b data-k="fr1" contenteditable="true">4.03%</b> (<span class="down" data-k="fr2" contenteditable="true">-0.05%</span>)</span>
-      <span>'26년 5월말 <b data-k="fr3" contenteditable="true">3.92%</b></span>
-    </div>
-    <div class="usbar" id="usBar">
-      <span class="ut">해외 증시</span>
-      <span>DOW <b id="usDow" contenteditable="true">+0.70%</b></span>
-      <span>나스닥 <b id="usNas" contenteditable="true">+0.31%</b></span>
-      <span>S&amp;P500 <b id="usSp" contenteditable="true">+0.50%</b></span>
+    <div class="flowgrid">
+      <div class="flowleft">
+        <div class="frbar">
+          <span>외국인 지분율 <b data-k="fr1" contenteditable="true">4.03%</b> (<span class="down" data-k="fr2" contenteditable="true">-0.05%</span>)</span>
+          <span>'26년 5월말 <b data-k="fr3" contenteditable="true">3.92%</b></span>
+        </div>
+        <div class="usbar" id="usBar">
+          <span>DOW <b id="usDow" contenteditable="true">+0.70%</b></span>
+          <span>나스닥 <b id="usNas" contenteditable="true">+0.31%</b></span>
+          <span>S&amp;P500 <b id="usSp" contenteditable="true">+0.50%</b></span>
+        </div>
+      </div>
+      <table class="invtbl" id="invTable"><tbody><tr><td class="empty">조회 시 최근 3거래일 투자자별 매매동향이 표시됩니다.</td></tr></tbody></table>
     </div>
     <div class="body">
-      <table class="invtbl" id="invTable"><tbody><tr><td class="empty">조회 시 최근 3거래일 투자자별 매매동향이 표시됩니다.</td></tr></tbody></table>
       <p class="auto" id="narCaregen"><span class="lead"></span>조회 시 케어젠 동향 문장이 자동 생성됩니다.</p>
     </div>
   </section>
