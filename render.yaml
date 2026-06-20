@@ -1,0 +1,28 @@
+# Render 배포 설정 (Blueprint)
+# https://render.com → New → Blueprint → 이 레포 선택하면 자동 인식됨
+services:
+  - type: web
+    name: caregen-dashboard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # 파이썬 버전 고정 (안정 버전 — 휠 설치 문제 방지)
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      # 종목코드 (케어젠) — 공개 정보라 값 직접 지정
+      - key: STOCK_CODE
+        value: "214370"
+      # KIS 실전투자 도메인
+      - key: KIS_BASE_URL
+        value: "https://openapi.koreainvestment.com:9443"
+      # --- 아래 키들은 Render 대시보드에서 직접 입력 (코드에 안 올라감) ---
+      - key: KIS_APPKEY
+        sync: false
+      - key: KIS_APPSECRET
+        sync: false
+      - key: DART_API_KEY
+        sync: false
+      - key: KOSDAQ_PHARM_CODE
+        sync: false
