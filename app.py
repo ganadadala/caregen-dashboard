@@ -671,43 +671,76 @@ def news_summary():
     return JSONResponse(result)
 
 
-@app.get("/api/short-balance")
-def short_balance(code: str = DEFAULT_CODE):
-    """KRX 정보데이터시스템에서 공매도 잔고 현황 조회 (T+2, 별도 API 키 불필요)"""
+def _krx_short_raw(code: str):
+    """KRX 공매도 잔고 원시 응답 반환 (isuCd 자동 보정 포함)"""
     from datetime import datetime, timedelta
 
     today = datetime.now()
     end_dt = today - timedelta(days=2)
-    start_dt = end_dt - timedelta(days=14)
+    start_dt = end_dt - timedelta(days=20)
     end_ymd = end_dt.strftime("%Y%m%d")
     start_ymd = start_dt.strftime("%Y%m%d")
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+
+    # isuCd는 KRX 내부코드 필요 — 먼저 종목 검색으로 isuCd 확보
     try:
-        resp = requests.post(
+        srch = requests.post(
             "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
-            data={
-                "bld": "dbms/MDC/STAT/standard/MDCSTAT11001",
-                "share": "1",
-                "mktId": "KSQ",          # KOSDAQ
-                "isuCd": code,
-                "strtDd": start_ymd,
-                "endDd": end_ymd,
-            },
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Referer": "https://data.krx.co.kr/",
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            },
-            timeout=10,
+            data={"bld": "dbms/comm/finder/finder_stkisu", "mktsel": "KSQ", "searchText": code},
+            headers=headers, timeout=8,
         )
-        rows = resp.json().get("output", [])
+        items = srch.json().get("block1", [])
+        isu_cd = items[0].get("short_code") or items[0].get("isuCd") or code if items else code
+    except Exception:
+        isu_cd = code
+
+    resp = requests.post(
+        "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
+        data={
+            "bld": "dbms/MDC/STAT/standard/MDCSTAT11001",
+            "share": "1",
+            "mktId": "KSQ",
+            "isuCd": isu_cd,
+            "strtDd": start_ymd,
+            "endDd": end_ymd,
+        },
+        headers=headers,
+        timeout=10,
+    )
+    raw = resp.json()
+    # output 키 이름이 다를 수 있음
+    rows = raw.get("output") or raw.get("block1") or raw.get("OutBlock_1") or []
+    return rows, end_ymd
+
+
+@app.get("/api/short-balance/debug")
+def short_balance_debug(code: str = DEFAULT_CODE):
+    """KRX 원시 응답 디버그용"""
+    try:
+        rows, _ = _krx_short_raw(code)
+        return JSONResponse({"rows": rows[:3], "count": len(rows)})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
+
+
+@app.get("/api/short-balance")
+def short_balance(code: str = DEFAULT_CODE):
+    """KRX 정보데이터시스템에서 공매도 잔고 현황 조회 (T+2)"""
+    try:
+        rows, end_ymd = _krx_short_raw(code)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"KRX 조회 실패: {e}")
 
     if not rows:
         raise HTTPException(status_code=404, detail="공매도 잔고 데이터 없음")
 
-    # 최신 행 기준
     latest = rows[-1]
     prev = rows[-2] if len(rows) >= 2 else None
 
@@ -717,17 +750,27 @@ def short_balance(code: str = DEFAULT_CODE):
         except Exception:
             return 0
 
-    bal = _n(latest.get("BALANCE_QTY") or latest.get("BAL_QTY", 0))
-    bal_prev = _n(prev.get("BALANCE_QTY") or prev.get("BAL_QTY", 0)) if prev else None
+    # 가능한 필드명 순서대로 시도
+    def _get_qty(row):
+        for k in ("BALANCE_QTY", "BAL_QTY", "CVSRTSELL_BAL_QTY", "SHRTSELL_BAL_QTY", "balance_qty"):
+            v = row.get(k)
+            if v not in (None, "", "0", 0):
+                return _n(v)
+        return 0
+
+    bal = _get_qty(latest)
+    bal_prev = _get_qty(prev) if prev else None
     bal_diff = (bal - bal_prev) if bal_prev is not None else None
 
-    date_raw = latest.get("TRD_DD") or latest.get("BAS_DD") or end_ymd
-    date_fmt = f"{date_raw[4:6]}/{date_raw[6:8]}" if len(str(date_raw)) == 8 else date_raw
+    date_raw = (latest.get("TRD_DD") or latest.get("BAS_DD") or
+                latest.get("trd_dd") or latest.get("bas_dd") or end_ymd)
+    date_raw = str(date_raw).replace("/", "").replace("-", "")
+    date_fmt = f"{date_raw[4:6]}/{date_raw[6:8]}" if len(date_raw) == 8 else date_raw
 
     return JSONResponse({
         "date": date_fmt,
-        "balance_qty": bal,                   # 잔고 주수
-        "balance_diff": bal_diff,             # 전일 대비 (주)
+        "balance_qty": bal,
+        "balance_diff": bal_diff,
         "raw_date": date_raw,
     })
 
