@@ -116,9 +116,11 @@
   .chartwrap .head .t small{font-weight:500;color:var(--muted);font-size:12px;margin-left:6px;}
   .chartwrap .head .ksq{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink2);background:var(--raise);border:1px solid var(--line);padding:4px 10px;border-radius:8px;}
   .chartbox{position:relative;height:240px;}
-  .chart-info{min-height:20px;padding:5px 2px 2px;font-size:11px;color:var(--ink2);font-family:"IBM Plex Mono",monospace;letter-spacing:.01em;display:flex;flex-wrap:wrap;gap:0 14px;}
-  .chart-info b{color:var(--ink);margin-right:4px;}
-  .legend{display:flex;gap:18px;margin-top:6px;font-size:11px;color:var(--muted);}
+  .chart-info{position:absolute;top:6px;left:6px;z-index:5;pointer-events:none;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:10.5px;line-height:1.5;color:var(--ink2);font-family:"IBM Plex Mono",monospace;box-shadow:0 2px 8px rgba(21,36,32,.08);display:none;}
+  .chart-info.show{display:block;}
+  .chart-info b{display:block;color:var(--ink);margin-bottom:3px;font-size:11px;}
+  .chart-info .row{display:flex;justify-content:space-between;gap:14px;}
+  .legend{display:flex;gap:18px;margin-top:10px;font-size:11px;color:var(--muted);}
   .legend span{display:inline-flex;align-items:center;gap:6px;}
   .legend i{width:18px;height:0;border-top:2px solid;}
 
@@ -283,8 +285,7 @@
       <div class="t">Market <small>일봉 5일 · OHLC</small></div>
       <div class="ksq">KOSDAQ <span data-k="ksq" contenteditable="true">1,034.03 (+4.98, +0.48%)</span></div>
     </div>
-    <div class="chartbox"><canvas id="chart"></canvas></div>
-    <div id="chartInfo" class="chart-info"></div>
+    <div class="chartbox"><canvas id="chart"></canvas><div id="chartInfo" class="chart-info"></div></div>
     <div class="legend">
       <span><i style="background:#d92d20;border-top:none;border-radius:2px;height:10px"></i> 양봉 (상승)</span>
       <span><i style="background:#1c5fcc;border-top:none;border-radius:2px;height:10px"></i> 음봉 (하락)</span>
@@ -416,17 +417,16 @@ function drawCandleChart(ohlc){
         tooltip:{enabled:false,external(ctx){
           const el=document.getElementById("chartInfo");if(!el)return;
           const{tooltip}=ctx;
-          if(!tooltip.dataPoints||tooltip.opacity===0){el.innerHTML="";return;}
+          if(!tooltip.dataPoints||tooltip.opacity===0){el.classList.remove("show");return;}
           const d=ohlc[tooltip.dataPoints[0].dataIndex];if(!d)return;
           const date=d.date.slice(4,6)+"/"+d.date.slice(6,8);
-          const up=d.c>=d.o;
-          const clr=up?"#d92d20":"#1c5fcc";
+          const clr=d.c>=d.o?"#d92d20":"#1c5fcc";
+          const row=(lbl,val,c)=>`<div class="row"><span>${lbl}</span><span style="color:${c||"inherit"}">${val}</span></div>`;
           el.innerHTML=`<b>${date}</b>`+
-            `<span>시가 <span style="color:${clr}">${won(d.o)}</span></span>`+
-            `<span>고가 <span style="color:${clr}">${won(d.h)}</span></span>`+
-            `<span>저가 <span style="color:${clr}">${won(d.l)}</span></span>`+
-            `<span>종가 <span style="color:${clr}">${won(d.c)}</span></span>`+
-            `<span style="color:var(--muted)">거래량 ${Number(d.v).toLocaleString("ko-KR")}주</span>`;
+            row("시가",won(d.o),clr)+row("고가",won(d.h),clr)+
+            row("저가",won(d.l),clr)+row("종가",won(d.c),clr)+
+            row("거래량",Number(d.v).toLocaleString("ko-KR")+"주","var(--muted)");
+          el.classList.add("show");
         }}
       },
       scales:{
