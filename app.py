@@ -568,8 +568,8 @@ def us_indices():
 # ---------------------------------------------------------------------------
 # 뉴스 자동 요약 — Google News RSS 수집 → Claude Haiku 요약
 # ---------------------------------------------------------------------------
-def fetch_gnews(query: str, max_items: int = 7) -> list:
-    """Google News RSS에서 헤드라인 수집. 실패 시 빈 리스트 반환."""
+def fetch_gnews(query: str, max_items: int = 15) -> list:
+    """Google News RSS에서 헤드라인+스니펫 수집. 실패 시 빈 리스트 반환."""
     url = "https://news.google.com/rss/search"
     try:
         res = requests.get(
@@ -579,15 +579,18 @@ def fetch_gnews(query: str, max_items: int = 7) -> list:
             headers={"User-Agent": "Mozilla/5.0"},
         )
         root = ET.fromstring(res.content)
-        titles = []
+        items = []
         for item in root.findall(".//item")[:max_items]:
             t = html_lib.unescape(item.findtext("title") or "")
             if " - " in t:
-                t = t.rsplit(" - ", 1)[0]  # "제목 - 언론사명" 형식에서 언론사명 제거
+                t = t.rsplit(" - ", 1)[0]
             t = t.strip()
+            desc = html_lib.unescape(item.findtext("description") or "")
+            desc = re.sub(r"<[^>]+>", " ", desc).strip()
+            desc = re.sub(r"\s+", " ", desc)[:300]
             if t:
-                titles.append(t)
-        return titles
+                items.append(f"[제목] {t}" + (f"\n[내용] {desc}" if desc else ""))
+        return items
     except Exception:
         return []
 
@@ -609,20 +612,23 @@ def news_summary():
     company_hl = fetch_gnews("케어젠")
 
     today_str = time.strftime("%Y-%m-%d")
-    macro_lines = "\n".join(f"- {h}" for h in macro_hl) if macro_hl else "- (없음)"
-    sector_lines = "\n".join(f"- {h}" for h in sector_hl) if sector_hl else "- (없음)"
-    company_lines = "\n".join(f"- {h}" for h in company_hl) if company_hl else "- (없음)"
+    macro_lines = "\n".join(macro_hl) if macro_hl else "(없음)"
+    sector_lines = "\n".join(sector_hl) if sector_hl else "(없음)"
+    company_lines = "\n".join(company_hl) if company_hl else "(없음)"
 
     prompt = (
-        f"오늘({today_str}) 뉴스 헤드라인을 읽고 투자 보고서용 한국어 요약을 작성하세요.\n"
-        "각 카테고리당 주요 기사 2~3개를 선별하고, 기사마다 3문장으로 요약하세요.\n"
-        "문장은 구체적이고 정보가 풍부하게, 투자 관점에서 의미 있는 내용 위주로 작성하세요.\n"
-        "뉴스가 없으면 \"특이사항 없음\"으로 채우세요.\n\n"
-        f"[증시·매크로]\n{macro_lines}\n\n"
-        f"[바이오/제약 섹터]\n{sector_lines}\n\n"
-        f"[케어젠(214370)]\n{company_lines}\n\n"
-        '아래 JSON만 출력 (다른 텍스트 없이):\n'
-        '{"macro":["기사1 3문장 요약","기사2 3문장 요약"],"sector":["기사1 3문장 요약","기사2 3문장 요약"],"company":["기사1 3문장 요약","기사2 3문장 요약"]}'
+        f"오늘({today_str}) 뉴스 헤드라인과 내용을 바탕으로 기관투자자용 한국어 브리핑을 작성하세요.\n\n"
+        "작성 규칙:\n"
+        "1. 각 카테고리에서 주요 이슈 2~3개를 선별해 각각 하나의 단락으로 작성\n"
+        "2. 각 단락은 반드시 4~5문장으로 구성: ① 무슨 일이 있었는지(사실) ② 배경·원인 ③ 시장 반응 또는 관련 수치 ④ 투자자 관점 시사점\n"
+        "3. 기업명, 수치, 정책명 등 구체적 정보를 최대한 포함\n"
+        "4. 단순 헤드라인 반복 금지 — 맥락과 의미를 풀어서 설명\n"
+        "5. 뉴스가 없으면 '특이사항 없음'\n\n"
+        f"[증시·매크로 뉴스]\n{macro_lines}\n\n"
+        f"[바이오/제약 섹터 뉴스]\n{sector_lines}\n\n"
+        f"[케어젠(214370) 관련 뉴스]\n{company_lines}\n\n"
+        "아래 JSON만 출력 (다른 텍스트 없이):\n"
+        '{"macro":["단락1(4~5문장)","단락2(4~5문장)"],"sector":["단락1","단락2"],"company":["단락1","단락2"]}'
     )
 
     resp = requests.post(
@@ -634,7 +640,7 @@ def news_summary():
         },
         json={
             "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 1500,
+            "max_tokens": 3000,
             "messages": [{"role": "user", "content": prompt}],
         },
         timeout=30,
