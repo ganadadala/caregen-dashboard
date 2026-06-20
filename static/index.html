@@ -239,8 +239,10 @@
     .chartwrap .head{margin-bottom:6px;} .chartwrap .head .t{font-size:12px;}
     .flow .tag h2,.newsbrf .nbtag h2{font-size:13px;}
     .hlogo-img-wrap,.hlogo-img{width:38px;height:38px;}
-    /* 차트 높이 축소 (캔버스 다운스케일) + 인터랙티브 툴팁 숨김 */
-    .chartbox{height:120px;} .legend{margin-top:5px;} .chart-info{display:none!important;}
+    /* 차트 높이 축소 + 캔버스가 박스를 넘쳐 아래 메뉴와 겹치지 않도록 강제 제약 */
+    .chartbox{height:120px;overflow:hidden;}
+    .chartbox canvas{height:120px!important;max-height:120px!important;width:100%!important;}
+    .legend{margin-top:5px;} .chart-info{display:none!important;}
     /* 내부 여백·간격 정리 */
     .wcard{padding:9px 11px;} .wcard .tag{margin-bottom:5px;} .wcard .body{font-size:11px;line-height:1.5;}
     .autoline{margin-bottom:4px;padding-bottom:4px;}
@@ -651,6 +653,11 @@ $("loadBtn").addEventListener("click",load);
 $("newsBtn").addEventListener("click",()=>loadNews(false));
 $("newsBtn").addEventListener("contextmenu",(e)=>{e.preventDefault();loadNews(true);});
 $("printBtn").addEventListener("click",()=>window.print());
+// 인쇄 미디어 전환 시 차트를 컨테이너 크기에 맞춰 다시 렌더(겹침 방지·선명도)
+function resizeChartSafe(){try{if(chart)chart.resize();}catch(e){}}
+window.addEventListener("beforeprint",resizeChartSafe);
+window.addEventListener("afterprint",resizeChartSafe);
+if(window.matchMedia){const mqp=window.matchMedia("print");(mqp.addEventListener?mqp.addEventListener.bind(mqp,"change"):mqp.addListener.bind(mqp))(()=>setTimeout(resizeChartSafe,0));}
 $("date").addEventListener("change",syncDate);
 $("code").addEventListener("change",restoreAll);
 restoreAll();
