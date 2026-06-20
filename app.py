@@ -711,12 +711,17 @@ def news_summary(force: bool = False):
         "신약 의약품 허가",
     ])
 
-    # 케어젠: 영업일 윈도우 내 기사 우선, 없으면 after 없이 폴백
-    company_hl = _collect(["케어젠", "케어젠 214370"], per_query=10)
+    # 케어젠: "케어젠"이 제목/본문에 실제 포함된 기사만 (느슨한 연관 기사 배제)
+    def _is_caregen(item) -> bool:
+        return "케어젠" in item["text"]
+
+    company_hl = [it for it in _collect(["케어젠", "케어젠 214370"], per_query=10) if _is_caregen(it)]
     if not company_hl:
         seen_cg: set = set()
         for q in ["케어젠", "케어젠 214370"]:
             for item in fetch_gnews(q, max_items=10):
+                if not _is_caregen(item):
+                    continue
                 title = item["text"].split("\n")[0]
                 if title not in seen_cg:
                     seen_cg.add(title)
@@ -740,7 +745,9 @@ def news_summary(force: bool = False):
         "2. 각 단락은 반드시 3문장으로 구성: ① 무슨 일이 있었는지(사실·수치) ② 배경·원인 ③ 투자자 관점 시사점\n"
         "3. 기업명, 수치, 정책명 등 구체적 정보를 최대한 포함\n"
         "4. 단순 헤드라인 반복 금지 — 맥락과 의미를 풀어서 설명\n"
-        "5. 뉴스가 없으면 '특이사항 없음'\n\n"
+        "5. 뉴스가 없으면 '특이사항 없음'\n"
+        "6. company(케어젠) 항목은 반드시 코스닥 상장사 '케어젠(214370)' 본 기업에 관한 내용만 작성. "
+        "동명이의·무관한 기사는 제외하고, 케어젠과 직접 관련된 기사가 없으면 '특이사항 없음'으로만 작성\n\n"
         f"[증시·매크로 뉴스]\n{macro_lines}\n\n"
         f"[바이오/제약 섹터 뉴스]\n{sector_lines}\n\n"
         f"[케어젠(214370) 관련 뉴스]\n{company_lines}\n\n"
