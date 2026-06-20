@@ -9,8 +9,10 @@
     브라우저에서 http://localhost:8000 접속
 """
 
+import base64
 import json
 import os
+import secrets
 import threading
 import time
 from pathlib import Path
@@ -20,8 +22,13 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 load_dotenv()
+
+AUTH_USER = os.getenv("AUTH_USERNAME", "caregen")
+AUTH_PASS = os.getenv("AUTH_PASSWORD", "")
 
 BASE_URL = os.getenv("KIS_BASE_URL", "https://openapi.koreainvestment.com:9443")
 APPKEY = os.getenv("KIS_APPKEY", "")
@@ -37,6 +44,28 @@ DART_BASE = "https://opendart.fss.or.kr/api"
 CORP_CACHE = Path(__file__).parent / ".corp_code_cache.json"
 
 app = FastAPI(title="케어젠 일일 동향 대시보드")
+
+
+class _BasicAuth(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if not AUTH_PASS:
+            return await call_next(request)
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Basic "):
+            try:
+                user, pw = base64.b64decode(auth[6:]).decode().split(":", 1)
+                if secrets.compare_digest(user, AUTH_USER) and secrets.compare_digest(pw, AUTH_PASS):
+                    return await call_next(request)
+            except Exception:
+                pass
+        return Response(
+            "Unauthorized",
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="Caregen Dashboard"'},
+        )
+
+
+app.add_middleware(_BasicAuth)
 
 
 # ---------------------------------------------------------------------------

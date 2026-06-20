@@ -26,3 +26,8 @@ services:
         sync: false
       - key: KOSDAQ_PHARM_CODE
         sync: false
+      # 접근 비밀번호 (Basic Auth)
+      - key: AUTH_USERNAME
+        value: "caregen"
+      - key: AUTH_PASSWORD
+        sync: false
