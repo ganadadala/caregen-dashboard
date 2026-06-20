@@ -423,24 +423,9 @@ function drawCandleChart(ohlc){
       plugins:{
         legend:{display:false},
         tooltip:{enabled:false,external(ctx){
-          const el=document.getElementById("chartInfo");if(!el)return;
           const{tooltip,chart}=ctx;
-          if(!tooltip.dataPoints||tooltip.opacity===0){el.classList.remove("show");return;}
-          const d=ohlc[tooltip.dataPoints[0].dataIndex];if(!d)return;
-          const date=d.date.slice(4,6)+"/"+d.date.slice(6,8);
-          const clr=d.c>=d.o?"#d92d20":"#1c5fcc";
-          const c=(lbl,val,col)=>`<span class="lbl">${lbl}</span> <span style="color:${col||"inherit"}">${val}</span>`;
-          el.innerHTML=
-            `<div class="crow"><span style="color:var(--ink);font-weight:700">${date}</span><span>${c("거래량",won(d.v)+"주","var(--muted)")}</span></div>`+
-            `<div class="crow"><span>${c("시가",won(d.o),clr)}</span><span>${c("종가",won(d.c),clr)}</span></div>`+
-            `<div class="crow"><span>${c("고가",won(d.h),clr)}</span><span>${c("저가",won(d.l),clr)}</span></div>`;
-          el.classList.add("show");
-          // 클릭한 봉 x위치 상단에 배치하되 차트 좌우 경계 클램프
-          const area=chart.chartArea;
-          const w=el.offsetWidth;
-          let x=tooltip.caretX-w/2;
-          x=Math.max(area.left,Math.min(x,area.right-w));
-          el.style.left=x+"px";
+          if(!tooltip.dataPoints||tooltip.opacity===0){hideChartInfo();return;}
+          showChartInfo(ohlc[tooltip.dataPoints[0].dataIndex],tooltip.caretX,chart.chartArea);
         }}
       },
       scales:{
@@ -452,6 +437,29 @@ function drawCandleChart(ohlc){
   });
   chart._ohlc=ohlc;
   chart.update('none');
+  // 조회 직후 가장 최근 거래일 툴팁을 기본 표시 (봉을 누르지 않아도)
+  if(ohlc.length){
+    const meta=chart.getDatasetMeta(0);
+    const lastBar=meta&&meta.data&&meta.data[ohlc.length-1];
+    const cx=lastBar?lastBar.x:chart.chartArea.right;
+    showChartInfo(ohlc[ohlc.length-1],cx,chart.chartArea);
+  }
+}
+function hideChartInfo(){const el=document.getElementById("chartInfo");if(el)el.classList.remove("show");}
+function showChartInfo(d,caretX,area){
+  const el=document.getElementById("chartInfo");if(!el||!d)return;
+  const date=d.date.slice(4,6)+"/"+d.date.slice(6,8);
+  const clr=d.c>=d.o?"#d92d20":"#1c5fcc";
+  const c=(lbl,val,col)=>`<span class="lbl">${lbl}</span> <span style="color:${col||"inherit"}">${val}</span>`;
+  el.innerHTML=
+    `<div class="crow"><span style="color:var(--ink);font-weight:700">${date}</span><span>${c("거래량",won(d.v)+"주","var(--muted)")}</span></div>`+
+    `<div class="crow"><span>${c("시가",won(d.o),clr)}</span><span>${c("종가",won(d.c),clr)}</span></div>`+
+    `<div class="crow"><span>${c("고가",won(d.h),clr)}</span><span>${c("저가",won(d.l),clr)}</span></div>`;
+  el.classList.add("show");
+  const w=el.offsetWidth;
+  let x=caretX-w/2;
+  x=Math.max(area.left,Math.min(x,area.right-w));
+  el.style.left=x+"px";
 }
 function capT(eok){if(!eok)return null;return ((eok*1e8)/1e12).toFixed(2)+"T";}
 
