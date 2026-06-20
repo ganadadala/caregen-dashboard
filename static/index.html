@@ -183,6 +183,7 @@
   .nbcol .nbbody{font-size:12.5px;color:var(--ink2);line-height:1.65;}
   .nbcol .nbbody p{margin:3px 0;}
   .nbcol .nbbody p+p{margin-top:10px;}
+  .news-meta{display:block;font-size:10px;color:var(--muted);margin-top:2px;margin-bottom:6px;}
   @media(max-width:760px){.newsbrf .nbcols{grid-template-columns:1fr;}}
 
   .body[data-k="pr"]:empty::before{content:"수기입력";color:var(--muted);font-style:italic;pointer-events:none;}
@@ -538,8 +539,18 @@ async function loadNews(force=false){
     const r=await fetch("/api/news"+(force?"?force=true":""));
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
     const d=await r.json();
-    const fill=(k,items)=>{const el=document.querySelector("[data-k='"+k+"']");if(el&&items){el.innerHTML=items.map((t,i)=>`<p>${i+1}. ${escH(t)}</p>`).join("");}};
-    fill("nbCompany",d.company);fill("nbMacro",d.macro);fill("nbSector",d.sector);
+    const fill=(k,items,meta)=>{
+      const el=document.querySelector("[data-k='"+k+"']");
+      if(!el||!items)return;
+      el.innerHTML=items.map((t,i)=>{
+        const m=meta&&meta[i];
+        const metaHtml=m&&(m.source||m.date)
+          ?`<span class="news-meta">${[m.source,m.date].filter(Boolean).join(" · ")}</span>`
+          :"";
+        return`<p>${i+1}. ${escH(t)}</p>${metaHtml}`;
+      }).join("");
+    };
+    fill("nbCompany",d.company,d.company_meta);fill("nbMacro",d.macro,d.macro_meta);fill("nbSector",d.sector,d.sector_meta);
     saveAll();
     $("status").textContent="뉴스 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}

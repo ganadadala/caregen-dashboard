@@ -569,8 +569,14 @@ def us_indices():
 # 뉴스 자동 요약 — Google News RSS 수집 → Claude Haiku 요약
 # ---------------------------------------------------------------------------
 def fetch_gnews(query: str, max_items: int = 15) -> list:
-    """Google News RSS에서 헤드라인+스니펫 수집. 실패 시 빈 리스트 반환."""
+    """Google News RSS에서 헤드라인+스니펫 수집. 실패 시 빈 리스트 반환.
+    각 항목: {"text": "[제목]...", "source": "매체명", "date": "YYYY-MM-DD"}
+    """
+    from email.utils import parsedate_to_datetime
+    from datetime import timezone, timedelta
+
     url = "https://news.google.com/rss/search"
+    kst = timezone(timedelta(hours=9))
     try:
         res = requests.get(
             url,
@@ -582,14 +588,28 @@ def fetch_gnews(query: str, max_items: int = 15) -> list:
         items = []
         for item in root.findall(".//item")[:max_items]:
             t = html_lib.unescape(item.findtext("title") or "")
+            source = ""
             if " - " in t:
+                source = t.rsplit(" - ", 1)[1].strip()
                 t = t.rsplit(" - ", 1)[0]
             t = t.strip()
             desc = html_lib.unescape(item.findtext("description") or "")
             desc = re.sub(r"<[^>]+>", " ", desc).strip()
             desc = re.sub(r"\s+", " ", desc)[:300]
+            date_str = ""
+            pub_raw = item.findtext("pubDate") or ""
+            if pub_raw:
+                try:
+                    dt = parsedate_to_datetime(pub_raw).astimezone(kst)
+                    date_str = dt.strftime("%Y-%m-%d")
+                except Exception:
+                    pass
             if t:
-                items.append(f"[제목] {t}" + (f"\n[내용] {desc}" if desc else ""))
+                items.append({
+                    "text": f"[제목] {t}" + (f"\n[내용] {desc}" if desc else ""),
+                    "source": source,
+                    "date": date_str,
+                })
         return items
     except Exception:
         return []
@@ -615,7 +635,7 @@ def news_summary(force: bool = False):
     seen, company_hl = set(), []
     for q in cg_queries:
         for item in fetch_gnews(q, max_items=10):
-            title = item.split("\n")[0]  # [제목] 줄
+            title = item["text"].split("\n")[0]  # [제목] 줄
             if title not in seen:
                 seen.add(title)
                 company_hl.append(item)
@@ -623,9 +643,13 @@ def news_summary(force: bool = False):
             break
 
     today_str = time.strftime("%Y-%m-%d")
-    macro_lines = "\n".join(macro_hl) if macro_hl else "(없음)"
-    sector_lines = "\n".join(sector_hl) if sector_hl else "(없음)"
-    company_lines = "\n".join(company_hl) if company_hl else "(없음)"
+    macro_lines = "\n".join(i["text"] for i in macro_hl) if macro_hl else "(없음)"
+    sector_lines = "\n".join(i["text"] for i in sector_hl) if sector_hl else "(없음)"
+    company_lines = "\n".join(i["text"] for i in company_hl) if company_hl else "(없음)"
+
+    macro_meta = [{"source": i["source"], "date": i["date"]} for i in macro_hl]
+    sector_meta = [{"source": i["source"], "date": i["date"]} for i in sector_hl]
+    company_meta = [{"source": i["source"], "date": i["date"]} for i in company_hl]
 
     prompt = (
         f"오늘({today_str}) 뉴스 헤드라인과 내용을 바탕으로 기관투자자용 한국어 브리핑을 작성하세요.\n\n"
@@ -676,6 +700,10 @@ def news_summary(force: bool = False):
     for key in ("macro", "sector", "company"):
         if key not in result or not isinstance(result[key], list):
             result[key] = ["데이터 없음"]
+
+    result["macro_meta"] = macro_meta
+    result["sector_meta"] = sector_meta
+    result["company_meta"] = company_meta
 
     _news_cache["ts"] = time.time()
     _news_cache["data"] = result
