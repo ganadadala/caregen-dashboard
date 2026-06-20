@@ -10,11 +10,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
-    /* Caregen brand colors */
-    --cg-green:#2A9D68;       /* Caregen Green — primary */
-    --cg-green-dk:#1E7A4F;    /* darker shade */
-    --cg-green-lt:#E8F7F0;    /* soft tint */
-    --cg-green-mid:#C2E8D5;   /* mid tint for borders */
+    /* Caregen brand colors (로고 기준 실측) */
+    --cg-green:#3AAD35;       /* Caregen Green — primary */
+    --cg-green-dk:#2A8226;    /* darker shade */
+    --cg-green-lt:#EBF7EA;    /* soft tint */
+    --cg-green-mid:#B8E3B6;   /* mid tint for borders */
 
     --bg:#F4F7F5; --surface:#ffffff; --raise:#F9FBF9;
     --ink:#0E1F18; --ink2:#2E4039; --muted:#6B7F76; --line:#DDE8E3;
@@ -48,7 +48,7 @@
   header.rpt{
     display:flex;align-items:center;gap:20px;
     padding:0;border-bottom:1px solid var(--line);
-    background:linear-gradient(135deg,#1E7A4F 0%,#2A9D68 55%,#3DBF80 100%);
+    background:linear-gradient(135deg,#2A8226 0%,#3AAD35 55%,#52C44D 100%);
     position:relative;overflow:hidden;
   }
   header.rpt::before{
@@ -67,13 +67,14 @@
     border-right:1px solid rgba(255,255,255,.18);
     flex-shrink:0;
   }
-  .hlogo-mark{
-    width:52px;height:52px;border-radius:12px;
-    background:rgba(255,255,255,.12);
-    border:1.5px solid rgba(255,255,255,.28);
+  .hlogo-img-wrap{
+    width:58px;height:58px;border-radius:50%;
+    background:#fff;
     display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    box-shadow:0 2px 8px rgba(0,0,0,.15);
   }
-  .hlogo-mark svg{width:38px;height:38px;}
+  .hlogo-img{width:52px;height:52px;object-fit:contain;border-radius:50%;}
   .hlogo-text{margin-left:11px;}
   .hlogo-text .brand{font-family:"IBM Plex Mono",monospace;font-size:18px;font-weight:700;color:#fff;letter-spacing:.06em;line-height:1;}
   .hlogo-text .brand-sub{font-size:9.5px;font-weight:500;color:rgba(255,255,255,.72);letter-spacing:.04em;margin-top:3px;}
@@ -226,12 +227,7 @@
   <!-- 헤더 -->
   <header class="rpt">
     <div class="hlogo">
-      <div class="hlogo-mark">
-        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <text x="4" y="26" font-family="IBM Plex Mono,monospace" font-size="21" font-weight="700" fill="white" opacity="0.95">CG</text>
-          <line x1="4" y1="29" x2="32" y2="29" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-        </svg>
-      </div>
+      <div class="hlogo-img-wrap"><img src="/static/caregen-logo.png" alt="케어젠 로고" class="hlogo-img"/></div>
       <div class="hlogo-text">
         <div class="brand">CAREGEN</div>
         <div class="brand-sub">㈜케어젠 · KOSDAQ 214370</div>
