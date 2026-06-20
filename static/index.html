@@ -423,6 +423,7 @@ function drawCandleChart(ohlc){
     plugins:[candlePlugin]
   });
   chart._ohlc=ohlc;
+  chart.update('none');
 }
 function capT(eok){if(!eok)return null;return ((eok*1e8)/1e12).toFixed(2)+"T";}
 
