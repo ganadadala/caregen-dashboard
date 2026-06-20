@@ -787,6 +787,14 @@ def news_summary(force: bool = False):
     result["sector_meta"] = sector_meta
     result["company_meta"] = company_meta
 
+    from datetime import datetime, timezone, timedelta
+    kst = timezone(timedelta(hours=9))
+    now_kst = datetime.now(kst)
+    result["window"] = {
+        "start": win_start.strftime("%m/%d %H:%M"),
+        "end": now_kst.strftime("%m/%d %H:%M"),
+    }
+
     _news_cache["ts"] = time.time()
     _news_cache["data"] = result
     return JSONResponse(result)

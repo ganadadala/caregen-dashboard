@@ -177,6 +177,7 @@
   .newsbrf .nbtag .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);}
   .newsbrf .nbtag h2{font-size:16px;font-weight:800;color:var(--ink);}
   .newsbrf .nbtag .en{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
+  .newsbrf .nbtag .nbwindow{font-size:10px;color:var(--muted);margin-left:6px;}
   .newsbrf .nbcols{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
   .nbcol{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--brand);padding:12px 14px;}
   .nbcol .nbtitle{font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--brand);margin-bottom:8px;}
@@ -343,7 +344,7 @@
 
   <!-- 뉴스 브리핑 -->
   <section class="newsbrf">
-    <div class="nbtag"><span class="dot"></span><h2>뉴스 브리핑</h2><span class="en">News Briefing</span></div>
+    <div class="nbtag"><span class="dot"></span><h2>뉴스 브리핑</h2><span class="nbwindow" id="nbWindow"></span><span class="en">News Briefing</span></div>
     <div class="nbcols">
       <div class="nbcol"><div class="nbtitle">케어젠</div><div class="nbbody" data-k="nbCompany" contenteditable="true"><p></p></div></div>
       <div class="nbcol"><div class="nbtitle">증시 · 매크로</div><div class="nbbody" data-k="nbMacro" contenteditable="true"><p></p></div></div>
@@ -551,6 +552,7 @@ async function loadNews(force=false){
       }).join("");
     };
     fill("nbCompany",d.company,d.company_meta);fill("nbMacro",d.macro,d.macro_meta);fill("nbSector",d.sector,d.sector_meta);
+    if(d.window)$("nbWindow").textContent=`${d.window.start} ~ ${d.window.end} KST`;
     saveAll();
     $("status").textContent="뉴스 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
