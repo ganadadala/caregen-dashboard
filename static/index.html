@@ -6,24 +6,30 @@
 <title>케어젠 Daily Equity Briefing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
-    --bg:#eef1ef; --surface:#ffffff; --raise:#fafbfa;
-    --ink:#152420; --ink2:#3c4a45; --muted:#73817b; --line:#e3e8e5;
-    --brand:#0f7a66; --brand-soft:#e7f2ef; --brand-ink:#0a5849;
+    /* Caregen brand colors */
+    --cg-green:#2A9D68;       /* Caregen Green — primary */
+    --cg-green-dk:#1E7A4F;    /* darker shade */
+    --cg-green-lt:#E8F7F0;    /* soft tint */
+    --cg-green-mid:#C2E8D5;   /* mid tint for borders */
+
+    --bg:#F4F7F5; --surface:#ffffff; --raise:#F9FBF9;
+    --ink:#0E1F18; --ink2:#2E4039; --muted:#6B7F76; --line:#DDE8E3;
+    --brand:var(--cg-green); --brand-soft:var(--cg-green-lt); --brand-ink:var(--cg-green-dk);
     --indigo:#3a4bb0; --amber:#b9760c; --coral:#c2603f;
     --up:#d92d20; --up-soft:#fdeceb; --down:#1c5fcc; --down-soft:#eaf1fd;
     --gold:#9a6b15;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:"Gothic A1",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;padding:20px;}
+  body{font-family:"Noto Sans KR","Gothic A1",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;padding:20px;}
   .mono{font-family:"IBM Plex Mono",monospace;font-feature-settings:"tnum";}
   .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--brand);}
 
   /* 컨트롤 바 */
-  .toolbar{max-width:880px;margin:0 auto 16px;display:flex;gap:8px;align-items:center;}
+  .toolbar{max-width:900px;margin:0 auto 16px;display:flex;gap:8px;align-items:center;}
   .toolbar input{font-family:"IBM Plex Mono",monospace;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fff;color:var(--ink);}
   .toolbar .code{width:92px;}
   .toolbar button{font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--line);border-radius:9px;padding:9px 16px;background:#fff;color:var(--ink);transition:.15s;}
@@ -32,22 +38,53 @@
   .toolbar button.primary:hover{background:var(--brand-ink);}
   .toolbar button:disabled{opacity:.55;}
   .toolbar .sp{margin-left:auto;font-size:12px;color:var(--muted);}
-  .err{max-width:880px;margin:10px auto 0;padding:11px 15px;border-radius:10px;background:var(--up-soft);color:#9b211a;font-size:13px;border:1px solid #f3c9c5;}
+  .err{max-width:900px;margin:10px auto 0;padding:11px 15px;border-radius:10px;background:var(--up-soft);color:#9b211a;font-size:13px;border:1px solid #f3c9c5;}
 
   /* 페이지 */
-  .page{max-width:880px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 40px rgba(21,36,32,.08);overflow:hidden;}
+  .page{max-width:900px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(14,31,24,.07);overflow:hidden;}
   .pad{padding:26px 28px;}
 
   /* 헤더 */
-  header.rpt{display:flex;align-items:center;gap:22px;padding:22px 28px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fbfcfb,#ffffff);}
-  .htitle{flex:1;}
-  .htitle .kicker{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--brand);margin-bottom:3px;}
-  .htitle h1{font-family:"Space Grotesk","Gothic A1",sans-serif;font-size:30px;font-weight:700;letter-spacing:-.01em;color:var(--ink);line-height:1;}
-  .htitle .sub{font-size:12.5px;color:var(--muted);margin-top:5px;}
-  .hdate{text-align:right;}
-  .hdate .d{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:18px;color:var(--ink);}
-  .hdate .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--brand-ink);background:var(--brand-soft);padding:3px 9px;border-radius:20px;margin-top:6px;}
-  .hdate .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand);}
+  header.rpt{
+    display:flex;align-items:center;gap:20px;
+    padding:0;border-bottom:1px solid var(--line);
+    background:linear-gradient(135deg,#1E7A4F 0%,#2A9D68 55%,#3DBF80 100%);
+    position:relative;overflow:hidden;
+  }
+  header.rpt::before{
+    content:"";position:absolute;right:-40px;top:-40px;
+    width:220px;height:220px;border-radius:50%;
+    background:rgba(255,255,255,.06);pointer-events:none;
+  }
+  header.rpt::after{
+    content:"";position:absolute;right:60px;bottom:-60px;
+    width:160px;height:160px;border-radius:50%;
+    background:rgba(255,255,255,.04);pointer-events:none;
+  }
+  .hlogo{
+    display:flex;align-items:center;gap:0;
+    padding:20px 24px 20px 28px;
+    border-right:1px solid rgba(255,255,255,.18);
+    flex-shrink:0;
+  }
+  .hlogo-mark{
+    width:52px;height:52px;border-radius:12px;
+    background:rgba(255,255,255,.12);
+    border:1.5px solid rgba(255,255,255,.28);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .hlogo-mark svg{width:38px;height:38px;}
+  .hlogo-text{margin-left:11px;}
+  .hlogo-text .brand{font-family:"IBM Plex Mono",monospace;font-size:18px;font-weight:700;color:#fff;letter-spacing:.06em;line-height:1;}
+  .hlogo-text .brand-sub{font-size:9.5px;font-weight:500;color:rgba(255,255,255,.72);letter-spacing:.04em;margin-top:3px;}
+  .htitle{flex:1;padding:20px 22px;}
+  .htitle .kicker{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:4px;}
+  .htitle h1{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:700;letter-spacing:.01em;color:#ffffff;line-height:1.1;}
+  .htitle .sub{font-size:12px;color:rgba(255,255,255,.65);margin-top:5px;}
+  .hdate{text-align:right;padding:20px 28px 20px 0;}
+  .hdate .d{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:17px;color:#fff;}
+  .hdate .badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px;margin-top:6px;border:1px solid rgba(255,255,255,.2);}
+  .hdate .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#7FFFC4;}
 
   /* 히어로 지표 */
   .hero{display:grid;grid-template-columns:1.15fr 2fr;gap:0;border-bottom:1px solid var(--line);}
@@ -82,21 +119,30 @@
   .legend span{display:inline-flex;align-items:center;gap:6px;}
   .legend i{width:18px;height:0;border-top:2px solid;}
 
+  /* 섹션 헤더 공통 */
+  .section-hd{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .section-hd .dot{width:8px;height:8px;border-radius:50%;}
+  .section-hd h2{font-size:14px;font-weight:800;color:var(--ink);letter-spacing:.01em;}
+  .section-hd .en{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
+  .section-hd .pill{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 8px;border-radius:20px;margin-left:4px;}
+
   /* 업무 3패널 */
-  .work{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:24px 28px;border-bottom:1px solid var(--line);}
-  .wcard{background:var(--raise);border:1px solid var(--line);border-radius:13px;padding:16px 17px;border-top:3px solid var(--accent,var(--brand));}
-  .wcard .tag{display:flex;align-items:center;gap:7px;margin-bottom:11px;}
-  .wcard .tag .dot{width:8px;height:8px;border-radius:50%;background:var(--accent,var(--brand));}
+  .work{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:22px 28px;border-bottom:1px solid var(--line);}
+  .wcard{background:var(--raise);border:1px solid var(--line);border-radius:12px;padding:15px 16px;border-top:3px solid var(--accent,var(--brand));}
+  .wcard .tag{display:flex;align-items:center;gap:7px;margin-bottom:10px;}
+  .wcard .tag .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--brand));}
   .wcard .tag .nm{font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--ink);}
-  .wcard .tag .en{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
-  .wcard .body{font-size:12.5px;color:var(--ink2);line-height:1.62;}
+  .wcard .tag .en{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
+  .wcard .body{font-size:12px;color:var(--ink2);line-height:1.62;}
   .wcard .body p{margin:4px 0;}
   .wcard .body .ind{padding-left:11px;color:var(--muted);}
-  .autoline{font-size:12.5px;color:var(--ink2);line-height:1.62;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line);}
+  .autoline{font-size:12px;color:var(--ink2);line-height:1.62;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line);}
   .autoline p{margin:4px 0;} .autoline .ind{padding-left:11px;}
-  .autopill{font-size:8px;font-weight:700;letter-spacing:.08em;color:var(--brand);background:var(--brand-soft);padding:1px 6px;border-radius:20px;margin-left:6px;vertical-align:middle;}
+  .autopill{font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--brand);background:var(--brand-soft);padding:1px 6px;border-radius:20px;margin-left:6px;vertical-align:middle;}
   #narCaregen.auto{margin:0 0 4px;}
   .ir{--accent:var(--brand);} .cd{--accent:var(--indigo);} .pr{--accent:var(--coral);}
+
   /* DART 공시 목록 */
   .disc{margin-bottom:12px;}
   .disc-empty{font-size:11.5px;color:var(--muted);padding:6px 0;}
@@ -110,13 +156,13 @@
   .memo-label{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:4px 0 7px;padding-top:9px;border-top:1px solid var(--line);}
 
   /* 내러티브 */
-  .flow{padding:24px 28px;}
+  .flow{padding:22px 28px;}
   .flow .tag{display:flex;align-items:center;gap:8px;margin-bottom:13px;}
   .flow .tag .dot{width:9px;height:9px;border-radius:50%;background:var(--up);}
   .flow .tag h2{font-size:15px;font-weight:800;color:var(--ink);}
-  .frbar{display:flex;flex-wrap:wrap;gap:18px;background:var(--brand-soft);border:1px solid #d2e8e2;border-radius:11px;padding:11px 15px;margin-bottom:15px;font-size:12.5px;color:var(--brand-ink);}
+  .frbar{display:flex;flex-wrap:wrap;gap:18px;background:var(--brand-soft);border:1px solid var(--cg-green-mid);border-radius:10px;padding:11px 15px;margin-bottom:14px;font-size:12.5px;color:var(--brand-ink);}
   .frbar b{font-family:"IBM Plex Mono",monospace;}
-  .usbar{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:15px;padding:9px 15px;background:var(--raise);border:1px solid var(--line);border-radius:11px;font-size:12.5px;color:var(--ink2);}
+  .usbar{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:14px;padding:9px 15px;background:var(--raise);border:1px solid var(--line);border-radius:10px;font-size:12.5px;color:var(--ink2);}
   .usbar .ut{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
   .usbar b{font-family:"IBM Plex Mono",monospace;font-weight:600;}
   .flow .body{font-size:12.8px;color:var(--ink2);line-height:1.72;max-width:75ch;}
@@ -124,32 +170,42 @@
   .flow .body .idx{font-size:11px;color:var(--muted);font-family:"IBM Plex Mono",monospace;}
   .flow .body .lead{display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--up);margin-right:7px;vertical-align:middle;}
 
+  /* 뉴스 브리핑 */
   .newsbrf{padding:20px 28px;border-bottom:1px solid var(--line);}
   .newsbrf .nbtag{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
-  .newsbrf .nbtag .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);}
-  .newsbrf .nbtag h2{font-size:15px;font-weight:800;color:var(--ink);}
-  .newsbrf .nbtag .en{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
-  .newsbrf .nbcols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
-  .nbcol{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--amber);padding:12px 14px;}
-  .nbcol .nbtitle{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;}
+  .newsbrf .nbtag .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);}
+  .newsbrf .nbtag h2{font-size:14px;font-weight:800;color:var(--ink);}
+  .newsbrf .nbtag .en{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
+  .newsbrf .nbcols{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .nbcol{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--brand);padding:12px 14px;}
+  .nbcol .nbtitle{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand);margin-bottom:8px;}
   .nbcol .nbbody{font-size:12px;color:var(--ink2);line-height:1.65;}
   .nbcol .nbbody p{margin:3px 0;}
   .nbcol .nbbody p+p{margin-top:10px;}
   @media(max-width:760px){.newsbrf .nbcols{grid-template-columns:1fr;}}
+
   .body[data-k="pr"]:empty::before{content:"수기입력";color:var(--muted);font-style:italic;pointer-events:none;}
-  .toolbar button.news{background:#fff8ee;color:var(--amber);border-color:#e8c06a;}
-  .toolbar button.news:hover{background:#ffeecf;border-color:var(--amber);}
+  .toolbar button.news{background:var(--cg-green-lt);color:var(--cg-green-dk);border-color:var(--cg-green-mid);}
+  .toolbar button.news:hover{background:var(--cg-green-mid);border-color:var(--cg-green);}
   .up{color:var(--up);} .down{color:var(--down);}
-  [contenteditable]:focus{outline:2px solid var(--brand-soft);outline-offset:2px;border-radius:4px;}
+  [contenteditable]:focus{outline:2px solid var(--cg-green-mid);outline-offset:2px;border-radius:4px;}
+
+  /* 푸터 라인 */
+  .pg-footer{text-align:center;padding:12px 28px;border-top:1px solid var(--line);background:var(--raise);font-size:10.5px;color:var(--muted);letter-spacing:.03em;}
+  .pg-footer strong{color:var(--brand);font-weight:700;}
 
   @media (max-width:760px){
     .hero{grid-template-columns:1fr;} .hero-price{border-right:0;border-bottom:1px solid var(--line);}
-    .work{grid-template-columns:1fr;} .htitle h1{font-size:24px;}
+    .work{grid-template-columns:1fr;} .htitle h1{font-size:18px;}
+    .hlogo{padding:16px 20px;} .hlogo-mark{width:40px;height:40px;}
+    .hlogo-text .brand{font-size:15px;} header.rpt{flex-wrap:wrap;}
+    .hdate{padding:0 20px 16px;text-align:left;}
   }
   @media print{
     @page{size:A4;margin:9mm;} body{background:#fff;padding:0;}
     .toolbar,.sp{display:none!important;} .page{box-shadow:none;border:none;max-width:none;border-radius:0;}
     .wcard,.frbar{break-inside:avoid;} [contenteditable]:focus{outline:none;}
+    header.rpt{background:#2A9D68!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
 </head>
@@ -169,13 +225,25 @@
 
   <!-- 헤더 -->
   <header class="rpt">
+    <div class="hlogo">
+      <div class="hlogo-mark">
+        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="4" y="26" font-family="IBM Plex Mono,monospace" font-size="21" font-weight="700" fill="white" opacity="0.95">CG</text>
+          <line x1="4" y1="29" x2="32" y2="29" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="hlogo-text">
+        <div class="brand">CAREGEN</div>
+        <div class="brand-sub">㈜케어젠 · KOSDAQ 214370</div>
+      </div>
+    </div>
     <div class="htitle">
-      <div class="kicker">Caregen · KOSDAQ 214370</div>
-      <h1>Daily Equity Briefing</h1>
-      <div class="sub">케어젠 주식 일일 동향 — 대표 보고</div>
+      <div class="kicker">Daily Equity Briefing</div>
+      <h1>주식 일일 동향 브리핑</h1>
+      <div class="sub">케어젠 주가 · 공시 · 뉴스 · 대표 보고</div>
     </div>
     <div class="hdate">
-      <div class="d" id="rptDate">2026-06-15</div>
+      <div class="d" id="rptDate">2026-06-20</div>
       <span class="badge" id="closeBadge">장 마감 기준</span>
     </div>
   </header>
@@ -268,7 +336,7 @@
     </div>
   </section>
 
-  <!-- 내러티브 -->
+  <!-- 주가 변동 및 투자자 동향 -->
   <section class="flow">
     <div class="tag"><span class="dot"></span><h2>주가 변동 및 투자자 동향</h2></div>
     <div class="frbar">
@@ -285,6 +353,8 @@
       <p class="auto" id="narCaregen"><span class="lead"></span>조회 시 케어젠 동향 문장이 자동 생성됩니다.</p>
     </div>
   </section>
+
+  <div class="pg-footer"><strong>CAREGEN</strong> · ㈜케어젠 · KOSDAQ 214370 · Daily Equity Briefing · 본 자료는 내부 업무용입니다.</div>
 
 </div>
 
