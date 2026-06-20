@@ -137,6 +137,7 @@
   .nbcol .nbbody{font-size:12px;color:var(--ink2);line-height:1.6;}
   .nbcol .nbbody p{margin:3px 0;}
   @media(max-width:760px){.newsbrf .nbcols{grid-template-columns:1fr;}}
+  .body[data-k="pr"]:empty::before{content:"수기입력";color:var(--muted);font-style:italic;pointer-events:none;}
   .toolbar button.news{background:#fff8ee;color:var(--amber);border-color:#e8c06a;}
   .toolbar button.news:hover{background:#ffeecf;border-color:var(--amber);}
   .up{color:var(--up);} .down{color:var(--down);}
@@ -258,8 +259,7 @@
     </div>
     <div class="wcard pr">
       <div class="tag"><span class="dot"></span><span class="nm">홍보</span><span class="en">Public Relations</span></div>
-      <div class="body" data-k="pr" contenteditable="true">
-      </div>
+      <div class="body" data-k="pr" contenteditable="true"></div>
     </div>
   </section>
 
