@@ -581,17 +581,16 @@ def _is_good_source(source: str) -> bool:
     return not any(kw in sl for kw in _BLOCKED_SOURCE_KW)
 
 
-def fetch_gnews(query: str, max_items: int = 15, today_only: bool = False) -> list:
+def fetch_gnews(query: str, max_items: int = 15) -> list:
     """Google News RSS에서 헤드라인+스니펫 수집. 실패 시 빈 리스트 반환.
     각 항목: {"text": "[제목]...", "source": "매체명", "date": "YYYY-MM-DD"}
-    today_only=True 이면 KST 당일 기사만 반환.
+    날짜 범위는 query에 'when:1d' 등을 포함해 RSS 레벨에서 제한하는 것이 신뢰성 높음.
     """
     from email.utils import parsedate_to_datetime
     from datetime import datetime, timezone, timedelta
 
     url = "https://news.google.com/rss/search"
     kst = timezone(timedelta(hours=9))
-    today_kst = datetime.now(kst).strftime("%Y-%m-%d")
     try:
         res = requests.get(
             url,
@@ -626,10 +625,6 @@ def fetch_gnews(query: str, max_items: int = 15, today_only: bool = False) -> li
                 except Exception:
                     pass
 
-            # 날짜 필터
-            if today_only and date_str != today_kst:
-                continue
-
             if t:
                 items.append({
                     "text": f"[제목] {t}" + (f"\n[내용] {desc}" if desc else ""),
@@ -653,17 +648,18 @@ def news_summary(force: bool = False):
     if not force and time.time() - _news_cache["ts"] < NEWS_CACHE_TTL and _news_cache["data"]:
         return JSONResponse(_news_cache["data"])
 
-    # 시황·섹터: 당일 기사만
-    macro_hl = fetch_gnews("코스닥 증시 시황 오늘", today_only=True)
-    sector_hl = fetch_gnews("바이오 제약 신약 코스닥", today_only=True)
+    # 시황·섹터: when:1d — Google 서버가 직접 최근 24시간으로 필터
+    macro_hl = fetch_gnews("코스닥 증시 시황 when:1d")
+    sector_hl = fetch_gnews("바이오 제약 신약 코스닥 when:1d")
 
-    # 케어젠: 당일 우선, 없으면 최근 7일 폴백
-    cg_queries = ["케어젠", "케어젠 214370"]
+    # 케어젠: 당일 우선(when:1d), 없으면 최근 30일 폴백
+    cg_queries_today = ["케어젠 when:1d", "케어젠 214370 when:1d"]
+    cg_queries_recent = ["케어젠 when:30d", "케어젠 214370 when:30d"]
 
-    def _collect_cg(today_only: bool) -> list:
+    def _collect_cg(queries: list) -> list:
         seen, result = set(), []
-        for q in cg_queries:
-            for item in fetch_gnews(q, max_items=10, today_only=today_only):
+        for q in queries:
+            for item in fetch_gnews(q, max_items=10):
                 title = item["text"].split("\n")[0]
                 if title not in seen:
                     seen.add(title)
@@ -672,9 +668,9 @@ def news_summary(force: bool = False):
                 break
         return result
 
-    company_hl = _collect_cg(today_only=True)
+    company_hl = _collect_cg(cg_queries_today)
     if not company_hl:
-        company_hl = _collect_cg(today_only=False)  # 당일 없으면 최근 기사
+        company_hl = _collect_cg(cg_queries_recent)  # 당일 없으면 최근 기사
 
     today_str = time.strftime("%Y-%m-%d")
     macro_lines = "\n".join(i["text"] for i in macro_hl) if macro_hl else "(없음)"
