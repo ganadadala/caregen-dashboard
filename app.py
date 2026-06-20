@@ -10,12 +10,15 @@
 """
 
 import base64
+import html as html_lib
 import json
 import os
+import re
 import secrets
 import threading
 import time
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 import requests
 from dotenv import load_dotenv
@@ -42,6 +45,12 @@ TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
 DART_KEY = os.getenv("DART_API_KEY", "")
 DART_BASE = "https://opendart.fss.or.kr/api"
 CORP_CACHE = Path(__file__).parent / ".corp_code_cache.json"
+
+# Anthropic Claude API - 뉴스 자동 요약용. https://console.anthropic.com
+ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
+_news_cache: dict = {"ts": 0.0, "data": None}
+NEWS_CACHE_TTL = 1800  # 30분
 
 app = FastAPI(title="케어젠 일일 동향 대시보드")
 
@@ -531,6 +540,105 @@ def us_indices():
         except Exception:
             out[name] = None  # 권한/심볼 문제 시 해당 지수만 None
     return JSONResponse(out)
+
+
+# ---------------------------------------------------------------------------
+# 뉴스 자동 요약 — Google News RSS 수집 → Claude Haiku 요약
+# ---------------------------------------------------------------------------
+def fetch_gnews(query: str, max_items: int = 7) -> list:
+    """Google News RSS에서 헤드라인 수집. 실패 시 빈 리스트 반환."""
+    url = "https://news.google.com/rss/search"
+    try:
+        res = requests.get(
+            url,
+            params={"q": query, "hl": "ko", "gl": "KR", "ceid": "KR:ko"},
+            timeout=8,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        root = ET.fromstring(res.content)
+        titles = []
+        for item in root.findall(".//item")[:max_items]:
+            t = html_lib.unescape(item.findtext("title") or "")
+            if " - " in t:
+                t = t.rsplit(" - ", 1)[0]  # "제목 - 언론사명" 형식에서 언론사명 제거
+            t = t.strip()
+            if t:
+                titles.append(t)
+        return titles
+    except Exception:
+        return []
+
+
+@app.get("/api/news")
+def news_summary():
+    if not ANTHROPIC_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="ANTHROPIC_API_KEY가 설정되지 않았습니다. Render 환경변수(또는 .env)에 추가하세요.",
+        )
+
+    # 30분 캐시
+    if time.time() - _news_cache["ts"] < NEWS_CACHE_TTL and _news_cache["data"]:
+        return JSONResponse(_news_cache["data"])
+
+    macro_hl = fetch_gnews("코스닥 증시 시황 오늘")
+    sector_hl = fetch_gnews("바이오 제약 신약 코스닥")
+    company_hl = fetch_gnews("케어젠")
+
+    today_str = time.strftime("%Y-%m-%d")
+    macro_lines = "\n".join(f"- {h}" for h in macro_hl) if macro_hl else "- (없음)"
+    sector_lines = "\n".join(f"- {h}" for h in sector_hl) if sector_hl else "- (없음)"
+    company_lines = "\n".join(f"- {h}" for h in company_hl) if company_hl else "- (없음)"
+
+    prompt = (
+        f"오늘({today_str}) 뉴스 헤드라인을 읽고 투자 보고서용 한국어 요약을 작성하세요.\n"
+        "각 카테고리당 2~3개 핵심 포인트, 항목당 최대 40자 이내 간결하게.\n"
+        "뉴스가 없으면 \"특이사항 없음\"으로 채우세요.\n\n"
+        f"[증시·매크로]\n{macro_lines}\n\n"
+        f"[바이오/제약 섹터]\n{sector_lines}\n\n"
+        f"[케어젠(214370)]\n{company_lines}\n\n"
+        '아래 JSON만 출력 (다른 텍스트 없이):\n'
+        '{"macro":["항목1","항목2"],"sector":["항목1","항목2"],"company":["항목1","항목2"]}'
+    )
+
+    resp = requests.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": ANTHROPIC_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 600,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        timeout=30,
+    )
+
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Claude API 오류 ({resp.status_code}): {resp.text[:200]}",
+        )
+
+    raw = resp.json()["content"][0]["text"].strip()
+    m = re.search(r'\{[\s\S]*\}', raw)
+    if not m:
+        raise HTTPException(status_code=502, detail="Claude 응답에서 JSON을 찾지 못했습니다.")
+
+    try:
+        result = json.loads(m.group())
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"JSON 파싱 오류: {e}")
+
+    for key in ("macro", "sector", "company"):
+        if key not in result or not isinstance(result[key], list):
+            result[key] = ["데이터 없음"]
+
+    _news_cache["ts"] = time.time()
+    _news_cache["data"] = result
+    return JSONResponse(result)
 
 
 @app.get("/api/health")

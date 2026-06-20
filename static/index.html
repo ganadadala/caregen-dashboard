@@ -126,6 +126,8 @@
   .flow .body .idx{font-size:11px;color:var(--muted);font-family:"IBM Plex Mono",monospace;}
   .flow .body .lead{display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--up);margin-right:7px;vertical-align:middle;}
 
+  .toolbar button.news{background:#fff8ee;color:var(--amber);border-color:#e8c06a;}
+  .toolbar button.news:hover{background:#ffeecf;border-color:var(--amber);}
   .up{color:var(--up);} .down{color:var(--down);}
   [contenteditable]:focus{outline:2px solid var(--brand-soft);outline-offset:2px;border-radius:4px;}
 
@@ -146,6 +148,7 @@
   <input class="code" id="code" value="214370" title="종목코드"/>
   <input type="date" id="date"/>
   <button class="primary" id="loadBtn">조회</button>
+  <button id="newsBtn" class="news" title="Claude AI로 최신 뉴스 요약 자동채우기">뉴스 채우기</button>
   <button id="printBtn">인쇄 / PDF</button>
   <span class="sp" id="status">조회 시 주가·시총·차트가 자동 반영됩니다.</span>
 </div>
@@ -406,9 +409,35 @@ async function load(){
   finally{btn.disabled=false;btn.textContent="조회";}
 }
 function syncDate(){$("rptDate").textContent=$("date").value;restoreAll();}
+
+/* 뉴스 자동채우기 */
+function escH(s){const d=document.createElement("div");d.textContent=String(s);return d.innerHTML;}
+function fmtNews(label,items){
+  if(!items||!items.length)return"";
+  let h=`<p><b>${escH(label)}</b><span class="autopill">AUTO</span></p>`;
+  items.forEach((it,i)=>{h+=`<p>${i+1}. ${escH(it)}</p>`;});
+  return h;
+}
+async function loadNews(){
+  const btn=$("newsBtn");btn.disabled=true;btn.textContent="뉴스 로딩…";$("error").innerHTML="";
+  try{
+    const r=await fetch("/api/news");
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
+    const d=await r.json();
+    const macroEl=document.querySelector("[data-k='flowMacro']");
+    if(macroEl)macroEl.innerHTML=fmtNews("증시·매크로",d.macro)+fmtNews("바이오/제약 섹터",d.sector);
+    const prEl=document.querySelector("[data-k='pr']");
+    if(prEl)prEl.innerHTML=fmtNews("케어젠 뉴스",d.company);
+    saveAll();
+    $("status").textContent="뉴스 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
+  }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
+  finally{btn.disabled=false;btn.textContent="뉴스 채우기";}
+}
+
 $("date").value=new Date().toISOString().slice(0,10);
 $("rptDate").textContent=$("date").value;
 $("loadBtn").addEventListener("click",load);
+$("newsBtn").addEventListener("click",loadNews);
 $("printBtn").addEventListener("click",()=>window.print());
 $("date").addEventListener("change",syncDate);
 $("code").addEventListener("change",restoreAll);
