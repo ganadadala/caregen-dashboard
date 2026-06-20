@@ -611,7 +611,7 @@ def news_summary(force: bool = False):
     sector_hl = fetch_gnews("바이오 제약 신약 코스닥")
 
     # 케어젠은 여러 쿼리로 검색 후 중복 제목 제거
-    cg_queries = ["케어젠", "케어젠 214370", "케어젠 주가 공시"]
+    cg_queries = ["케어젠", "케어젠 214370"]
     seen, company_hl = set(), []
     for q in cg_queries:
         for item in fetch_gnews(q, max_items=10):
