@@ -1,0 +1,18 @@
+# 절대 커밋 금지 — API 키
+.env
+
+# 토큰 캐시 (자동 생성)
+.token_cache.json
+
+# DART 기업코드 캐시 (자동 생성)
+.corp_code_cache.json
+
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 로그
+server.log
+*.log
