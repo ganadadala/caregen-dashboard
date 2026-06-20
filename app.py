@@ -671,6 +671,67 @@ def news_summary():
     return JSONResponse(result)
 
 
+@app.get("/api/short-balance")
+def short_balance(code: str = DEFAULT_CODE):
+    """KRX 정보데이터시스템에서 공매도 잔고 현황 조회 (T+2, 별도 API 키 불필요)"""
+    from datetime import datetime, timedelta
+
+    today = datetime.now()
+    end_dt = today - timedelta(days=2)
+    start_dt = end_dt - timedelta(days=14)
+    end_ymd = end_dt.strftime("%Y%m%d")
+    start_ymd = start_dt.strftime("%Y%m%d")
+
+    try:
+        resp = requests.post(
+            "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
+            data={
+                "bld": "dbms/MDC/STAT/standard/MDCSTAT11001",
+                "share": "1",
+                "mktId": "KSQ",          # KOSDAQ
+                "isuCd": code,
+                "strtDd": start_ymd,
+                "endDd": end_ymd,
+            },
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": "https://data.krx.co.kr/",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            },
+            timeout=10,
+        )
+        rows = resp.json().get("output", [])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"KRX 조회 실패: {e}")
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="공매도 잔고 데이터 없음")
+
+    # 최신 행 기준
+    latest = rows[-1]
+    prev = rows[-2] if len(rows) >= 2 else None
+
+    def _n(v):
+        try:
+            return int(str(v).replace(",", ""))
+        except Exception:
+            return 0
+
+    bal = _n(latest.get("BALANCE_QTY") or latest.get("BAL_QTY", 0))
+    bal_prev = _n(prev.get("BALANCE_QTY") or prev.get("BAL_QTY", 0)) if prev else None
+    bal_diff = (bal - bal_prev) if bal_prev is not None else None
+
+    date_raw = latest.get("TRD_DD") or latest.get("BAS_DD") or end_ymd
+    date_fmt = f"{date_raw[4:6]}/{date_raw[6:8]}" if len(str(date_raw)) == 8 else date_raw
+
+    return JSONResponse({
+        "date": date_fmt,
+        "balance_qty": bal,                   # 잔고 주수
+        "balance_diff": bal_diff,             # 전일 대비 (주)
+        "raw_date": date_raw,
+    })
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "configured": bool(APPKEY and APPSECRET), "default_code": DEFAULT_CODE}
