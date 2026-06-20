@@ -230,24 +230,28 @@
     /* 헤더 하위 블록 여백 축소 */
     .hlogo{padding:10px 24px 10px 28px;} .htitle{padding:10px 22px;} .hdate{padding:10px 28px 10px 0;}
     .htitle h1{font-size:16px;}
-    /* 섹션 외곽 여백 축소 (화면 22~24px → 인쇄 9px) */
-    .hero-price{padding:9px 16px;} .stat{padding:9px 16px;}
-    .chartwrap,.work,.flow{padding:9px 16px;} .newsbrf{padding:9px 16px;}
+    /* 섹션 외곽 여백 축소 (화면 22~24px → 인쇄 7px) */
+    .hero-price{padding:7px 14px;} .stat{padding:7px 14px;}
+    .chartwrap,.work,.flow,.newsbrf{padding:7px 14px;}
     .pg-footer{padding:6px 16px;}
     /* 큰 글씨 축소 → 행 높이 감소 */
-    .price-main .v{font-size:28px;} .stat .big{font-size:17px;}
+    .price-main .v{font-size:24px;} .stat .big{font-size:17px;}
     .chartwrap .head{margin-bottom:6px;} .chartwrap .head .t{font-size:12px;}
     .flow .tag h2,.newsbrf .nbtag h2{font-size:13px;}
-    /* 차트 높이 축소 (캔버스 다운스케일) */
-    .chartbox{height:150px;} .legend{margin-top:5px;}
+    .hlogo-img-wrap,.hlogo-img{width:38px;height:38px;}
+    /* 차트 높이 축소 (캔버스 다운스케일) + 인터랙티브 툴팁 숨김 */
+    .chartbox{height:120px;} .legend{margin-top:5px;} .chart-info{display:none!important;}
     /* 내부 여백·간격 정리 */
-    .wcard{padding:9px 11px;} .wcard .tag{margin-bottom:5px;}
+    .wcard{padding:9px 11px;} .wcard .tag{margin-bottom:5px;} .wcard .body{font-size:11px;line-height:1.5;}
     .autoline{margin-bottom:4px;padding-bottom:4px;}
-    .frbar,.usbar{padding:6px 11px;margin-bottom:7px;} .flowgrid{margin-bottom:7px;}
-    .flow .tag{margin-bottom:6px;} .flow .body p{margin:4px 0;}
-    .nbcol{padding:8px 10px;} .newsbrf .nbcols{gap:8px;} .nbcol .nbbody p+p{margin-top:5px;}
-    /* 페이지 중간에서 블록이 잘리지 않도록 */
-    .hero,.chartwrap,.work,.flow,.newsbrf,.wcard,.nbcol,.frbar{break-inside:avoid;}
+    .frbar,.usbar{padding:6px 11px;margin-bottom:7px;font-size:10px;} .flow .tag{margin-bottom:6px;} .flow .body p{margin:4px 0;}
+    /* 투자자 매매동향 표가 바 옆에 남도록 (줄바꿈 방지) */
+    .flowgrid{gap:8px;margin-bottom:7px;} .flowgrid .invtbl{flex:1 1 200px;} .invtbl{font-size:9.5px;}
+    /* 뉴스가 가장 큰 블록 → 글씨 축소 */
+    .nbcol{padding:8px 10px;} .newsbrf .nbcols{gap:8px;} .nbcol .nbtitle{font-size:11px;}
+    .nbcol .nbbody{font-size:10px;line-height:1.45;} .nbcol .nbbody p{margin:2px 0;} .nbcol .nbbody p+p{margin-top:5px;}
+    /* 그리드 칸(카드)만 중간 분할 방지 — 섹션은 자유롭게 흐르도록 */
+    .wcard,.nbcol{break-inside:avoid;}
   }
 </style>
 </head>
