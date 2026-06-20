@@ -413,7 +413,7 @@ function drawCandleChart(ohlc){
       },
       scales:{
         x:{ticks:{color:"#9aa6a1",font:{size:10}},grid:{display:false}},
-        y:{ticks:{color:"#0f7a66",font:{size:9},callback:v=>Number(v).toLocaleString("ko-KR")},grid:{color:"rgba(21,36,32,.05)"},border:{display:false}}
+        y:{min:40000,ticks:{color:"#0f7a66",font:{size:9},callback:v=>Number(v).toLocaleString("ko-KR")},grid:{color:"rgba(21,36,32,.05)"},border:{display:false}}
       }
     },
     plugins:[candlePlugin]
