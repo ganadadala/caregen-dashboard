@@ -395,6 +395,10 @@ const candlePlugin={id:"candle",
 };
 function drawCandleChart(ohlc){
   if(chart)chart.destroy();
+  const allH=ohlc.map(d=>d.h), allL=ohlc.map(d=>d.l);
+  const dataMax=Math.max(...allH), dataMin=Math.min(...allL);
+  const pad=Math.max(15000, Math.round((dataMax-dataMin)*0.4));
+  const yMin=dataMin-pad, yMax=dataMax+pad;
   chart=new Chart($("chart"),{
     type:"bar",
     data:{
@@ -413,7 +417,7 @@ function drawCandleChart(ohlc){
       },
       scales:{
         x:{ticks:{color:"#9aa6a1",font:{size:10}},grid:{display:false}},
-        y:{min:40000,ticks:{color:"#0f7a66",font:{size:9},callback:v=>Number(v).toLocaleString("ko-KR")},grid:{color:"rgba(21,36,32,.05)"},border:{display:false}}
+        y:{min:yMin,max:yMax,ticks:{color:"#0f7a66",font:{size:9},callback:v=>Number(v).toLocaleString("ko-KR")},grid:{color:"rgba(21,36,32,.05)"},border:{display:false}}
       }
     },
     plugins:[candlePlugin]
