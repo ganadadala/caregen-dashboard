@@ -568,15 +568,30 @@ def us_indices():
 # ---------------------------------------------------------------------------
 # 뉴스 자동 요약 — Google News RSS 수집 → Claude Haiku 요약
 # ---------------------------------------------------------------------------
-def fetch_gnews(query: str, max_items: int = 15) -> list:
+
+# 개인 블로그·저품질 매체 소스 키워드 차단 목록
+_BLOCKED_SOURCE_KW = [
+    "블로그", "blog", "tistory", "티스토리", "브런치", "velog",
+    "카페", "cafe", "네이버 포스트", "naver post", "인플루언서",
+    "daum cafe", "다음 카페",
+]
+
+def _is_good_source(source: str) -> bool:
+    sl = source.lower()
+    return not any(kw in sl for kw in _BLOCKED_SOURCE_KW)
+
+
+def fetch_gnews(query: str, max_items: int = 15, today_only: bool = False) -> list:
     """Google News RSS에서 헤드라인+스니펫 수집. 실패 시 빈 리스트 반환.
     각 항목: {"text": "[제목]...", "source": "매체명", "date": "YYYY-MM-DD"}
+    today_only=True 이면 KST 당일 기사만 반환.
     """
     from email.utils import parsedate_to_datetime
-    from datetime import timezone, timedelta
+    from datetime import datetime, timezone, timedelta
 
     url = "https://news.google.com/rss/search"
     kst = timezone(timedelta(hours=9))
+    today_kst = datetime.now(kst).strftime("%Y-%m-%d")
     try:
         res = requests.get(
             url,
@@ -593,9 +608,15 @@ def fetch_gnews(query: str, max_items: int = 15) -> list:
                 source = t.rsplit(" - ", 1)[1].strip()
                 t = t.rsplit(" - ", 1)[0]
             t = t.strip()
+
+            # 저품질 소스 제외
+            if source and not _is_good_source(source):
+                continue
+
             desc = html_lib.unescape(item.findtext("description") or "")
             desc = re.sub(r"<[^>]+>", " ", desc).strip()
             desc = re.sub(r"\s+", " ", desc)[:300]
+
             date_str = ""
             pub_raw = item.findtext("pubDate") or ""
             if pub_raw:
@@ -604,6 +625,11 @@ def fetch_gnews(query: str, max_items: int = 15) -> list:
                     date_str = dt.strftime("%Y-%m-%d")
                 except Exception:
                     pass
+
+            # 날짜 필터
+            if today_only and date_str != today_kst:
+                continue
+
             if t:
                 items.append({
                     "text": f"[제목] {t}" + (f"\n[내용] {desc}" if desc else ""),
@@ -627,20 +653,28 @@ def news_summary(force: bool = False):
     if not force and time.time() - _news_cache["ts"] < NEWS_CACHE_TTL and _news_cache["data"]:
         return JSONResponse(_news_cache["data"])
 
-    macro_hl = fetch_gnews("코스닥 증시 시황 오늘")
-    sector_hl = fetch_gnews("바이오 제약 신약 코스닥")
+    # 시황·섹터: 당일 기사만
+    macro_hl = fetch_gnews("코스닥 증시 시황 오늘", today_only=True)
+    sector_hl = fetch_gnews("바이오 제약 신약 코스닥", today_only=True)
 
-    # 케어젠은 여러 쿼리로 검색 후 중복 제목 제거
+    # 케어젠: 당일 우선, 없으면 최근 7일 폴백
     cg_queries = ["케어젠", "케어젠 214370"]
-    seen, company_hl = set(), []
-    for q in cg_queries:
-        for item in fetch_gnews(q, max_items=10):
-            title = item["text"].split("\n")[0]  # [제목] 줄
-            if title not in seen:
-                seen.add(title)
-                company_hl.append(item)
-        if len(company_hl) >= 10:
-            break
+
+    def _collect_cg(today_only: bool) -> list:
+        seen, result = set(), []
+        for q in cg_queries:
+            for item in fetch_gnews(q, max_items=10, today_only=today_only):
+                title = item["text"].split("\n")[0]
+                if title not in seen:
+                    seen.add(title)
+                    result.append(item)
+            if len(result) >= 10:
+                break
+        return result
+
+    company_hl = _collect_cg(today_only=True)
+    if not company_hl:
+        company_hl = _collect_cg(today_only=False)  # 당일 없으면 최근 기사
 
     today_str = time.strftime("%Y-%m-%d")
     macro_lines = "\n".join(i["text"] for i in macro_hl) if macro_hl else "(없음)"
