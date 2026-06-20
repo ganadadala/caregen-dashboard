@@ -126,6 +126,17 @@
   .flow .body .idx{font-size:11px;color:var(--muted);font-family:"IBM Plex Mono",monospace;}
   .flow .body .lead{display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--up);margin-right:7px;vertical-align:middle;}
 
+  .newsbrf{padding:20px 28px;border-bottom:1px solid var(--line);}
+  .newsbrf .nbtag{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .newsbrf .nbtag .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);}
+  .newsbrf .nbtag h2{font-size:15px;font-weight:800;color:var(--ink);}
+  .newsbrf .nbtag .en{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
+  .newsbrf .nbcols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .nbcol{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--amber);padding:12px 14px;}
+  .nbcol .nbtitle{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;}
+  .nbcol .nbbody{font-size:12px;color:var(--ink2);line-height:1.6;}
+  .nbcol .nbbody p{margin:3px 0;}
+  @media(max-width:760px){.newsbrf .nbcols{grid-template-columns:1fr;}}
   .toolbar button.news{background:#fff8ee;color:var(--amber);border-color:#e8c06a;}
   .toolbar button.news:hover{background:#ffeecf;border-color:var(--amber);}
   .up{color:var(--up);} .down{color:var(--down);}
@@ -252,6 +263,16 @@
     </div>
   </section>
 
+  <!-- 뉴스 브리핑 -->
+  <section class="newsbrf">
+    <div class="nbtag"><span class="dot"></span><h2>뉴스 브리핑</h2><span class="en">News Briefing</span></div>
+    <div class="nbcols">
+      <div class="nbcol"><div class="nbtitle">케어젠</div><div class="nbbody" data-k="nbCompany" contenteditable="true"><p></p></div></div>
+      <div class="nbcol"><div class="nbtitle">증시 · 매크로</div><div class="nbbody" data-k="nbMacro" contenteditable="true"><p></p></div></div>
+      <div class="nbcol"><div class="nbtitle">바이오 / 제약 섹터</div><div class="nbbody" data-k="nbSector" contenteditable="true"><p></p></div></div>
+    </div>
+  </section>
+
   <!-- 내러티브 -->
   <section class="flow">
     <div class="tag"><span class="dot"></span><h2>주가 변동 및 투자자 동향</h2></div>
@@ -267,9 +288,6 @@
     </div>
     <div class="body">
       <p class="auto" id="narCaregen"><span class="lead"></span>조회 시 케어젠 동향 문장이 자동 생성됩니다.</p>
-      <div class="macro" data-k="flowMacro" contenteditable="true">
-        <p><span class="lead"></span></p>
-      </div>
     </div>
   </section>
 
@@ -451,8 +469,8 @@ async function loadNews(){
     const r=await fetch("/api/news");
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
     const d=await r.json();
-    const macroEl=document.querySelector("[data-k='flowMacro']");
-    if(macroEl)macroEl.innerHTML=fmtNews("케어젠",d.company)+fmtNews("증시·매크로",d.macro)+fmtNews("바이오/제약 섹터",d.sector);
+    const fill=(k,items)=>{const el=document.querySelector("[data-k='"+k+"']");if(el&&items){el.innerHTML=items.map((t,i)=>`<p>${i+1}. ${escH(t)}</p>`).join("");}};
+    fill("nbCompany",d.company);fill("nbMacro",d.macro);fill("nbSector",d.sector);
     saveAll();
     $("status").textContent="뉴스 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
