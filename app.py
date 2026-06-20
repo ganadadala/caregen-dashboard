@@ -596,7 +596,7 @@ def fetch_gnews(query: str, max_items: int = 15) -> list:
 
 
 @app.get("/api/news")
-def news_summary():
+def news_summary(force: bool = False):
     if not ANTHROPIC_KEY:
         raise HTTPException(
             status_code=500,
@@ -604,7 +604,7 @@ def news_summary():
         )
 
     # 30분 캐시
-    if time.time() - _news_cache["ts"] < NEWS_CACHE_TTL and _news_cache["data"]:
+    if not force and time.time() - _news_cache["ts"] < NEWS_CACHE_TTL and _news_cache["data"]:
         return JSONResponse(_news_cache["data"])
 
     macro_hl = fetch_gnews("코스닥 증시 시황 오늘")

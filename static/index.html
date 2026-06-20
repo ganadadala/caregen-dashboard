@@ -531,10 +531,10 @@ function fmtNews(label,items){
   items.forEach((it,i)=>{h+=`<p>${i+1}. ${escH(it)}</p>`;});
   return h;
 }
-async function loadNews(){
-  const btn=$("newsBtn");btn.disabled=true;btn.textContent="뉴스 로딩…";$("error").innerHTML="";
+async function loadNews(force=false){
+  const btn=$("newsBtn");btn.disabled=true;btn.textContent=force?"강제 새로고침…":"뉴스 로딩…";$("error").innerHTML="";
   try{
-    const r=await fetch("/api/news");
+    const r=await fetch("/api/news"+(force?"?force=true":""));
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
     const d=await r.json();
     const fill=(k,items)=>{const el=document.querySelector("[data-k='"+k+"']");if(el&&items){el.innerHTML=items.map((t,i)=>`<p>${i+1}. ${escH(t)}</p>`).join("");}};
@@ -548,7 +548,8 @@ async function loadNews(){
 $("date").value=new Date().toISOString().slice(0,10);
 $("rptDate").textContent=$("date").value;
 $("loadBtn").addEventListener("click",load);
-$("newsBtn").addEventListener("click",loadNews);
+$("newsBtn").addEventListener("click",()=>loadNews(false));
+$("newsBtn").addEventListener("contextmenu",(e)=>{e.preventDefault();loadNews(true);});
 $("printBtn").addEventListener("click",()=>window.print());
 $("date").addEventListener("change",syncDate);
 $("code").addEventListener("change",restoreAll);
