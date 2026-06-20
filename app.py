@@ -644,11 +644,13 @@ def fetch_gnews(query: str, max_items: int = 15, after_dt=None) -> list:
 
             pub_dt = None
             date_str = ""
+            time_str = ""
             pub_raw = item.findtext("pubDate") or ""
             if pub_raw:
                 try:
                     pub_dt = parsedate_to_datetime(pub_raw).astimezone(kst)
                     date_str = pub_dt.strftime("%Y-%m-%d")
+                    time_str = pub_dt.strftime("%H:%M")
                 except Exception:
                     pass
 
@@ -661,6 +663,7 @@ def fetch_gnews(query: str, max_items: int = 15, after_dt=None) -> list:
                     "text": f"[제목] {t}" + (f"\n[내용] {desc}" if desc else ""),
                     "source": source,
                     "date": date_str,
+                    "time": time_str,
                 })
         return items
     except Exception:
@@ -734,9 +737,9 @@ def news_summary(force: bool = False):
     sector_lines = "\n".join(i["text"] for i in sector_hl) if sector_hl else "(없음)"
     company_lines = "\n".join(i["text"] for i in company_hl) if company_hl else "(없음)"
 
-    macro_meta = [{"source": i["source"], "date": i["date"]} for i in macro_hl]
-    sector_meta = [{"source": i["source"], "date": i["date"]} for i in sector_hl]
-    company_meta = [{"source": i["source"], "date": i["date"]} for i in company_hl]
+    macro_meta = [{"source": i["source"], "date": i["date"], "time": i.get("time", "")} for i in macro_hl]
+    sector_meta = [{"source": i["source"], "date": i["date"], "time": i.get("time", "")} for i in sector_hl]
+    company_meta = [{"source": i["source"], "date": i["date"], "time": i.get("time", "")} for i in company_hl]
 
     prompt = (
         f"오늘({today_str}) 뉴스 헤드라인과 내용을 바탕으로 기관투자자용 한국어 브리핑을 작성하세요.\n\n"
