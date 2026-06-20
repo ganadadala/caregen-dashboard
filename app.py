@@ -672,7 +672,7 @@ def news_summary():
 
 
 def _krx_short_raw(code: str):
-    """KRX 공매도 잔고 원시 응답 반환 (isuCd 자동 보정 포함)"""
+    """KRX 공매도 잔고 원시 응답 반환 — 세션 쿠키 선획득 방식"""
     from datetime import datetime, timedelta
 
     today = datetime.now()
@@ -681,27 +681,42 @@ def _krx_short_raw(code: str):
     end_ymd = end_dt.strftime("%Y%m%d")
     start_ymd = start_dt.strftime("%Y%m%d")
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": "https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd",
+    sess = requests.Session()
+    sess.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+    })
+
+    # 세션 쿠키 획득
+    sess.get("https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd", timeout=8)
+
+    sess.headers.update({
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "X-Requested-With": "XMLHttpRequest",
-    }
+        "Referer": "https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd",
+    })
 
-    # isuCd는 KRX 내부코드 필요 — 먼저 종목 검색으로 isuCd 확보
+    # 종목 검색으로 full_code(ISIN) 확보
+    isu_cd = code
     try:
-        srch = requests.post(
+        srch = sess.post(
             "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
             data={"bld": "dbms/comm/finder/finder_stkisu", "mktsel": "KSQ", "searchText": code},
-            headers=headers, timeout=8,
+            timeout=8,
         )
         items = srch.json().get("block1", [])
-        isu_cd = items[0].get("short_code") or items[0].get("isuCd") or code if items else code
+        # short_code가 code와 정확히 일치하는 항목 선택
+        matched = [i for i in items if i.get("short_code") == code]
+        if matched:
+            isu_cd = matched[0].get("full_code") or code
+        elif items:
+            isu_cd = items[0].get("full_code") or code
     except Exception:
-        isu_cd = code
+        pass
 
-    resp = requests.post(
+    resp = sess.post(
         "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
         data={
             "bld": "dbms/MDC/STAT/standard/MDCSTAT11001",
@@ -711,11 +726,9 @@ def _krx_short_raw(code: str):
             "strtDd": start_ymd,
             "endDd": end_ymd,
         },
-        headers=headers,
         timeout=10,
     )
     raw = resp.json()
-    # output 키 이름이 다를 수 있음
     rows = raw.get("output") or raw.get("block1") or raw.get("OutBlock_1") or []
     return rows, end_ymd
 
