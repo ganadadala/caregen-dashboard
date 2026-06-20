@@ -209,6 +209,30 @@ def fetch_investor(code: str) -> dict:
     return rows[0] if rows else {}
 
 
+def fetch_investor_days(code: str, n: int = 3) -> list:
+    """투자자별 매매동향 최근 n일 (당일 포함). 각 행: 종가·전일비·거래량·외국인·기관·개인 순매수."""
+    data = _get(
+        "/uapi/domestic-stock/v1/quotations/inquire-investor",
+        "FHKST01010900",
+        {"FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code},
+    )
+    rows = (data.get("output") or [])[:n]  # output[0] = 가장 최근일
+    out = []
+    for r in rows:
+        sign = r.get("prdy_vrss_sign", "3")  # 1상한 2상승 3보합 4하한 5하락
+        mult = -1 if sign in ("4", "5") else 1
+        out.append({
+            "date": r.get("stck_bsop_date", ""),
+            "close": _to_int(r.get("stck_clpr")),
+            "diff": _to_int(r.get("prdy_vrss")) * mult,
+            "volume": _to_int(r.get("acml_vol")),
+            "foreign_qty": _to_int(r.get("frgn_ntby_qty")),
+            "org_qty": _to_int(r.get("orgn_ntby_qty")),
+            "person_qty": _to_int(r.get("prsn_ntby_qty")),
+        })
+    return out
+
+
 def _to_int(v, default=0):
     try:
         return int(float(str(v).replace(",", "")))
@@ -254,6 +278,10 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
 
     quote = fetch_quote(code)          # 현재 스냅샷(시총·52주·외국인비율은 항상 '현재값')
     investor = fetch_investor(code)
+    try:
+        investor_days = fetch_investor_days(code, 3)
+    except Exception:
+        investor_days = []
 
     today = datetime.now().strftime("%Y-%m-%d")
     use_daily = bool(date) and date < today  # 과거 날짜면 일별시세에서 그 날짜 종가 사용
@@ -329,6 +357,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "person_qty": _to_int(investor.get("prsn_ntby_qty")),
             "date": investor.get("stck_bsop_date", ""),
         },
+        "investor_days": investor_days,
     }
     return JSONResponse(result)
 
