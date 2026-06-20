@@ -609,7 +609,18 @@ def news_summary(force: bool = False):
 
     macro_hl = fetch_gnews("코스닥 증시 시황 오늘")
     sector_hl = fetch_gnews("바이오 제약 신약 코스닥")
-    company_hl = fetch_gnews("케어젠")
+
+    # 케어젠은 여러 쿼리로 검색 후 중복 제목 제거
+    cg_queries = ["케어젠", "케어젠 214370", "케어젠 주가 공시"]
+    seen, company_hl = set(), []
+    for q in cg_queries:
+        for item in fetch_gnews(q, max_items=10):
+            title = item.split("\n")[0]  # [제목] 줄
+            if title not in seen:
+                seen.add(title)
+                company_hl.append(item)
+        if len(company_hl) >= 10:
+            break
 
     today_str = time.strftime("%Y-%m-%d")
     macro_lines = "\n".join(macro_hl) if macro_hl else "(없음)"
