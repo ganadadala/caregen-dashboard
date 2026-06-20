@@ -615,13 +615,14 @@ def news_summary():
 
     prompt = (
         f"오늘({today_str}) 뉴스 헤드라인을 읽고 투자 보고서용 한국어 요약을 작성하세요.\n"
-        "각 카테고리당 2~3개 핵심 포인트, 항목당 최대 40자 이내 간결하게.\n"
+        "각 카테고리당 주요 기사 2~3개를 선별하고, 기사마다 3문장으로 요약하세요.\n"
+        "문장은 구체적이고 정보가 풍부하게, 투자 관점에서 의미 있는 내용 위주로 작성하세요.\n"
         "뉴스가 없으면 \"특이사항 없음\"으로 채우세요.\n\n"
         f"[증시·매크로]\n{macro_lines}\n\n"
         f"[바이오/제약 섹터]\n{sector_lines}\n\n"
         f"[케어젠(214370)]\n{company_lines}\n\n"
         '아래 JSON만 출력 (다른 텍스트 없이):\n'
-        '{"macro":["항목1","항목2"],"sector":["항목1","항목2"],"company":["항목1","항목2"]}'
+        '{"macro":["기사1 3문장 요약","기사2 3문장 요약"],"sector":["기사1 3문장 요약","기사2 3문장 요약"],"company":["기사1 3문장 요약","기사2 3문장 요약"]}'
     )
 
     resp = requests.post(
@@ -633,7 +634,7 @@ def news_summary():
         },
         json={
             "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 600,
+            "max_tokens": 1500,
             "messages": [{"role": "user", "content": prompt}],
         },
         timeout=30,

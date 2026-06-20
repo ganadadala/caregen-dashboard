@@ -134,8 +134,9 @@
   .newsbrf .nbcols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
   .nbcol{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--amber);padding:12px 14px;}
   .nbcol .nbtitle{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;}
-  .nbcol .nbbody{font-size:12px;color:var(--ink2);line-height:1.6;}
+  .nbcol .nbbody{font-size:12px;color:var(--ink2);line-height:1.65;}
   .nbcol .nbbody p{margin:3px 0;}
+  .nbcol .nbbody p+p{margin-top:10px;}
   @media(max-width:760px){.newsbrf .nbcols{grid-template-columns:1fr;}}
   .body[data-k="pr"]:empty::before{content:"수기입력";color:var(--muted);font-style:italic;pointer-events:none;}
   .toolbar button.news{background:#fff8ee;color:var(--amber);border-color:#e8c06a;}
