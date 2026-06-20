@@ -735,48 +735,51 @@ def _krx_short_raw(code: str):
 
 @app.get("/api/short-balance/debug")
 def short_balance_debug(code: str = DEFAULT_CODE):
-    """KRX 원시 응답 디버그용"""
+    """KIND 포털 공매도 잔고 원시 응답 디버그"""
     from datetime import datetime, timedelta
     today = datetime.now()
-    end_ymd = (today - timedelta(days=2)).strftime("%Y%m%d")
-    start_ymd = (today - timedelta(days=20)).strftime("%Y%m%d")
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": "https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "X-Requested-With": "XMLHttpRequest",
-    }
-    # 1단계: 종목 검색 원문
-    try:
-        srch = requests.post(
-            "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
-            data={"bld": "dbms/comm/finder/finder_stkisu", "mktsel": "KSQ", "searchText": code},
-            headers=headers, timeout=8,
-        )
-        srch_status = srch.status_code
-        srch_text = srch.text[:300]
-    except Exception as e:
-        srch_status = 0
-        srch_text = str(e)
+    end_dt = today - timedelta(days=2)
+    start_dt = end_dt - timedelta(days=14)
 
-    # 2단계: 공매도 잔고 원문
+    sess = requests.Session()
+    sess.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+    })
+
+    # KIND 세션 획득
     try:
-        resp = requests.post(
-            "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
-            data={"bld": "dbms/MDC/STAT/standard/MDCSTAT11001", "share": "1",
-                  "mktId": "KSQ", "isuCd": code, "strtDd": start_ymd, "endDd": end_ymd},
-            headers=headers, timeout=10,
-        )
-        main_status = resp.status_code
-        main_text = resp.text[:500]
+        sess.get("https://kind.krx.co.kr/shortreport/stockbalance.do", timeout=8)
+        sess_cookies = dict(sess.cookies)
     except Exception as e:
-        main_status = 0
-        main_text = str(e)
+        sess_cookies = {"error": str(e)}
+
+    # KIND 공매도 잔고 조회
+    try:
+        resp = sess.post(
+            "https://kind.krx.co.kr/shortreport/stockbalance.do",
+            data={
+                "method": "searchTotalList",
+                "isu_cd": code,
+                "startDd": start_dt.strftime("%Y%m%d"),
+                "endDd": end_dt.strftime("%Y%m%d"),
+                "pageIndex": "1",
+            },
+            headers={"Referer": "https://kind.krx.co.kr/shortreport/stockbalance.do",
+                     "Content-Type": "application/x-www-form-urlencoded",
+                     "X-Requested-With": "XMLHttpRequest"},
+            timeout=10,
+        )
+        kind_status = resp.status_code
+        kind_body = resp.text[:600]
+    except Exception as e:
+        kind_status = 0
+        kind_body = str(e)
 
     return JSONResponse({
-        "search_status": srch_status, "search_body": srch_text,
-        "main_status": main_status, "main_body": main_text,
+        "cookies": sess_cookies,
+        "kind_status": kind_status,
+        "kind_body": kind_body,
     })
 
 
