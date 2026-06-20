@@ -544,7 +544,7 @@ async function loadNews(force=false){
       if(!el||!items)return;
       el.innerHTML=items.map((t,i)=>{
         const m=meta&&meta[i];
-        const metaHtml=m&&(m.source||m.date)
+        const metaHtml=m&&(m.source||m.date)&&t.trim()!=="특이사항 없음"
           ?`<span class="news-meta">${[m.source,m.date].filter(Boolean).join(" · ")}</span>`
           :"";
         return`<p>${i+1}. ${escH(t)}</p>${metaHtml}`;
