@@ -378,6 +378,26 @@ def chart(code: str = DEFAULT_CODE, days: int = 365):
     return JSONResponse(series)
 
 
+@app.get("/api/ohlc")
+def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
+    from datetime import datetime
+    end_ymd = date.replace("-", "") if date else datetime.now().strftime("%Y%m%d")
+    rows = fetch_day_ohlc(code, end_ymd)
+    rows = rows[-5:]  # 최근 5 거래일
+    result = [
+        {
+            "date": r.get("stck_bsop_date", ""),
+            "o": _to_int(r.get("stck_oprc")),
+            "h": _to_int(r.get("stck_hgpr")),
+            "l": _to_int(r.get("stck_lwpr")),
+            "c": _to_int(r.get("stck_clpr")),
+            "v": _to_int(r.get("acml_vol")),
+        }
+        for r in rows
+    ]
+    return JSONResponse(result)
+
+
 # ---------------------------------------------------------------------------
 # OPEN DART (전자공시) — 공시 목록 자동 조회
 # 1) 종목코드 → 회사 고유번호(corp_code) 매핑 (corpCode.zip 최초 1회 다운로드·캐싱)

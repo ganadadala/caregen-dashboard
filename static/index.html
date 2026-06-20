@@ -206,14 +206,14 @@
   <!-- 차트 -->
   <section class="chartwrap">
     <div class="head">
-      <div class="t">Market <small>52-Week · 종가 추이</small></div>
+      <div class="t">Market <small>5일 봉차트 · OHLC</small></div>
       <div class="ksq">KOSDAQ <span data-k="ksq" contenteditable="true">1,034.03 (+4.98, +0.48%)</span></div>
     </div>
     <div class="chartbox"><canvas id="chart"></canvas></div>
     <div class="legend">
-      <span><i style="border-color:#0f7a66"></i> CG (케어젠)</span>
-      <span><i style="border-color:#b6bcc4;border-top-style:dashed"></i> KOSDAQ-Pharm Index</span>
-      <span><i style="border-color:#d92d20;border-top-style:dashed"></i> 현재가 기준선</span>
+      <span><i style="background:#d92d20;border-top:none;border-radius:2px;height:10px"></i> 양봉 (상승)</span>
+      <span><i style="background:#1c5fcc;border-top:none;border-radius:2px;height:10px"></i> 음봉 (하락)</span>
+      <span><i style="border-color:#d92d20;border-top-style:dashed"></i> 종가 기준선</span>
     </div>
   </section>
 
@@ -299,28 +299,59 @@ function saveAll(){const o={};eds().forEach(el=>o[el.dataset.k]=el.innerHTML);au
 function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;const o=JSON.parse(raw);eds().forEach(el=>{if(o[el.dataset.k]!=null)el.innerHTML=o[el.dataset.k];});autos().forEach(el=>{if(o["#"+el.id]!=null)el.innerHTML=o["#"+el.id];});}
 document.addEventListener("input",(e)=>{if(e.target.closest("[contenteditable]"))saveAll();});
 
-/* 차트 */
+/* 봉차트 */
 let chart=null;
-const hline={id:"hline",afterDatasetsDraw(c){
-  const ds=c.data.datasets[0];if(!ds||!ds.data.length)return;
-  const last=ds.data[ds.data.length-1];const y=c.scales.y.getPixelForValue(last);
-  const{left,right}=c.chartArea,ctx=c.ctx;
-  ctx.save();ctx.strokeStyle="#d92d20";ctx.setLineDash([5,4]);ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle="#d92d20";ctx.font="600 10px IBM Plex Mono";
-  ctx.fillText(Number(last).toLocaleString("ko-KR"),left+4,y-4);ctx.restore();
-}};
-function drawChart(stock,pharm){
-  const labels=stock.map(p=>p.date.slice(4,6)+"/"+p.date.slice(6,8));
-  const ds=[{label:"CG",data:stock.map(p=>p.close),borderColor:"#0f7a66",backgroundColor:"rgba(15,122,102,.06)",fill:true,borderWidth:1.8,pointRadius:0,tension:.18,yAxisID:"y"}];
-  if(pharm&&pharm.length){const pm=Object.fromEntries(pharm.map(p=>[p.date,p.close]));
-    ds.push({label:"Pharm",data:stock.map(p=>pm[p.date]??null),borderColor:"#b6bcc4",borderDash:[4,3],borderWidth:1.3,pointRadius:0,spanGaps:true,tension:.18,yAxisID:"y1"});}
+const candlePlugin={id:"candle",
+  beforeDatasetsDraw(c){
+    const{ctx,chartArea,scales:{x,y}}=c;const ohlc=c._ohlc;
+    if(!ohlc||!ohlc.length)return;
+    const n=ohlc.length;
+    const bw=n>1?Math.max((x.getPixelForValue(1)-x.getPixelForValue(0))*0.55,8):chartArea.width*0.1;
+    ohlc.forEach((d,i)=>{
+      const cx=x.getPixelForValue(i);
+      const oY=y.getPixelForValue(d.o),cY=y.getPixelForValue(d.c);
+      const hY=y.getPixelForValue(d.h),lY=y.getPixelForValue(d.l);
+      const col=d.c>=d.o?"#d92d20":"#1c5fcc";
+      ctx.save();ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(cx,hY);ctx.lineTo(cx,lY);ctx.stroke();
+      ctx.fillRect(cx-bw/2,Math.min(oY,cY),bw,Math.max(Math.abs(oY-cY),2));
+      ctx.restore();
+    });
+    // 마지막 종가 기준선
+    const last=ohlc[ohlc.length-1].c;const ly=y.getPixelForValue(last);
+    const{left,right}=chartArea;
+    ctx.save();ctx.strokeStyle="#d92d20";ctx.setLineDash([5,4]);ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(left,ly);ctx.lineTo(right,ly);ctx.stroke();
+    ctx.setLineDash([]);ctx.fillStyle="#d92d20";ctx.font="600 10px IBM Plex Mono";
+    ctx.fillText(Number(last).toLocaleString("ko-KR"),right-62,ly-4);ctx.restore();
+  }
+};
+function drawCandleChart(ohlc){
   if(chart)chart.destroy();
-  chart=new Chart($("chart"),{type:"line",data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,animation:false,
-    plugins:{legend:{display:false},tooltip:{mode:"index",intersect:false}},
-    scales:{x:{ticks:{color:"#9aa6a1",maxTicksLimit:11,font:{size:9}},grid:{display:false}},
-      y:{position:"left",ticks:{color:"#0f7a66",font:{size:9},callback:v=>Number(v).toLocaleString("ko-KR")},grid:{color:"rgba(21,36,32,.05)"},border:{display:false}},
-      y1:{position:"right",display:!!(pharm&&pharm.length),ticks:{color:"#9aa6a1",font:{size:9}},grid:{drawOnChartArea:false},border:{display:false}}}},plugins:[hline]});
+  chart=new Chart($("chart"),{
+    type:"bar",
+    data:{
+      labels:ohlc.map(d=>d.date.slice(4,6)+"/"+d.date.slice(6,8)),
+      datasets:[{data:ohlc.map(d=>[d.l,d.h]),backgroundColor:"rgba(0,0,0,.001)",borderColor:"transparent",borderWidth:0}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{mode:"index",intersect:false,callbacks:{
+          title:items=>{const d=ohlc[items[0].dataIndex];return d?d.date.slice(4,6)+"/"+d.date.slice(6,8):"";},
+          label:item=>{const d=ohlc[item.dataIndex];if(!d)return"";
+            return["시가 "+won(d.o)+"원","고가 "+won(d.h)+"원","저가 "+won(d.l)+"원","종가 "+won(d.c)+"원","거래량 "+Number(d.v).toLocaleString("ko-KR")+"주"];}
+        }}
+      },
+      scales:{
+        x:{ticks:{color:"#9aa6a1",font:{size:10}},grid:{display:false}},
+        y:{ticks:{color:"#0f7a66",font:{size:9},callback:v=>Number(v).toLocaleString("ko-KR")},grid:{color:"rgba(21,36,32,.05)"},border:{display:false}}
+      }
+    },
+    plugins:[candlePlugin]
+  });
+  chart._ohlc=ohlc;
 }
 function capT(eok){if(!eok)return null;return ((eok*1e8)/1e12).toFixed(2)+"T";}
 
@@ -387,8 +418,8 @@ async function load(){
     genAuto(p,iv);
     $("status").textContent="주가·시총 갱신 · 차트 로딩…";
 
-    const rc=await fetch("/api/chart?code="+encodeURIComponent(code)+"&days=365");
-    if(rc.ok){const cd=await rc.json();if(cd.stock&&cd.stock.length)drawChart(cd.stock,cd.pharm);}
+    const ro=await fetch("/api/ohlc?code="+encodeURIComponent(code)+"&date="+encodeURIComponent($("date").value));
+    if(ro.ok){const od=await ro.json();if(od.length)drawCandleChart(od);}
 
     // DART 공시 (키 없으면 조용히 건너뜀)
     try{
