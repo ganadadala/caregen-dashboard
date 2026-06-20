@@ -87,10 +87,11 @@
   .hdate .badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px;margin-top:6px;border:1px solid rgba(255,255,255,.2);}
   .hdate .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#7FFFC4;}
 
-  /* 히어로 지표 */
-  .hero{display:grid;grid-template-columns:1.15fr 2fr;gap:0;border-bottom:1px solid var(--line);}
-  .hero-price{padding:24px 28px;border-right:1px solid var(--line);}
-  .hero-price .eyebrow{margin-bottom:10px;}
+  /* 지표 + 차트 통합 (좌: 지표 / 우: 차트) */
+  .overview{display:grid;grid-template-columns:minmax(230px,300px) 1fr;border-bottom:1px solid var(--line);}
+  .ov-kpi{display:flex;flex-direction:column;border-right:1px solid var(--line);}
+  .hero-price{padding:18px 22px;border-bottom:1px solid var(--line);}
+  .hero-price .eyebrow{margin-bottom:8px;}
   .price-main{display:flex;align-items:baseline;gap:10px;}
   .price-main .v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:46px;line-height:.95;letter-spacing:-.02em;color:var(--ink);}
   .price-main .u{font-size:15px;color:var(--muted);font-weight:500;}
@@ -99,9 +100,9 @@
   .nxt{margin-top:12px;font-size:12.5px;color:var(--muted);}
   .nxt b{font-family:"IBM Plex Mono",monospace;color:var(--ink2);font-weight:600;}
 
-  .hero-stats{display:grid;grid-template-columns:repeat(3,1fr);}
-  .stat{padding:22px 22px;border-right:1px solid var(--line);}
-  .stat:last-child{border-right:0;}
+  .hero-stats{display:flex;flex-direction:column;}
+  .stat{padding:12px 22px;border-bottom:1px solid var(--line);}
+  .stat:last-child{border-bottom:0;}
   .stat .eyebrow{color:var(--muted);}
   .stat .big{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:26px;color:var(--ink);margin-top:10px;line-height:1.05;}
   .stat .big .u{font-size:12px;color:var(--muted);font-weight:500;}
@@ -109,13 +110,13 @@
   .stat .meta.dn{color:var(--down);} .stat .meta.up{color:var(--up);}
   .stat .sub2{font-size:11px;color:var(--muted);margin-top:2px;}
 
-  /* 차트 */
-  .chartwrap{padding:22px 28px;border-bottom:1px solid var(--line);}
+  /* 차트 (통합 우측 칸) */
+  .chartwrap{padding:18px 22px;display:flex;flex-direction:column;}
   .chartwrap .head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
   .chartwrap .head .t{font-size:15px;font-weight:800;color:var(--ink);}
   .chartwrap .head .t small{font-weight:500;color:var(--muted);font-size:12px;margin-left:6px;}
   .chartwrap .head .ksq{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink2);background:var(--raise);border:1px solid var(--line);padding:4px 10px;border-radius:8px;}
-  .chartbox{position:relative;height:240px;}
+  .chartbox{position:relative;height:240px;flex:1;min-height:210px;}
   .chart-info{position:absolute;top:4px;left:0;z-index:5;pointer-events:none;background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:10px;line-height:1.45;color:var(--ink2);font-family:"IBM Plex Mono",monospace;box-shadow:0 2px 8px rgba(21,36,32,.1);display:none;white-space:nowrap;}
   .chart-info.show{display:block;}
   .chart-info .crow{display:flex;gap:12px;}
@@ -214,7 +215,13 @@
   .pg-footer strong{color:var(--brand);font-weight:700;}
 
   @media (max-width:760px){
-    .hero{grid-template-columns:1fr;} .hero-price{border-right:0;border-bottom:1px solid var(--line);}
+    /* 통합 레이아웃: 위=지표 / 아래=차트로 전환 */
+    .overview{grid-template-columns:1fr;}
+    .ov-kpi{border-right:0;border-bottom:1px solid var(--line);}
+    .hero-stats{flex-direction:row;}
+    .hero-stats .stat{flex:1;border-bottom:0;border-right:1px solid var(--line);}
+    .hero-stats .stat:last-child{border-right:0;}
+    .chartbox{flex:none;height:220px;min-height:0;}
     .work{grid-template-columns:1fr;} .htitle h1{font-size:18px;}
     .hlogo{padding:16px 20px;} .hlogo-mark{width:40px;height:40px;}
     .hlogo-text .brand{font-size:15px;} header.rpt{flex-wrap:wrap;}
@@ -230,18 +237,18 @@
     /* 헤더 하위 블록 여백 축소 */
     .hlogo{padding:10px 24px 10px 28px;} .htitle{padding:10px 22px;} .hdate{padding:10px 28px 10px 0;}
     .htitle h1{font-size:16px;}
-    /* 섹션 외곽 여백 축소 (화면 22~24px → 인쇄 7px) */
-    .hero-price{padding:7px 14px;} .stat{padding:7px 14px;}
+    /* 섹션 외곽 여백 축소 (화면 22~24px → 인쇄) */
+    .hero-price{padding:6px 12px;} .stat{padding:5px 12px;}
     .chartwrap,.work,.flow,.newsbrf{padding:7px 14px;}
     .pg-footer{padding:6px 16px;}
     /* 큰 글씨 축소 → 행 높이 감소 */
-    .price-main .v{font-size:24px;} .stat .big{font-size:17px;}
+    .price-main .v{font-size:22px;} .stat .big{font-size:16px;} .stat .meta,.stat .sub2{margin-top:2px;}
     .chartwrap .head{margin-bottom:6px;} .chartwrap .head .t{font-size:12px;}
     .flow .tag h2,.newsbrf .nbtag h2{font-size:13px;}
     .hlogo-img-wrap,.hlogo-img{width:38px;height:38px;}
-    /* 차트 높이 축소 + 캔버스가 박스를 넘쳐 아래 메뉴와 겹치지 않도록 강제 제약 */
-    .chartbox{height:120px;overflow:hidden;}
-    .chartbox canvas{height:120px!important;max-height:120px!important;width:100%!important;}
+    /* 차트: 우측 칸이 좌측 지표 높이에 맞춰 채워지도록 + 넘침 방지 */
+    .overview .chartbox{flex:1;height:auto;min-height:0;overflow:hidden;}
+    .chartbox canvas{max-height:100%!important;width:100%!important;}
     .legend{margin-top:5px;} .chart-info{display:none!important;}
     /* 내부 여백·간격 정리 */
     .wcard{padding:9px 11px;} .wcard .tag{margin-bottom:5px;} .wcard .body{font-size:11px;line-height:1.5;}
@@ -290,8 +297,9 @@
     </div>
   </header>
 
-  <!-- 히어로 지표 -->
-  <section class="hero">
+  <!-- 지표 + 차트 통합 (좌: 지표 / 우: 차트) -->
+  <section class="overview">
+    <div class="ov-kpi">
     <div class="hero-price">
       <div class="eyebrow">At close · KRX</div>
       <div class="price-main"><span class="v" id="closeKrx" contenteditable="true">76,100</span><span class="u">원</span></div>
@@ -318,10 +326,10 @@
         <span class="sub2">'26.5월말 <span data-k="frgnPrev" contenteditable="true">3.92%</span></span>
       </div>
     </div>
-  </section>
+    </div><!-- /ov-kpi -->
 
-  <!-- 차트 -->
-  <section class="chartwrap">
+    <!-- 차트 -->
+    <div class="chartwrap">
     <div class="head">
       <div class="t">Market <small>일봉 5일 · OHLC</small></div>
       <div class="ksq">KOSDAQ <span data-k="ksq" contenteditable="true">1,034.03 (+4.98, +0.48%)</span></div>
@@ -332,6 +340,7 @@
       <span><i style="background:#1c5fcc;border-top:none;border-radius:2px;height:10px"></i> 음봉 (하락)</span>
       <span><i style="border-color:#d92d20;border-top-style:dashed"></i> 종가 기준선</span>
     </div>
+    </div><!-- /chartwrap -->
   </section>
 
   <!-- 업무 3패널 -->
