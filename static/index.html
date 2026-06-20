@@ -87,11 +87,21 @@
   .hdate .badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px;margin-top:6px;border:1px solid rgba(255,255,255,.2);}
   .hdate .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#7FFFC4;}
 
+  /* 헤더 우측 주가 블록 */
+  .hprice{padding:20px 22px;border-right:1px solid rgba(255,255,255,.18);flex-shrink:0;}
+  .hp-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:4px;}
+  .hprice .price-main .v{color:#fff;font-size:30px;}
+  .hprice .price-main .u{color:rgba(255,255,255,.7);}
+  .hprice .chip{margin-top:6px;font-size:12px;padding:4px 9px;}
+  .hprice .chip.up{background:rgba(217,45,32,.22);color:#ffcfcc;}
+  .hprice .chip.down{background:rgba(28,95,204,.22);color:#c8d8ff;}
+  .hprice .chip.flat{background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);}
+  .hprice .nxt{color:rgba(255,255,255,.65);font-size:11px;margin-top:5px;}
+  .hprice .nxt b{color:#fff;}
+
   /* 지표 + 차트 통합 (좌: 지표 / 우: 차트) */
   .overview{display:grid;grid-template-columns:minmax(230px,300px) 1fr;border-bottom:1px solid var(--line);}
   .ov-kpi{display:flex;flex-direction:column;border-right:1px solid var(--line);}
-  .hero-price{padding:18px 22px;border-bottom:1px solid var(--line);}
-  .hero-price .eyebrow{margin-bottom:8px;}
   .price-main{display:flex;align-items:baseline;gap:10px;}
   .price-main .v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:46px;line-height:.95;letter-spacing:-.02em;color:var(--ink);}
   .price-main .u{font-size:15px;color:var(--muted);font-weight:500;}
@@ -225,6 +235,7 @@
     .work{grid-template-columns:1fr;} .htitle h1{font-size:18px;}
     .hlogo{padding:16px 20px;} .hlogo-mark{width:40px;height:40px;}
     .hlogo-text .brand{font-size:15px;} header.rpt{flex-wrap:wrap;}
+    .hprice{border-right:none;border-top:1px solid rgba(255,255,255,.18);width:100%;padding:12px 20px;}
     .hdate{padding:0 20px 16px;text-align:left;}
   }
   @media print{
@@ -238,11 +249,13 @@
     .hlogo{padding:10px 24px 10px 28px;} .htitle{padding:10px 22px;} .hdate{padding:10px 28px 10px 0;}
     .htitle h1{font-size:16px;}
     /* 섹션 외곽 여백 축소 (화면 22~24px → 인쇄) */
-    .hero-price{padding:6px 12px;} .stat{padding:5px 12px;}
+    .stat{padding:5px 12px;}
     .chartwrap,.work,.flow,.newsbrf{padding:7px 14px;}
     .pg-footer{padding:6px 16px;}
+    /* 헤더 주가 블록 인쇄 압축 */
+    .hprice{padding:5px 10px;} .hprice .price-main .v{font-size:18px;}
     /* 큰 글씨 축소 → 행 높이 감소 */
-    .price-main .v{font-size:22px;} .stat .big{font-size:16px;} .stat .meta,.stat .sub2{margin-top:2px;}
+    .stat .big{font-size:16px;} .stat .meta,.stat .sub2{margin-top:2px;}
     .chartwrap .head{margin-bottom:6px;} .chartwrap .head .t{font-size:12px;}
     .flow .tag h2,.newsbrf .nbtag h2{font-size:13px;}
     .hlogo-img-wrap,.hlogo-img{width:38px;height:38px;}
@@ -291,6 +304,12 @@
       <div class="kicker">Daily Equity Briefing</div>
       <h1>주식 일일 동향 브리핑</h1>
     </div>
+    <div class="hprice">
+      <div class="hp-eyebrow">At close · KRX</div>
+      <div class="price-main"><span class="v" id="closeKrx" contenteditable="true">76,100</span><span class="u">원</span></div>
+      <div class="chip flat mono" id="chip">전일 比 —</div>
+      <div class="nxt">NXT <b class="mono" id="closeNxt" contenteditable="true">76,200</b> 원</div>
+    </div>
     <div class="hdate">
       <div class="d" id="rptDate">2026-06-20</div>
       <span class="badge" id="closeBadge">장 마감 기준</span>
@@ -300,12 +319,6 @@
   <!-- 지표 + 차트 통합 (좌: 지표 / 우: 차트) -->
   <section class="overview">
     <div class="ov-kpi">
-    <div class="hero-price">
-      <div class="eyebrow">At close · KRX</div>
-      <div class="price-main"><span class="v" id="closeKrx" contenteditable="true">76,100</span><span class="u">원</span></div>
-      <div class="chip flat mono" id="chip">전일 比 —</div>
-      <div class="nxt">NXT <b class="mono" id="closeNxt" contenteditable="true">76,200</b> 원</div>
-    </div>
     <div class="hero-stats">
       <div class="stat">
         <div class="eyebrow">Market Cap</div>
