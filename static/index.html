@@ -116,7 +116,9 @@
   .chartwrap .head .t small{font-weight:500;color:var(--muted);font-size:12px;margin-left:6px;}
   .chartwrap .head .ksq{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink2);background:var(--raise);border:1px solid var(--line);padding:4px 10px;border-radius:8px;}
   .chartbox{position:relative;height:240px;}
-  .legend{display:flex;gap:18px;margin-top:10px;font-size:11px;color:var(--muted);}
+  .chart-info{min-height:20px;padding:5px 2px 2px;font-size:11px;color:var(--ink2);font-family:"IBM Plex Mono",monospace;letter-spacing:.01em;display:flex;flex-wrap:wrap;gap:0 14px;}
+  .chart-info b{color:var(--ink);margin-right:4px;}
+  .legend{display:flex;gap:18px;margin-top:6px;font-size:11px;color:var(--muted);}
   .legend span{display:inline-flex;align-items:center;gap:6px;}
   .legend i{width:18px;height:0;border-top:2px solid;}
 
@@ -282,6 +284,7 @@
       <div class="ksq">KOSDAQ <span data-k="ksq" contenteditable="true">1,034.03 (+4.98, +0.48%)</span></div>
     </div>
     <div class="chartbox"><canvas id="chart"></canvas></div>
+    <div id="chartInfo" class="chart-info"></div>
     <div class="legend">
       <span><i style="background:#d92d20;border-top:none;border-radius:2px;height:10px"></i> 양봉 (상승)</span>
       <span><i style="background:#1c5fcc;border-top:none;border-radius:2px;height:10px"></i> 음봉 (하락)</span>
@@ -410,10 +413,20 @@ function drawCandleChart(ohlc){
       responsive:true,maintainAspectRatio:false,animation:false,
       plugins:{
         legend:{display:false},
-        tooltip:{mode:"index",intersect:false,callbacks:{
-          title:items=>{const d=ohlc[items[0].dataIndex];return d?d.date.slice(4,6)+"/"+d.date.slice(6,8):"";},
-          label:item=>{const d=ohlc[item.dataIndex];if(!d)return"";
-            return["시가 "+won(d.o)+"원","고가 "+won(d.h)+"원","저가 "+won(d.l)+"원","종가 "+won(d.c)+"원","거래량 "+Number(d.v).toLocaleString("ko-KR")+"주"];}
+        tooltip:{enabled:false,external(ctx){
+          const el=document.getElementById("chartInfo");if(!el)return;
+          const{tooltip}=ctx;
+          if(!tooltip.dataPoints||tooltip.opacity===0){el.innerHTML="";return;}
+          const d=ohlc[tooltip.dataPoints[0].dataIndex];if(!d)return;
+          const date=d.date.slice(4,6)+"/"+d.date.slice(6,8);
+          const up=d.c>=d.o;
+          const clr=up?"#d92d20":"#1c5fcc";
+          el.innerHTML=`<b>${date}</b>`+
+            `<span>시가 <span style="color:${clr}">${won(d.o)}</span></span>`+
+            `<span>고가 <span style="color:${clr}">${won(d.h)}</span></span>`+
+            `<span>저가 <span style="color:${clr}">${won(d.l)}</span></span>`+
+            `<span>종가 <span style="color:${clr}">${won(d.c)}</span></span>`+
+            `<span style="color:var(--muted)">거래량 ${Number(d.v).toLocaleString("ko-KR")}주</span>`;
         }}
       },
       scales:{
