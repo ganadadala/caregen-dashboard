@@ -576,15 +576,41 @@ _BLOCKED_SOURCE_KW = [
     "daum cafe", "다음 카페",
 ]
 
+
+def _news_window_start() -> "datetime":
+    """한국 영업일 기준 뉴스 수집 시작 시각(KST) 반환.
+
+    화~금 : 전일 오후 4시
+    월    : 직전 금요일 오후 4시
+    공휴일 연속 시 : 연휴 직전 마지막 영업일 오후 4시
+    """
+    import holidays as kor_holidays
+    from datetime import datetime, timedelta, timezone, date
+
+    kst = timezone(timedelta(hours=9))
+    now_kst = datetime.now(kst)
+    today = now_kst.date()
+    kr_holidays = kor_holidays.KR(years=[today.year - 1, today.year, today.year + 1])
+
+    def is_biz_day(d: date) -> bool:
+        return d.weekday() < 5 and d not in kr_holidays  # 월~금 & 비공휴일
+
+    # 오늘 포함하지 않고 가장 최근 영업일을 찾아 거슬러 올라감
+    cursor = today - timedelta(days=1)
+    while not is_biz_day(cursor):
+        cursor -= timedelta(days=1)
+
+    return datetime(cursor.year, cursor.month, cursor.day, 16, 0, 0, tzinfo=kst)
+
 def _is_good_source(source: str) -> bool:
     sl = source.lower()
     return not any(kw in sl for kw in _BLOCKED_SOURCE_KW)
 
 
-def fetch_gnews(query: str, max_items: int = 15) -> list:
+def fetch_gnews(query: str, max_items: int = 15, after_dt=None) -> list:
     """Google News RSS에서 헤드라인+스니펫 수집. 실패 시 빈 리스트 반환.
-    각 항목: {"text": "[제목]...", "source": "매체명", "date": "YYYY-MM-DD"}
-    날짜 범위는 query에 'when:1d' 등을 포함해 RSS 레벨에서 제한하는 것이 신뢰성 높음.
+    각 항목: {"text": "[제목]...", "source": "매체명", "date": "YYYY-MM-DD", "pub_dt": datetime}
+    after_dt: timezone-aware datetime — 이 시각 이후 기사만 포함 (pubDate 파싱 실패 시 포함)
     """
     from email.utils import parsedate_to_datetime
     from datetime import datetime, timezone, timedelta
@@ -616,14 +642,19 @@ def fetch_gnews(query: str, max_items: int = 15) -> list:
             desc = re.sub(r"<[^>]+>", " ", desc).strip()
             desc = re.sub(r"\s+", " ", desc)[:300]
 
+            pub_dt = None
             date_str = ""
             pub_raw = item.findtext("pubDate") or ""
             if pub_raw:
                 try:
-                    dt = parsedate_to_datetime(pub_raw).astimezone(kst)
-                    date_str = dt.strftime("%Y-%m-%d")
+                    pub_dt = parsedate_to_datetime(pub_raw).astimezone(kst)
+                    date_str = pub_dt.strftime("%Y-%m-%d")
                 except Exception:
                     pass
+
+            # 시간 범위 필터: pubDate 파싱 성공했을 때만 적용 (실패 시 포함)
+            if after_dt and pub_dt and pub_dt < after_dt:
+                continue
 
             if t:
                 items.append({
@@ -648,11 +679,17 @@ def news_summary(force: bool = False):
     if not force and time.time() - _news_cache["ts"] < NEWS_CACHE_TTL and _news_cache["data"]:
         return JSONResponse(_news_cache["data"])
 
+    # 뉴스 수집 시작 시각 (한국 영업일 기준: 가장 최근 영업일 오후 4시 KST)
+    win_start = _news_window_start()
+    # Google News after: 파라미터용 날짜 문자열 (시작일 하루 전까지 허용해 경계값 보완)
+    after_date = (win_start.date()).strftime("%Y-%m-%d")
+
     def _collect(queries: list, per_query: int = 5, cap: int = 15) -> list:
         """여러 쿼리를 순서대로 수집, 제목 중복 제거 후 cap개까지 반환."""
         seen, result = set(), []
         for q in queries:
-            for item in fetch_gnews(q, max_items=per_query):
+            full_q = f"{q} after:{after_date}"
+            for item in fetch_gnews(full_q, max_items=per_query, after_dt=win_start):
                 title = item["text"].split("\n")[0]
                 if title not in seen:
                     seen.add(title)
@@ -661,23 +698,31 @@ def news_summary(force: bool = False):
                 break
         return result
 
-    # 매크로: 지수·거시·해외 3개 쿼리로 폭넓게 수집
+    # 매크로: 지수·거시·해외 3개 쿼리 (OR 조건으로 폭넓게)
     macro_hl = _collect([
-        "코스피 코스닥 when:1d",
-        "금리 환율 경기 when:1d",
-        "미국증시 나스닥 달러 when:1d",
+        "코스피 OR 코스닥",
+        "금리 OR 환율 OR 경기",
+        "미국증시 OR 나스닥",
     ])
 
-    # 섹터: "코스닥" 제거해 바이오·제약 전반 수집
+    # 섹터: 바이오·제약 (OR 조건)
     sector_hl = _collect([
-        "바이오 제약 임상 when:1d",
-        "신약 의약품 허가 when:1d",
+        "바이오 OR 제약 OR 임상",
+        "신약 OR 의약품 허가",
     ])
 
-    # 케어젠: 당일 우선, 없으면 최근 30일 폴백
-    company_hl = _collect(["케어젠 when:1d", "케어젠 214370 when:1d"], per_query=10)
+    # 케어젠: 영업일 윈도우 내 기사 우선, 없으면 after 없이 폴백
+    company_hl = _collect(["케어젠", "케어젠 214370"], per_query=10)
     if not company_hl:
-        company_hl = _collect(["케어젠 when:30d", "케어젠 214370 when:30d"], per_query=10)
+        seen_cg: set = set()
+        for q in ["케어젠", "케어젠 214370"]:
+            for item in fetch_gnews(q, max_items=10):
+                title = item["text"].split("\n")[0]
+                if title not in seen_cg:
+                    seen_cg.add(title)
+                    company_hl.append(item)
+            if len(company_hl) >= 10:
+                break
 
     today_str = time.strftime("%Y-%m-%d")
     macro_lines = "\n".join(i["text"] for i in macro_hl) if macro_hl else "(없음)"
