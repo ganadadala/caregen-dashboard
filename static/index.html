@@ -81,7 +81,7 @@
   .hlogo-text .brand-sub{font-size:9.5px;font-weight:500;color:rgba(255,255,255,.72);letter-spacing:.04em;margin-top:3px;}
   .htitle{flex:1;padding:20px 22px;}
   .htitle .kicker{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:4px;}
-  .htitle h1{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:700;letter-spacing:.01em;color:#ffffff;line-height:1.1;}
+  .htitle h1{font-family:"Pretendard",system-ui,sans-serif;font-size:22px;font-weight:700;letter-spacing:-.01em;color:#ffffff;line-height:1.1;}
   .htitle .sub{font-size:12px;color:rgba(255,255,255,.65);margin-top:5px;}
   .hdate{text-align:right;padding:20px 28px 20px 0;}
   .hdate .d{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:17px;color:#fff;}
@@ -146,7 +146,7 @@
     padding:2px 8px;border-radius:20px;margin-left:4px;}
 
   /* 업무 3패널 */
-  .work{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:22px 28px;border-bottom:1px solid var(--line);}
+  .work{display:grid;grid-template-columns:1fr;gap:14px;padding:22px 28px;border-bottom:1px solid var(--line);}
   .wcard{background:var(--raise);border:1px solid var(--line);border-radius:12px;padding:15px 16px;border-top:3px solid var(--accent,var(--brand));}
   .wcard .tag{display:flex;align-items:center;gap:7px;margin-bottom:10px;}
   .wcard .tag .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--brand));}
@@ -245,9 +245,10 @@
     .toolbar,.sp,.err{display:none!important;}
     .page{box-shadow:none;border:none;max-width:none;border-radius:0;}
     [contenteditable]:focus{outline:none;}
-    header.rpt{background:#2A9D68!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:visible;}
+    header.rpt{background:#2A9D68!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:visible;flex-wrap:wrap;}
     /* 헤더 하위 블록 여백 축소 */
-    .hlogo{padding:10px 24px 10px 28px;} .htitle{padding:10px 22px;} .hdate{padding:10px 28px 10px 0;}
+    .hlogo{padding:10px 24px 10px 28px;} .htitle{padding:10px 22px;} .hdate{padding:5px 20px 8px;text-align:left;}
+    .hprice{flex:0 0 100%;border-right:none;border-top:1px solid rgba(255,255,255,.15);}
     .htitle h1{font-size:16px;}
     /* 섹션 외곽 여백 축소 (화면 22~24px → 인쇄) */
     .stat{padding:5px 12px;}
