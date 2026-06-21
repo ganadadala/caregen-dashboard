@@ -145,7 +145,7 @@
     padding:2px 8px;border-radius:20px;margin-left:4px;}
 
   /* 업무 3패널 */
-  .work{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:22px 28px;border-bottom:1px solid var(--line);}
+  .work{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:22px 28px;border-bottom:1px solid var(--line);}
   .wcard{background:var(--raise);border:1px solid var(--line);border-radius:12px;padding:15px 16px;border-top:3px solid var(--accent,var(--brand));}
   .wcard .tag{display:flex;align-items:center;gap:7px;margin-bottom:10px;}
   .wcard .tag .dot{width:7px;height:7px;border-radius:50%;background:var(--accent,var(--brand));}
@@ -232,7 +232,7 @@
     .hero-stats .stat{flex:1;border-bottom:0;border-right:1px solid var(--line);}
     .hero-stats .stat:last-child{border-right:0;}
     .chartbox{flex:none;height:220px;min-height:0;}
-    .work{grid-template-columns:1fr;} .htitle h1{font-size:18px;}
+    .htitle h1{font-size:18px;}
     .hlogo{padding:16px 20px;} .hlogo-mark{width:40px;height:40px;}
     .hlogo-text .brand{font-size:15px;} header.rpt{flex-wrap:wrap;}
     .hprice{border-right:none;border-top:1px solid rgba(255,255,255,.18);width:100%;padding:12px 20px;}
@@ -352,6 +352,17 @@
 
   <!-- 업무 3패널 -->
   <section class="work">
+    <div class="wcard cd">
+      <div class="tag"><span class="dot"></span><span class="nm">공시</span><span class="en">Corporate Disclosure</span></div>
+      <div class="disc" id="discList"><div class="disc-empty">조회 시 DART 공시가 표시됩니다.</div></div>
+      <div class="memo-label">후속업무 메모</div>
+      <div class="body" data-k="cd" contenteditable="true">
+        <p>1. KRX 경위서 관련 후속업무 F/U</p>
+        <p class="ind">- 특이사항 없음</p>
+        <p>2. 중간배당 기준일 결정 공시 후속 대응</p>
+        <p class="ind">- 예탁결제원, 중간배당 기준일 설정 공문 접수</p>
+      </div>
+    </div>
     <div class="wcard ir">
       <div class="tag"><span class="dot"></span><span class="nm">투자자 관계</span><span class="en">Investor Relations</span></div>
       <div class="autoline" id="irAuto">
@@ -365,17 +376,6 @@
         <p class="ind">- '26년 IR팀 사업계획 등 진행 경과 점검</p>
         <p class="ind">- IR Book 전체 구성 및 내용 점검</p>
         <p class="ind">- 업무분장표 점검</p>
-      </div>
-    </div>
-    <div class="wcard cd">
-      <div class="tag"><span class="dot"></span><span class="nm">공시</span><span class="en">Corporate Disclosure</span></div>
-      <div class="disc" id="discList"><div class="disc-empty">조회 시 DART 공시가 표시됩니다.</div></div>
-      <div class="memo-label">후속업무 메모</div>
-      <div class="body" data-k="cd" contenteditable="true">
-        <p>1. KRX 경위서 관련 후속업무 F/U</p>
-        <p class="ind">- 특이사항 없음</p>
-        <p>2. 중간배당 기준일 결정 공시 후속 대응</p>
-        <p class="ind">- 예탁결제원, 중간배당 기준일 설정 공문 접수</p>
       </div>
     </div>
     <div class="wcard pr">
