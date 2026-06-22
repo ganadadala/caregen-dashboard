@@ -627,6 +627,16 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
 # [진단/임시] 업종지수 원본 응답 필드명 확인용. fetch_index_closes가 빈 결과를
 # 내는 원인(날짜/종가 필드명)을 파악한다. 확정 후 제거.
 # ---------------------------------------------------------------------------
+@app.get("/api/cfg")
+def cfg():
+    # [임시] 배포 환경의 실제 설정값 확인용
+    return JSONResponse({
+        "PHARM_CODE": PHARM_CODE,
+        "KOSDAQ_PHARM_CODE_env": os.getenv("KOSDAQ_PHARM_CODE"),
+        "DEFAULT_CODE": DEFAULT_CODE,
+    })
+
+
 @app.get("/api/idx-raw")
 def idx_raw(code: str = ""):
     from datetime import datetime, timedelta
