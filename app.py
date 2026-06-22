@@ -268,7 +268,7 @@ def _save_rank_cache(data: dict):
 def _rank_change(today: "int | None", key: str) -> int:
     """오늘 순위 - 어제 순위. 양수=악화(▼), 음수=개선(▲), 0=동일(-)."""
     from datetime import datetime as _dt, timezone as _tz, timedelta as _td
-    _kst = _tz(timedelta(hours=9))
+    _kst = _tz(_td(hours=9))
     cache = _load_rank_cache()
     today_str = _dt.now(tz=_kst).strftime("%Y%m%d")
     yesterday = cache.get(f"{key}_rank")
