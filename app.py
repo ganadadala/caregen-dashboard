@@ -567,8 +567,10 @@ def fetch_index_closes(code: str, days: int = 20) -> list:
     )
     out = []
     for row in data.get("output2", []) or []:
-        d = row.get("stck_bsop_date")
-        c = row.get("bstp_nmix_prpr")
+        d = (row.get("stck_bsop_date") or row.get("bsop_date")
+             or row.get("stck_bsop_ymd") or row.get("bsop_ymd"))
+        c = (row.get("bstp_nmix_prpr") or row.get("stck_clpr")
+             or row.get("nmix_prpr") or row.get("prpr"))
         if d and c:
             out.append({"date": d, "close": _to_float(c)})
     return sorted(out, key=lambda x: x["date"])
@@ -619,6 +621,38 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
         result[-1]["p_err"] = pharm_err  # [임시] 제약지수 조회 실패 원인 진단용
         result[-1]["pharm_code"] = PHARM_CODE
     return JSONResponse(result)
+
+
+# ---------------------------------------------------------------------------
+# [진단/임시] 업종지수 원본 응답 필드명 확인용. fetch_index_closes가 빈 결과를
+# 내는 원인(날짜/종가 필드명)을 파악한다. 확정 후 제거.
+# ---------------------------------------------------------------------------
+@app.get("/api/idx-raw")
+def idx_raw(code: str = ""):
+    from datetime import datetime, timedelta
+
+    c = code or PHARM_CODE
+    out = {"code": c}
+    try:
+        data = _get(
+            "/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice",
+            "FHKUP03500100",
+            {
+                "FID_COND_MRKT_DIV_CODE": "U",
+                "FID_INPUT_ISCD": c,
+                "FID_INPUT_DATE_1": (datetime.now() - timedelta(days=20)).strftime("%Y%m%d"),
+                "FID_INPUT_DATE_2": datetime.now().strftime("%Y%m%d"),
+                "FID_PERIOD_DIV_CODE": "D",
+            },
+        )
+        rows = data.get("output2") or []
+        out["output2_len"] = len(rows)
+        out["output2_first"] = rows[0] if rows else None
+        out["output2_last"] = rows[-1] if rows else None
+        out["parsed"] = fetch_index_closes(c, days=20)[-3:]
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}: {e}"
+    return JSONResponse(out)
 
 
 # ---------------------------------------------------------------------------
