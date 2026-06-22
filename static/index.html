@@ -372,7 +372,8 @@
         <p class="ind">- 조회 시 자동 생성</p>
       </div>
       <div class="body" data-k="ir2" contenteditable="true">
-        <p class="ind">- CFD 잔고(6/12): 26.8주 (207.8억, 변동 없음)</p>
+        <p class="ind">- 공매도 순잔고(T-2): 수기입력</p>
+        <p class="ind">- CFD 잔고: 수기입력</p>
         <p>2. IR팀 업무 공유</p>
       </div>
     </div>
@@ -526,20 +527,15 @@ function flowWord(f,o){
   if(o<0)return "기관 순매도";
   return "수급 혼조";
 }
-function genAuto(p,iv,sb){
+function genAuto(p,iv){
   const prev=p.current-p.diff;
   const hp=prev?((p.high-prev)/prev*100):0;
   const lp=prev?((p.low-prev)/prev*100):0;
   const rng=prev?((p.high-p.low)/prev*100):0;
-  const sbLine=sb
-    ? `<p class="ind">- 공매도 순잔고(T-2, ${sb.date}): ${(sb.balance_qty/10000).toFixed(1)}만주`+
-      (sb.balance_diff!=null?` (${sb.balance_diff>=0?"+":""}${(sb.balance_diff/10000).toFixed(1)}만주)`:"")+"<span class='autopill'>AUTO</span></p>"
-    : "";
   $("irAuto").innerHTML=
     `<p>1. 주가 모니터링 (KRX 시황)<span class="autopill">AUTO</span></p>`+
     `<p class="ind">- 전일 比 ${fmtPct(p.rate)} ${dirWord(p.rate)} 마감 · 변동폭 ${rng.toFixed(2)}%</p>`+
-    `<p class="ind">※ <span class="up">高 ${won(p.high)} (${fmtPct(hp)})</span> · <span class="down">低 ${won(p.low)} (${fmtPct(lp)})</span></p>`+
-    sbLine;
+    `<p class="ind">※ <span class="up">高 ${won(p.high)} (${fmtPct(hp)})</span> · <span class="down">低 ${won(p.low)} (${fmtPct(lp)})</span></p>`;
   const md=(p.price_date&&p.price_date.length===8)?(p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8)+" "):"";
   $("narCaregen").innerHTML=
     `<span class="lead"></span>${md}케어젠은 종가 ${won(p.current)}원, 전일 比 ${fmtPct(p.rate)} ${dirWord(p.rate)} 마감. `+
@@ -596,7 +592,7 @@ async function load(){
     const chip=$("chip");const sign=p.rate>0?"▲":p.rate<0?"▼":"―";
     chip.textContent=`전일 比 ${sign} ${won(Math.abs(p.diff))} (${p.rate>0?"+":""}${p.rate.toFixed(2)}%)`;
     chip.className="chip mono "+(p.rate>0?"up":p.rate<0?"down":"flat");
-    genAuto(p,iv,null);
+    genAuto(p,iv);
     renderInvTable(d.investor_days);
     $("status").textContent="주가·시총 갱신 · 차트 로딩…";
 
@@ -616,11 +612,8 @@ async function load(){
       if(ru.ok){const u=await ru.json();setUs("usDow",u.DOW);setUs("usNas",u.NASDAQ);setUs("usSp",u.SP500);}
     }catch(e){/* 무시 */}
 
-    // 공매도 잔고 (KRX, T+2)
-    try{
-      const rs=await fetch("/api/short-balance?code="+encodeURIComponent(code));
-      if(rs.ok){const sb=await rs.json();genAuto(p,iv,sb);}
-    }catch(e){/* 무시 */}
+    // 공매도 잔고: KRX 공식 OpenAPI 미제공 + data.krx.co.kr 해외IP 차단으로
+    // Render에서 자동조회 불가 → IR 카드에서 수기입력으로 운영
 
     $("status").textContent="갱신 완료 · "+new Date().toLocaleTimeString("ko-KR");
     saveAll();
