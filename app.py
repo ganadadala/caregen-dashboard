@@ -1102,5 +1102,16 @@ def health():
     return {"ok": True, "configured": bool(APPKEY and APPSECRET), "default_code": DEFAULT_CODE}
 
 
+@app.get("/api/server-ip")
+def server_ip():
+    """Render 서버의 공인 IP 반환 — KRX OpenAPI 허용 IP 등록에 필요"""
+    try:
+        r = requests.get("https://api.ipify.org?format=json", timeout=6)
+        ip = r.json().get("ip", "unknown")
+    except Exception as e:
+        ip = f"조회 실패: {e}"
+    return JSONResponse({"server_ip": ip, "note": "이 IP를 KRX OpenAPI 허용 목록에 등록하세요 (openapi.krx.co.kr → 마이페이지 → API 신청 내역)"})
+
+
 # 정적 대시보드 서빙 (맨 마지막에 마운트)
 app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
