@@ -30,8 +30,9 @@ from starlette.responses import Response
 
 load_dotenv()
 
-AUTH_USER = os.getenv("AUTH_USERNAME", "caregen")
-AUTH_PASS = os.getenv("AUTH_PASSWORD", "")
+# 환경변수에 실수로 끼어든 양끝 공백·줄바꿈 제거 (Render 대시보드 붙여넣기 시 흔함)
+AUTH_USER = os.getenv("AUTH_USERNAME", "caregen").strip()
+AUTH_PASS = os.getenv("AUTH_PASSWORD", "").strip()
 
 BASE_URL = os.getenv("KIS_BASE_URL", "https://openapi.koreainvestment.com:9443")
 APPKEY = os.getenv("KIS_APPKEY", "")
