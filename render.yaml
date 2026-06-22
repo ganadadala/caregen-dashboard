@@ -26,6 +26,9 @@ services:
         sync: false
       - key: KOSDAQ_PHARM_CODE
         sync: false
+      # KRX OpenAPI 인증키 (시가총액 순위 진단/조회용)
+      - key: KRX_API_KEY
+        sync: false
       # 접근 비밀번호 (Basic Auth)
       - key: AUTH_USERNAME
         value: "caregen"

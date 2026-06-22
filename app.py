@@ -405,6 +405,108 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
 
 
 # ---------------------------------------------------------------------------
+# [진단/임시] KRX OpenAPI 접속 테스트. Render(미국)에서 openapi.krx.co.kr이
+# 차단되는지, 주식 일별매매정보로 KRX 통합 순위 계산이 가능한지 확정한다.
+# 키는 환경변수 KRX_API_KEY로만 주입(하드코딩 금지). 확정 후 제거 예정.
+# ---------------------------------------------------------------------------
+@app.get("/api/krx-probe")
+def krx_probe(code: str = DEFAULT_CODE, basDd: str = ""):
+    from datetime import datetime as _dt, timedelta as _td
+
+    krx_key = os.getenv("KRX_API_KEY", "").strip()
+    out = {"code": code, "key_set": bool(krx_key)}
+    if not krx_key:
+        out["hint"] = "Render 환경변수 KRX_API_KEY 미설정"
+        return JSONResponse(out)
+
+    # 기준일: 미지정 시 최근 평일(주말이면 직전 금요일)
+    if not basDd:
+        d = _dt.now() - _td(days=1)
+        while d.weekday() >= 5:  # 5=토,6=일
+            d -= _td(days=1)
+        basDd = d.strftime("%Y%m%d")
+    out["basDd"] = basDd
+
+    base = "https://openapi.krx.co.kr/svc/apis/sto"
+    targets = {"kospi": "stk_bydd_trd", "kosdaq": "ksq_bydd_trd"}
+    all_rows = []
+
+    def _cap(row):
+        # 시총 필드 추정(MKTCAP) + 방어적으로 'CAP' 포함 키 탐색
+        for k in ("MKTCAP", "MKT_CAP"):
+            if k in row:
+                return _to_int(row.get(k))
+        for k, v in row.items():
+            if "CAP" in k.upper():
+                return _to_int(v)
+        return 0
+
+    def _isucd(row):
+        for k in ("ISU_CD", "ISU_SRT_CD", "SHRN_ISU_CD"):
+            if k in row:
+                return str(row.get(k, ""))
+        return ""
+
+    out["calls"] = {}
+    for label, path in targets.items():
+        rec = {}
+        try:
+            r = requests.get(
+                f"{base}/{path}",
+                headers={"AUTH_KEY": krx_key},
+                params={"basDd": basDd},
+                timeout=15,
+            )
+            rec["status"] = r.status_code
+            rec["resp_headers"] = {
+                k: v for k, v in r.headers.items()
+                if k.lower() in ("server", "content-type", "x-cache", "x-akamai-transformed", "via")
+            }
+            body = r.text or ""
+            rec["body_len"] = len(body)
+            rec["body_preview"] = body[:300]
+            try:
+                j = r.json()
+                rec["root_keys"] = list(j.keys()) if isinstance(j, dict) else "not-dict"
+                rows = (j.get("OutBlock_1") if isinstance(j, dict) else None) or []
+                if not rows and isinstance(j, dict):
+                    # OutBlock 이름이 다를 경우 첫 리스트형 값 사용
+                    for v in j.values():
+                        if isinstance(v, list):
+                            rows = v
+                            break
+                rec["rows"] = len(rows)
+                if rows:
+                    rec["row_keys"] = sorted(rows[0].keys())
+                    rec["sample"] = [
+                        {"isu": _isucd(x), "name": x.get("ISU_NM") or x.get("ISU_ABBRV"),
+                         "cap": _cap(x)} for x in rows[:3]
+                    ]
+                    all_rows.extend(rows)
+            except Exception as e:
+                rec["json_error"] = str(e)
+        except Exception as e:
+            rec["error"] = str(e)
+        out["calls"][label] = rec
+
+    # 양 시장 합쳐 시총 내림차순 → 케어젠 통합 순위 계산
+    if all_rows:
+        try:
+            ranked = sorted(all_rows, key=_cap, reverse=True)
+            target = code.lstrip("0")
+            for i, row in enumerate(ranked, start=1):
+                if _isucd(row).lstrip("0") == target:
+                    out["caregen_integrated_rank"] = i
+                    out["caregen_cap"] = _cap(row)
+                    break
+            out["total_rows_merged"] = len(ranked)
+        except Exception as e:
+            out["rank_error"] = str(e)
+
+    return JSONResponse(out)
+
+
+# ---------------------------------------------------------------------------
 # 국내주식 기간별시세(일봉)  (TR: FHKST03010100)
 # 한 번 호출에 약 100행 제한이 있어, 날짜 구간을 나눠 여러 번 호출해 합친다.
 # div_code "J": 주식, "U": 업종지수
