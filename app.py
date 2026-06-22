@@ -442,6 +442,78 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
 
 
 # ---------------------------------------------------------------------------
+# [진단] 시가총액 순위 API 응답 확인용. 실제 필드명·행수·종목 포함 여부를 덤프한다.
+# 사용 후 제거 예정.
+# ---------------------------------------------------------------------------
+@app.get("/api/rank-debug")
+def rank_debug(code: str = DEFAULT_CODE):
+    out = {"code": code}
+
+    # 1) 현재가(inquire-price) output 키 — KOSDAQ 순위 필드가 여기 있는지 확인
+    try:
+        q = fetch_quote(code)
+        out["quote_keys"] = sorted(q.keys())
+        out["quote_rank_like"] = {
+            k: v for k, v in q.items()
+            if any(t in k.lower() for t in ("rnk", "rank", "kosdaq", "avls", "lstn", "vol"))
+        }
+    except Exception as e:
+        out["quote_error"] = str(e)
+
+    # 2) 시가총액 순위 API — TR_ID / 시장코드 / 파라미터 대소문자 조합 시도
+    def _try(tr, scr, iscd, upper):
+        keys = {
+            "mrkt": "FID_COND_MRKT_DIV_CODE", "scr": "FID_COND_SCR_DIV_CODE",
+            "div": "FID_DIV_CLS_CODE", "iscd": "FID_INPUT_ISCD",
+            "trgt": "FID_TRGT_CLS_CODE", "exls": "FID_TRGT_EXLS_CLS_CODE",
+            "p1": "FID_INPUT_PRICE_1", "p2": "FID_INPUT_PRICE_2", "vol": "FID_VOL_CNT",
+        }
+        if not upper:
+            keys = {k: v.lower() for k, v in keys.items()}
+        params = {
+            keys["mrkt"]: "J", keys["scr"]: scr, keys["div"]: "0",
+            keys["iscd"]: iscd, keys["trgt"]: "0", keys["exls"]: "0",
+            keys["p1"]: "", keys["p2"]: "", keys["vol"]: "",
+        }
+        rec = {"tr": tr, "scr": scr, "iscd": iscd, "case": "UPPER" if upper else "lower"}
+        try:
+            r = requests.get(
+                f"{BASE_URL}/uapi/domestic-stock/v1/ranking/market-cap",
+                headers=_headers(tr), params=params, timeout=10,
+            )
+            rec["status"] = r.status_code
+            try:
+                j = r.json()
+                rec["rt_cd"] = j.get("rt_cd")
+                rec["msg1"] = j.get("msg1")
+                rows = j.get("output") or j.get("output1") or []
+                rec["rows"] = len(rows)
+                if rows:
+                    rec["row_keys"] = sorted(rows[0].keys())
+                    rec["sample"] = [
+                        {"rank": x.get("data_rank"), "code": x.get("mksc_shrn_iscd"),
+                         "name": x.get("hts_kor_isnm")} for x in rows[:5]
+                    ]
+                    hit = [x for x in rows
+                           if x.get("mksc_shrn_iscd", "").lstrip("0") == code.lstrip("0")]
+                    rec["found_rank"] = hit[0].get("data_rank") if hit else None
+            except Exception as e:
+                rec["json_error"] = str(e)
+                rec["body_preview"] = r.text[:200]
+        except Exception as e:
+            rec["error"] = str(e)
+        return rec
+
+    out["trials"] = [
+        _try("FHPST01740000", "20174", "0000", True),   # 전체(KRX) 대문자
+        _try("FHPST01740000", "20174", "0000", False),  # 전체(KRX) 소문자
+        _try("FHPST01740000", "20174", "1001", False),  # KOSDAQ 소문자
+        _try("FHPST01720000", "20171", "0000", False),  # 기존 시도(비교용)
+    ]
+    return JSONResponse(out)
+
+
+# ---------------------------------------------------------------------------
 # 국내주식 기간별시세(일봉)  (TR: FHKST03010100)
 # 한 번 호출에 약 100행 제한이 있어, 날짜 구간을 나눠 여러 번 호출해 합친다.
 # div_code "J": 주식, "U": 업종지수
