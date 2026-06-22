@@ -49,6 +49,9 @@ CORP_CACHE = Path(__file__).parent / ".corp_code_cache.json"
 # Anthropic Claude API - 뉴스 자동 요약용. https://console.anthropic.com
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
+# KRX OpenAPI - 공매도 잔고 조회용. https://openapi.krx.co.kr
+KRX_API_KEY = os.getenv("KRX_API_KEY", "")
+
 _news_cache: dict = {"ts": 0.0, "data": None}
 NEWS_CACHE_TTL = 1800  # 30분
 
@@ -840,7 +843,7 @@ def news_summary(force: bool = False):
 
 
 def _krx_short_raw(code: str):
-    """KRX 공매도 잔고 원시 응답 반환 — 세션 쿠키 선획득 방식"""
+    """KRX 공매도 잔고 원시 응답 반환 — MDCSTAT30501 (개별 종목 공매도 잔고 현황, T+2)"""
     from datetime import datetime, timedelta
 
     today = datetime.now()
@@ -850,14 +853,19 @@ def _krx_short_raw(code: str):
     start_ymd = start_dt.strftime("%Y%m%d")
 
     sess = requests.Session()
-    sess.headers.update({
+    base_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "ko-KR,ko;q=0.9",
-    })
+    }
+    if KRX_API_KEY:
+        base_headers["AUTH_KEY"] = KRX_API_KEY
+    sess.headers.update(base_headers)
 
-    # 세션 쿠키 획득
-    sess.get("https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd", timeout=8)
+    # 세션 쿠키 획득 (data.krx.co.kr CSRF/세션 초기화)
+    try:
+        sess.get("https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd", timeout=8)
+    except Exception:
+        pass
 
     sess.headers.update({
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -875,7 +883,6 @@ def _krx_short_raw(code: str):
             timeout=8,
         )
         items = srch.json().get("block1", [])
-        # short_code가 code와 정확히 일치하는 항목 선택
         matched = [i for i in items if i.get("short_code") == code]
         if matched:
             isu_cd = matched[0].get("full_code") or code
@@ -884,12 +891,11 @@ def _krx_short_raw(code: str):
     except Exception:
         pass
 
+    # MDCSTAT30501: 개별 종목 공매도 잔고 현황 (srtsellBal, srtsellBalAmt, trdDd)
     resp = sess.post(
         "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
         data={
-            "bld": "dbms/MDC/STAT/standard/MDCSTAT11001",
-            "share": "1",
-            "mktId": "KSQ",
+            "bld": "dbms/MDC/STAT/srt/MDCSTAT30501",
             "isuCd": isu_cd,
             "strtDd": start_ymd,
             "endDd": end_ymd,
@@ -898,57 +904,37 @@ def _krx_short_raw(code: str):
     )
     raw = resp.json()
     rows = raw.get("output") or raw.get("block1") or raw.get("OutBlock_1") or []
+
+    # fallback: MDCSTAT30501 결과 없으면 MDCSTAT11001 시도
+    if not rows:
+        resp2 = sess.post(
+            "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
+            data={
+                "bld": "dbms/MDC/STAT/standard/MDCSTAT11001",
+                "share": "1",
+                "mktId": "KSQ",
+                "isuCd": isu_cd,
+                "strtDd": start_ymd,
+                "endDd": end_ymd,
+            },
+            timeout=10,
+        )
+        raw2 = resp2.json()
+        rows = raw2.get("output") or raw2.get("block1") or raw2.get("OutBlock_1") or []
+
     return rows, end_ymd
 
 
 @app.get("/api/short-balance/debug")
 def short_balance_debug(code: str = DEFAULT_CODE):
-    """KIND 포털 공매도 잔고 원시 응답 디버그"""
-    from datetime import datetime, timedelta
-    today = datetime.now()
-    end_dt = today - timedelta(days=2)
-    start_dt = end_dt - timedelta(days=14)
-
-    sess = requests.Session()
-    sess.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
-        "Accept-Language": "ko-KR,ko;q=0.9",
-    })
-
-    # KIND 세션 획득
+    """KRX MDCSTAT30501 공매도 잔고 원시 응답 디버그 (필드명 확인용)"""
     try:
-        sess.get("https://kind.krx.co.kr/shortreport/stockbalance.do", timeout=8)
-        sess_cookies = dict(sess.cookies)
+        rows, end_ymd = _krx_short_raw(code)
+        sample = rows[:3] if rows else []
+        keys = list(rows[0].keys()) if rows else []
     except Exception as e:
-        sess_cookies = {"error": str(e)}
-
-    # KIND 공매도 잔고 조회
-    try:
-        resp = sess.post(
-            "https://kind.krx.co.kr/shortreport/stockbalance.do",
-            data={
-                "method": "searchTotalList",
-                "isu_cd": code,
-                "startDd": start_dt.strftime("%Y%m%d"),
-                "endDd": end_dt.strftime("%Y%m%d"),
-                "pageIndex": "1",
-            },
-            headers={"Referer": "https://kind.krx.co.kr/shortreport/stockbalance.do",
-                     "Content-Type": "application/x-www-form-urlencoded",
-                     "X-Requested-With": "XMLHttpRequest"},
-            timeout=10,
-        )
-        kind_status = resp.status_code
-        kind_body = resp.text[:600]
-    except Exception as e:
-        kind_status = 0
-        kind_body = str(e)
-
-    return JSONResponse({
-        "cookies": sess_cookies,
-        "kind_status": kind_status,
-        "kind_body": kind_body,
-    })
+        return JSONResponse({"error": str(e), "rows": [], "keys": []})
+    return JSONResponse({"end_ymd": end_ymd, "count": len(rows), "keys": keys, "sample": sample})
 
 
 @app.get("/api/short-balance")
@@ -971,9 +957,10 @@ def short_balance(code: str = DEFAULT_CODE):
         except Exception:
             return 0
 
-    # 가능한 필드명 순서대로 시도
+    # MDCSTAT30501: srtsellBal / fallback MDCSTAT11001: BALANCE_QTY 등
     def _get_qty(row):
-        for k in ("BALANCE_QTY", "BAL_QTY", "CVSRTSELL_BAL_QTY", "SHRTSELL_BAL_QTY", "balance_qty"):
+        for k in ("srtsellBal", "SRTSELL_BAL", "BALANCE_QTY", "BAL_QTY",
+                  "CVSRTSELL_BAL_QTY", "SHRTSELL_BAL_QTY", "balance_qty"):
             v = row.get(k)
             if v not in (None, "", "0", 0):
                 return _n(v)
@@ -983,7 +970,7 @@ def short_balance(code: str = DEFAULT_CODE):
     bal_prev = _get_qty(prev) if prev else None
     bal_diff = (bal - bal_prev) if bal_prev is not None else None
 
-    date_raw = (latest.get("TRD_DD") or latest.get("BAS_DD") or
+    date_raw = (latest.get("trdDd") or latest.get("TRD_DD") or latest.get("BAS_DD") or
                 latest.get("trd_dd") or latest.get("bas_dd") or end_ymd)
     date_raw = str(date_raw).replace("/", "").replace("-", "")
     date_fmt = f"{date_raw[4:6]}/{date_raw[6:8]}" if len(date_raw) == 8 else date_raw

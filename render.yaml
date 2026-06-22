@@ -24,6 +24,8 @@ services:
         sync: false
       - key: DART_API_KEY
         sync: false
+      - key: KRX_API_KEY
+        sync: false
       - key: KOSDAQ_PHARM_CODE
         sync: false
       # 접근 비밀번호 (Basic Auth)
