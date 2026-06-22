@@ -41,7 +41,6 @@ DEFAULT_CODE = os.getenv("STOCK_CODE", "214370")  # 케어젠
 # KOSDAQ 제약 업종지수 코드(선택). 설정 시 차트에 비교선이 추가됩니다. 미설정 시 종목선만 표시.
 PHARM_CODE = os.getenv("KOSDAQ_PHARM_CODE", "")
 TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
-RANK_CACHE = Path(__file__).parent / ".rank_cache.json"
 
 # OPEN DART (전자공시) - 무료 인증키. https://opendart.fss.or.kr
 DART_KEY = os.getenv("DART_API_KEY", "")
@@ -250,65 +249,33 @@ def _to_float(v, default=0.0):
 
 
 # ---------------------------------------------------------------------------
-# 시가총액 순위 캐시 (전일 대비 변동 계산용)
+# KOSDAQ 시가총액 순위  (TR: FHPST01740000)
+# 순위 API는 상위 30위까지만 반환한다(페이지네이션 없음).
+# 종목이 30위 밖이면 못 찾으므로 None 반환 → 화면은 기존 수기값 유지.
+# (KRX 통합 순위는 케어젠이 ~140위라 상위30 응답에 안 잡혀 자동조회 불가 → 수기입력)
 # ---------------------------------------------------------------------------
-def _load_rank_cache() -> dict:
-    try:
-        return json.loads(RANK_CACHE.read_text())
-    except Exception:
-        return {}
-
-
-def _save_rank_cache(data: dict):
-    try:
-        RANK_CACHE.write_text(json.dumps(data))
-    except Exception:
-        pass
-
-
-def _rank_change(today: "int | None", key: str) -> int:
-    """오늘 순위 - 어제 순위. 양수=악화(▼), 음수=개선(▲), 0=동일(-)."""
-    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
-    _kst = _tz(_td(hours=9))
-    cache = _load_rank_cache()
-    today_str = _dt.now(tz=_kst).strftime("%Y%m%d")
-    yesterday = cache.get(f"{key}_rank")
-    yesterday_date = cache.get(f"{key}_date", "")
-    if today is not None and today_str != yesterday_date:
-        _save_rank_cache({**cache, f"{key}_rank": today, f"{key}_date": today_str})
-    if yesterday is None or today is None:
-        return 0
-    return today - yesterday
-
-
-# ---------------------------------------------------------------------------
-# KRX 통합 시가총액 순위  (TR: FHPST01720000)
-# 전체 시장 시총 순위 리스트를 조회해 해당 종목코드의 순위를 반환한다.
-# API 1회 응답 행 수에 따라 깊은 순위(예: #140)는 못 찾을 수 있음 → None 반환.
-# ---------------------------------------------------------------------------
-def fetch_krx_rank(code: str) -> "int | None":
+def fetch_kosdaq_rank(code: str) -> "int | None":
     try:
         data = _get(
             "/uapi/domestic-stock/v1/ranking/market-cap",
-            "FHPST01720000",
+            "FHPST01740000",
             {
-                "fid_cond_mrkt_div_code": "N",
-                "fid_cond_scr_div_code": "20171",
-                "fid_input_iscd": "0000",
-                "fid_div_cls_code": "0",
-                "fid_blng_cls_code": "0",
-                "fid_trgt_cls_code": "0",
-                "fid_trgt_exls_cls_code": "0",
-                "fid_input_price_1": "",
-                "fid_input_price_2": "",
-                "fid_vol_cnt": "",
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_COND_SCR_DIV_CODE": "20174",
+                "FID_DIV_CLS_CODE": "0",
+                "FID_INPUT_ISCD": "1001",   # 1001 = KOSDAQ 전체
+                "FID_TRGT_CLS_CODE": "0",
+                "FID_TRGT_EXLS_CLS_CODE": "0",
+                "FID_INPUT_PRICE_1": "",
+                "FID_INPUT_PRICE_2": "",
+                "FID_VOL_CNT": "",
             },
         )
-        items = data.get("output") or []
+        rows = data.get("output") or []
         target = code.lstrip("0")
-        for item in items:
-            if item.get("mksc_shrn_iscd", "").lstrip("0") == target:
-                return _to_int(item.get("data_rank")) or None
+        for r in rows:
+            if r.get("mksc_shrn_iscd", "").lstrip("0") == target:
+                return _to_int(r.get("data_rank")) or None
     except Exception:
         pass
     return None
@@ -398,11 +365,10 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     except Exception:
         nxt_price = None
 
-    # 시가총액 순위
-    kosdaq_rank = _to_int(quote.get("kosdaq_bwtp_rnk")) or None
-    krx_rank = None
+    # KOSDAQ 시가총액 순위 (상위30 밖이면 None → 화면 수기값 유지)
+    kosdaq_rank = None
     try:
-        krx_rank = fetch_krx_rank(code)
+        kosdaq_rank = fetch_kosdaq_rank(code)
     except Exception:
         pass
 
@@ -425,10 +391,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "w52_high": _to_int(quote.get("w52_hgpr")),        # 52주 최고(현재값)
             "w52_low": _to_int(quote.get("w52_lwpr")),
             "foreign_ratio": quote.get("hts_frgn_ehrt", ""),   # 외국인 보유비율(현재값)
-            "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위
-            "kosdaq_rank_chg": _rank_change(kosdaq_rank, "kosdaq"),
-            "krx_rank": krx_rank,                              # KRX 통합 시총 순위
-            "krx_rank_chg": _rank_change(krx_rank, "krx"),
+            "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위(없으면 null)
         },
         "investor": {
             "foreign_qty": _to_int(investor.get("frgn_ntby_qty")),
@@ -439,78 +402,6 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
         "investor_days": investor_days,
     }
     return JSONResponse(result)
-
-
-# ---------------------------------------------------------------------------
-# [진단] 시가총액 순위 API 응답 확인용. 실제 필드명·행수·종목 포함 여부를 덤프한다.
-# 사용 후 제거 예정.
-# ---------------------------------------------------------------------------
-@app.get("/api/rank-debug")
-def rank_debug(code: str = DEFAULT_CODE):
-    out = {"code": code}
-
-    # 1) 현재가(inquire-price) output 키 — KOSDAQ 순위 필드가 여기 있는지 확인
-    try:
-        q = fetch_quote(code)
-        out["quote_keys"] = sorted(q.keys())
-        out["quote_rank_like"] = {
-            k: v for k, v in q.items()
-            if any(t in k.lower() for t in ("rnk", "rank", "kosdaq", "avls", "lstn", "vol"))
-        }
-    except Exception as e:
-        out["quote_error"] = str(e)
-
-    # 2) 시가총액 순위 API — TR_ID / 시장코드 / 파라미터 대소문자 조합 시도
-    def _try(tr, scr, iscd, upper):
-        keys = {
-            "mrkt": "FID_COND_MRKT_DIV_CODE", "scr": "FID_COND_SCR_DIV_CODE",
-            "div": "FID_DIV_CLS_CODE", "iscd": "FID_INPUT_ISCD",
-            "trgt": "FID_TRGT_CLS_CODE", "exls": "FID_TRGT_EXLS_CLS_CODE",
-            "p1": "FID_INPUT_PRICE_1", "p2": "FID_INPUT_PRICE_2", "vol": "FID_VOL_CNT",
-        }
-        if not upper:
-            keys = {k: v.lower() for k, v in keys.items()}
-        params = {
-            keys["mrkt"]: "J", keys["scr"]: scr, keys["div"]: "0",
-            keys["iscd"]: iscd, keys["trgt"]: "0", keys["exls"]: "0",
-            keys["p1"]: "", keys["p2"]: "", keys["vol"]: "",
-        }
-        rec = {"tr": tr, "scr": scr, "iscd": iscd, "case": "UPPER" if upper else "lower"}
-        try:
-            r = requests.get(
-                f"{BASE_URL}/uapi/domestic-stock/v1/ranking/market-cap",
-                headers=_headers(tr), params=params, timeout=10,
-            )
-            rec["status"] = r.status_code
-            try:
-                j = r.json()
-                rec["rt_cd"] = j.get("rt_cd")
-                rec["msg1"] = j.get("msg1")
-                rows = j.get("output") or j.get("output1") or []
-                rec["rows"] = len(rows)
-                if rows:
-                    rec["row_keys"] = sorted(rows[0].keys())
-                    rec["sample"] = [
-                        {"rank": x.get("data_rank"), "code": x.get("mksc_shrn_iscd"),
-                         "name": x.get("hts_kor_isnm")} for x in rows[:5]
-                    ]
-                    hit = [x for x in rows
-                           if x.get("mksc_shrn_iscd", "").lstrip("0") == code.lstrip("0")]
-                    rec["found_rank"] = hit[0].get("data_rank") if hit else None
-            except Exception as e:
-                rec["json_error"] = str(e)
-                rec["body_preview"] = r.text[:200]
-        except Exception as e:
-            rec["error"] = str(e)
-        return rec
-
-    out["trials"] = [
-        _try("FHPST01740000", "20174", "0000", True),   # 전체(KRX) 대문자
-        _try("FHPST01740000", "20174", "0000", False),  # 전체(KRX) 소문자
-        _try("FHPST01740000", "20174", "1001", False),  # KOSDAQ 소문자
-        _try("FHPST01720000", "20171", "0000", False),  # 기존 시도(비교용)
-    ]
-    return JSONResponse(out)
 
 
 # ---------------------------------------------------------------------------
