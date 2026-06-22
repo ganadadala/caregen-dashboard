@@ -38,8 +38,8 @@ BASE_URL = os.getenv("KIS_BASE_URL", "https://openapi.koreainvestment.com:9443")
 APPKEY = os.getenv("KIS_APPKEY", "")
 APPSECRET = os.getenv("KIS_APPSECRET", "")
 DEFAULT_CODE = os.getenv("STOCK_CODE", "214370")  # 케어젠
-# KOSDAQ 제약 업종지수 코드(선택). 설정 시 차트에 비교선이 추가됩니다. 미설정 시 종목선만 표시.
-PHARM_CODE = os.getenv("KOSDAQ_PHARM_CODE", "")
+# KOSDAQ 제약 업종지수 코드. 차트에 비교선(점선)으로 표시. 기본 2066=코스닥 제약 지수(KRX).
+PHARM_CODE = os.getenv("KOSDAQ_PHARM_CODE", "2066")
 TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
 
 # OPEN DART (전자공시) - 무료 인증키. https://opendart.fss.or.kr
@@ -561,6 +561,16 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
     end_ymd = date.replace("-", "") if date else datetime.now().strftime("%Y%m%d")
     rows = fetch_day_ohlc(code, end_ymd)
     rows = rows[-5:]  # 최근 5 거래일 일봉
+
+    # 코스닥 제약 업종지수 같은 기간 종가 — 비교선용(실패 시 종목선만)
+    pharm_map = {}
+    if PHARM_CODE:
+        try:
+            for it in fetch_daily_closes(PHARM_CODE, "U", days=20):
+                pharm_map[it["date"]] = it["close"]
+        except Exception:
+            pharm_map = {}
+
     result = [
         {
             "date": r.get("stck_bsop_date", ""),
@@ -569,6 +579,7 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
             "l": _to_int(r.get("stck_lwpr")),
             "c": _to_int(r.get("stck_clpr")),
             "v": _to_int(r.get("acml_vol")),
+            "p": pharm_map.get(r.get("stck_bsop_date", "")),  # 제약지수 종가(없으면 null)
         }
         for r in rows
     ]

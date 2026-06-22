@@ -127,6 +127,8 @@
   .chartwrap .head .t{font-size:15px;font-weight:800;color:var(--ink);}
   .chartwrap .head .t small{font-weight:500;color:var(--muted);font-size:12px;margin-left:6px;}
   .chartwrap .head .ksq{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink2);background:var(--raise);border:1px solid var(--line);padding:4px 10px;border-radius:8px;}
+  .chartwrap .head .head-chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .chartwrap .head .ksq.pharm{border-left:3px solid #8b5cf6;}
   .chartbox{position:relative;height:240px;flex:1;min-height:210px;}
   .chart-info{position:absolute;top:4px;left:0;z-index:5;pointer-events:none;background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:10px;line-height:1.45;color:var(--ink2);font-family:"IBM Plex Mono",monospace;box-shadow:0 2px 8px rgba(21,36,32,.1);display:none;white-space:nowrap;}
   .chart-info.show{display:block;}
@@ -342,13 +344,17 @@
     <div class="chartwrap">
     <div class="head">
       <div class="t">Market <small>일봉 5일 · OHLC</small></div>
-      <div class="ksq">KOSDAQ <span data-k="ksq" contenteditable="true">1,034.03 (+4.98, +0.48%)</span></div>
+      <div class="head-chips">
+        <div class="ksq">KOSDAQ <span data-k="ksq" contenteditable="true">1,034.03 (+4.98, +0.48%)</span></div>
+        <div class="ksq pharm" id="pharmChip" style="display:none">코스닥 제약 <span id="pharmVal"></span></div>
+      </div>
     </div>
     <div class="chartbox"><canvas id="chart"></canvas><div id="chartInfo" class="chart-info"></div></div>
     <div class="legend">
       <span><i style="background:#d92d20;border-top:none;border-radius:2px;height:10px"></i> 양봉 (상승)</span>
       <span><i style="background:#1c5fcc;border-top:none;border-radius:2px;height:10px"></i> 음봉 (하락)</span>
       <span><i style="border-color:#d92d20;border-top-style:dashed"></i> 종가 기준선</span>
+      <span id="pharmLegend" style="display:none"><i style="border-color:#8b5cf6;border-top-style:dashed"></i> 코스닥 제약 지수</span>
     </div>
     </div><!-- /chartwrap -->
   </section>
@@ -460,18 +466,37 @@ const candlePlugin={id:"candle",
     ctx.fillText(Number(last).toLocaleString("ko-KR"),right-62,ly-4);ctx.restore();
   }
 };
+let pharmBase=null;
 function drawCandleChart(ohlc){
   if(chart)chart.destroy();
   const allH=ohlc.map(d=>d.h), allL=ohlc.map(d=>d.l);
   const dataMax=Math.max(...allH), dataMin=Math.min(...allL);
   const pad=Math.max(15000, Math.round((dataMax-dataMin)*0.4));
   const yMin=dataMin-pad, yMax=dataMax+pad;
+
+  // 코스닥 제약 업종지수 비교선 (스케일이 달라 보조축 y1에 정규화하여 점선으로 표시)
+  const pVals=ohlc.map(d=>(d.p==null?null:d.p));
+  const pNums=pVals.filter(v=>v!=null);
+  const hasPharm=pNums.length>=2;
+  pharmBase=pNums.length?pNums[0]:null;
+  let y1Min,y1Max;
+  if(hasPharm){
+    const pmx=Math.max(...pNums),pmn=Math.min(...pNums);
+    const ppad=Math.max((pmx-pmn)*0.6,pmx*0.003,0.5);
+    y1Min=pmn-ppad; y1Max=pmx+ppad;
+  }
+  const datasets=[{data:ohlc.map(d=>[d.l,d.h]),backgroundColor:"rgba(0,0,0,.001)",borderColor:"transparent",borderWidth:0,order:2}];
+  if(hasPharm){
+    datasets.push({type:"line",data:pVals,yAxisID:"y1",borderColor:"#8b5cf6",borderWidth:1.6,borderDash:[4,3],pointRadius:0,pointHoverRadius:0,tension:.3,spanGaps:true,order:1});
+  }
+  const scales={
+    x:{ticks:{color:"#9aa6a1",font:{size:10}},grid:{display:false}},
+    y:{min:yMin,max:yMax,ticks:{color:"#0f7a66",font:{size:9},callback:v=>Number(v).toLocaleString("ko-KR")},grid:{color:"rgba(21,36,32,.05)"},border:{display:false}}
+  };
+  if(hasPharm)scales.y1={display:false,min:y1Min,max:y1Max};
   chart=new Chart($("chart"),{
     type:"bar",
-    data:{
-      labels:ohlc.map(d=>d.date.slice(4,6)+"/"+d.date.slice(6,8)),
-      datasets:[{data:ohlc.map(d=>[d.l,d.h]),backgroundColor:"rgba(0,0,0,.001)",borderColor:"transparent",borderWidth:0}]
-    },
+    data:{labels:ohlc.map(d=>d.date.slice(4,6)+"/"+d.date.slice(6,8)),datasets},
     options:{
       responsive:true,maintainAspectRatio:false,animation:false,
       plugins:{
@@ -482,13 +507,11 @@ function drawCandleChart(ohlc){
           showChartInfo(ohlc[tooltip.dataPoints[0].dataIndex],tooltip.caretX,chart.chartArea);
         }}
       },
-      scales:{
-        x:{ticks:{color:"#9aa6a1",font:{size:10}},grid:{display:false}},
-        y:{min:yMin,max:yMax,ticks:{color:"#0f7a66",font:{size:9},callback:v=>Number(v).toLocaleString("ko-KR")},grid:{color:"rgba(21,36,32,.05)"},border:{display:false}}
-      }
+      scales
     },
     plugins:[candlePlugin]
   });
+  updatePharmChip(pNums);
   chart._ohlc=ohlc;
   chart.update('none');
   if(ohlc.length){
@@ -501,15 +524,33 @@ function drawCandleChart(ohlc){
   }
 }
 function hideChartInfo(){const el=document.getElementById("chartInfo");if(el)el.classList.remove("show");}
+function updatePharmChip(pNums){
+  const chip=document.getElementById("pharmChip"),leg=document.getElementById("pharmLegend");
+  if(!chip)return;
+  if(!pNums||!pNums.length){chip.style.display="none";if(leg)leg.style.display="none";return;}
+  const last=pNums[pNums.length-1],base=pNums[0];
+  const chg=base?((last-base)/base*100):0;
+  const cls=chg>0?"up":chg<0?"down":"";
+  const vv=last.toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById("pharmVal").innerHTML=`${vv} <span class="${cls}">(${chg>0?"+":""}${chg.toFixed(2)}% · 5일)</span>`;
+  chip.style.display="";if(leg)leg.style.display="";
+}
 function showChartInfo(d,caretX,area){
   const el=document.getElementById("chartInfo");if(!el||!d)return;
   const date=d.date.slice(4,6)+"/"+d.date.slice(6,8);
   const clr=d.c>=d.o?"#d92d20":"#1c5fcc";
   const c=(lbl,val,col)=>`<span class="lbl">${lbl}</span> <span style="color:${col||"inherit"}">${val}</span>`;
-  el.innerHTML=
+  let html=
     `<div class="crow"><span style="color:var(--ink);font-weight:700">${date}</span><span>${c("거래량",won(d.v)+"주","var(--muted)")}</span></div>`+
     `<div class="crow"><span>${c("시가",won(d.o),clr)}</span><span>${c("종가",won(d.c),clr)}</span></div>`+
     `<div class="crow"><span>${c("고가",won(d.h),clr)}</span><span>${c("저가",won(d.l),clr)}</span></div>`;
+  if(d.p!=null){
+    const pchg=pharmBase?((d.p-pharmBase)/pharmBase*100):0;
+    const pcls=pchg>0?"up":pchg<0?"down":"";
+    const pv=Number(d.p).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2});
+    html+=`<div class="crow"><span style="color:#8b5cf6;font-weight:600">코스닥 제약</span><span>${pv} <span class="${pcls}">(${pchg>0?"+":""}${pchg.toFixed(2)}%)</span></span></div>`;
+  }
+  el.innerHTML=html;
   el.classList.add("show");
   const w=el.offsetWidth;
   let x=caretX-w/2;
