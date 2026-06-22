@@ -594,12 +594,14 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
 
     # 코스닥 제약 업종지수 같은 기간 종가 — 비교선용(실패 시 종목선만)
     pharm_map = {}
+    pharm_err = None
     if PHARM_CODE:
         try:
             for it in fetch_index_closes(PHARM_CODE, days=20):
                 pharm_map[it["date"]] = it["close"]
-        except Exception:
+        except Exception as e:
             pharm_map = {}
+            pharm_err = f"{type(e).__name__}: {e}"
 
     result = [
         {
@@ -613,6 +615,9 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
         }
         for r in rows
     ]
+    if pharm_err and result:
+        result[-1]["p_err"] = pharm_err  # [임시] 제약지수 조회 실패 원인 진단용
+        result[-1]["pharm_code"] = PHARM_CODE
     return JSONResponse(result)
 
 
