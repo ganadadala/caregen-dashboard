@@ -39,7 +39,10 @@ APPKEY = os.getenv("KIS_APPKEY", "")
 APPSECRET = os.getenv("KIS_APPSECRET", "")
 DEFAULT_CODE = os.getenv("STOCK_CODE", "214370")  # 케어젠
 # KOSDAQ 제약 업종지수 코드. 차트에 비교선(점선)으로 표시. 기본 1024=KIS 업종 '제약'(코스닥).
-PHARM_CODE = os.getenv("KOSDAQ_PHARM_CODE", "1024")
+PHARM_CODE = (os.getenv("KOSDAQ_PHARM_CODE", "").strip() or "1024")
+# 환경변수에 실수로 종목코드가 들어간 경우(업종코드가 아님) 기본값으로 자가 교정
+if PHARM_CODE == os.getenv("STOCK_CODE", "214370"):
+    PHARM_CODE = "1024"
 TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
 
 # OPEN DART (전자공시) - 무료 인증키. https://opendart.fss.or.kr
@@ -596,14 +599,12 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
 
     # 코스닥 제약 업종지수 같은 기간 종가 — 비교선용(실패 시 종목선만)
     pharm_map = {}
-    pharm_err = None
     if PHARM_CODE:
         try:
             for it in fetch_index_closes(PHARM_CODE, days=20):
                 pharm_map[it["date"]] = it["close"]
-        except Exception as e:
+        except Exception:
             pharm_map = {}
-            pharm_err = f"{type(e).__name__}: {e}"
 
     result = [
         {
@@ -617,52 +618,7 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
         }
         for r in rows
     ]
-    if pharm_err and result:
-        result[-1]["p_err"] = pharm_err  # [임시] 제약지수 조회 실패 원인 진단용
-        result[-1]["pharm_code"] = PHARM_CODE
     return JSONResponse(result)
-
-
-# ---------------------------------------------------------------------------
-# [진단/임시] 업종지수 원본 응답 필드명 확인용. fetch_index_closes가 빈 결과를
-# 내는 원인(날짜/종가 필드명)을 파악한다. 확정 후 제거.
-# ---------------------------------------------------------------------------
-@app.get("/api/cfg")
-def cfg():
-    # [임시] 배포 환경의 실제 설정값 확인용
-    return JSONResponse({
-        "PHARM_CODE": PHARM_CODE,
-        "KOSDAQ_PHARM_CODE_env": os.getenv("KOSDAQ_PHARM_CODE"),
-        "DEFAULT_CODE": DEFAULT_CODE,
-    })
-
-
-@app.get("/api/idx-raw")
-def idx_raw(code: str = ""):
-    from datetime import datetime, timedelta
-
-    c = code or PHARM_CODE
-    out = {"code": c}
-    try:
-        data = _get(
-            "/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice",
-            "FHKUP03500100",
-            {
-                "FID_COND_MRKT_DIV_CODE": "U",
-                "FID_INPUT_ISCD": c,
-                "FID_INPUT_DATE_1": (datetime.now() - timedelta(days=20)).strftime("%Y%m%d"),
-                "FID_INPUT_DATE_2": datetime.now().strftime("%Y%m%d"),
-                "FID_PERIOD_DIV_CODE": "D",
-            },
-        )
-        rows = data.get("output2") or []
-        out["output2_len"] = len(rows)
-        out["output2_first"] = rows[0] if rows else None
-        out["output2_last"] = rows[-1] if rows else None
-        out["parsed"] = fetch_index_closes(c, days=20)[-3:]
-    except Exception as e:
-        out["error"] = f"{type(e).__name__}: {e}"
-    return JSONResponse(out)
 
 
 # ---------------------------------------------------------------------------

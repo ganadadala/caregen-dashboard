@@ -24,8 +24,9 @@ services:
         sync: false
       - key: DART_API_KEY
         sync: false
+      # 코스닥 제약 업종지수(KIS 업종코드). 공개값이라 직접 지정.
       - key: KOSDAQ_PHARM_CODE
-        sync: false
+        value: "1024"
       # KRX OpenAPI 인증키 (시가총액 순위 진단/조회용)
       - key: KRX_API_KEY
         sync: false
