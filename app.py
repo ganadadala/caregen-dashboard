@@ -38,8 +38,8 @@ BASE_URL = os.getenv("KIS_BASE_URL", "https://openapi.koreainvestment.com:9443")
 APPKEY = os.getenv("KIS_APPKEY", "")
 APPSECRET = os.getenv("KIS_APPSECRET", "")
 DEFAULT_CODE = os.getenv("STOCK_CODE", "214370")  # 케어젠
-# KOSDAQ 제약 업종지수 코드. 차트에 비교선(점선)으로 표시. 기본 2066=코스닥 제약 지수(KRX).
-PHARM_CODE = os.getenv("KOSDAQ_PHARM_CODE", "2066")
+# KOSDAQ 제약 업종지수 코드. 차트에 비교선(점선)으로 표시. 기본 1024=KIS 업종 '제약'(코스닥).
+PHARM_CODE = os.getenv("KOSDAQ_PHARM_CODE", "1024")
 TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
 
 # OPEN DART (전자공시) - 무료 인증키. https://opendart.fss.or.kr
@@ -614,56 +614,6 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
         for r in rows
     ]
     return JSONResponse(result)
-
-
-# ---------------------------------------------------------------------------
-# [진단/임시] KIS 업종지수(div "U") 코드 탐색. 코스닥 '제약' 업종의 KIS 코드를
-# 찾기 위해 후보 코드들을 호출해 업종명·행수·종가를 덤프한다. 확정 후 제거.
-#   기본: 코스피종합(0001)·코스닥종합(1001)로 div "U" 동작 확인 + 코스닥 산업코드 스캔.
-#   범위 조정: /api/pharm-probe?start=1026&end=1050
-# ---------------------------------------------------------------------------
-@app.get("/api/pharm-probe")
-def pharm_probe(codes: str = "", start: int = 1001, end: int = 1028):
-    from datetime import datetime, timedelta
-
-    if codes:
-        cand = [c.strip() for c in codes.split(",") if c.strip()]
-    else:
-        cand = ["0001", "2001"] + [str(n) for n in range(start, end + 1)]
-    seen = set()
-    cand = [c for c in cand if not (c in seen or seen.add(c))]
-
-    d1 = (datetime.now() - timedelta(days=12)).strftime("%Y%m%d")
-    d2 = datetime.now().strftime("%Y%m%d")
-    results = []
-    for c in cand:
-        rec = {"code": c}
-        try:
-            data = _get(
-                "/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice",
-                "FHKUP03500100",
-                {
-                    "FID_COND_MRKT_DIV_CODE": "U",
-                    "FID_INPUT_ISCD": c,
-                    "FID_INPUT_DATE_1": d1,
-                    "FID_INPUT_DATE_2": d2,
-                    "FID_PERIOD_DIV_CODE": "D",
-                },
-            )
-            o1 = data.get("output1") or {}
-            rows = data.get("output2") or []
-            if isinstance(o1, dict):
-                rec["name"] = o1.get("hts_kor_isnm") or o1.get("bstp_kor_isnm") or ""
-                if not rec.get("name"):
-                    rec["o1_keys"] = sorted(o1.keys())
-            rec["rows"] = len(rows)
-            rec["last_close"] = rows[-1].get("bstp_nmix_prpr") if rows else None
-        except Exception as e:
-            rec["error"] = str(e)[:100]
-        results.append(rec)
-    # 업종명에 '제약'이 들어가는 후보 강조
-    hits = [r for r in results if "제약" in str(r.get("name", ""))]
-    return JSONResponse({"pharm_candidates": hits, "results": results})
 
 
 # ---------------------------------------------------------------------------
