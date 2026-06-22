@@ -427,7 +427,8 @@ def krx_probe(code: str = DEFAULT_CODE, basDd: str = ""):
         basDd = d.strftime("%Y%m%d")
     out["basDd"] = basDd
 
-    base = "https://openapi.krx.co.kr/svc/apis/sto"
+    # 실제 API 서버는 포털(openapi.krx.co.kr)이 아니라 data-dbg.krx.co.kr 이다.
+    base = "https://data-dbg.krx.co.kr/svc/apis/sto"
     targets = {"kospi": "stk_bydd_trd", "kosdaq": "ksq_bydd_trd"}
     all_rows = []
 
