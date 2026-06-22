@@ -544,6 +544,36 @@ def fetch_daily_closes(code: str, div_code: str, days: int = 365) -> list:
     return [{"date": d, "close": merged[d]} for d in sorted(merged.keys())]
 
 
+# ---------------------------------------------------------------------------
+# 국내 업종지수 기간별시세  (TR: FHKUP03500100)
+# 업종지수는 주식용 itemchartprice가 아니라 전용 indexchartprice를 써야 한다.
+# 종가 필드는 bstp_nmix_prpr(업종 지수). div "U" + 업종코드.
+# ---------------------------------------------------------------------------
+def fetch_index_closes(code: str, days: int = 20) -> list:
+    from datetime import datetime, timedelta
+
+    end = datetime.now()
+    start = end - timedelta(days=days)
+    data = _get(
+        "/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice",
+        "FHKUP03500100",
+        {
+            "FID_COND_MRKT_DIV_CODE": "U",
+            "FID_INPUT_ISCD": code,
+            "FID_INPUT_DATE_1": start.strftime("%Y%m%d"),
+            "FID_INPUT_DATE_2": end.strftime("%Y%m%d"),
+            "FID_PERIOD_DIV_CODE": "D",
+        },
+    )
+    out = []
+    for row in data.get("output2", []) or []:
+        d = row.get("stck_bsop_date")
+        c = row.get("bstp_nmix_prpr")
+        if d and c:
+            out.append({"date": d, "close": _to_float(c)})
+    return sorted(out, key=lambda x: x["date"])
+
+
 @app.get("/api/chart")
 def chart(code: str = DEFAULT_CODE, days: int = 365):
     series = {"stock": fetch_daily_closes(code, "J", days), "pharm": None}
@@ -566,7 +596,7 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
     pharm_map = {}
     if PHARM_CODE:
         try:
-            for it in fetch_daily_closes(PHARM_CODE, "U", days=20):
+            for it in fetch_index_closes(PHARM_CODE, days=20):
                 pharm_map[it["date"]] = it["close"]
         except Exception:
             pharm_map = {}
@@ -610,15 +640,14 @@ def pharm_probe(codes: str = "", start: int = 1001, end: int = 1028):
         rec = {"code": c}
         try:
             data = _get(
-                "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
-                "FHKST03010100",
+                "/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice",
+                "FHKUP03500100",
                 {
                     "FID_COND_MRKT_DIV_CODE": "U",
                     "FID_INPUT_ISCD": c,
                     "FID_INPUT_DATE_1": d1,
                     "FID_INPUT_DATE_2": d2,
                     "FID_PERIOD_DIV_CODE": "D",
-                    "FID_ORG_ADJ_PRC": "0",
                 },
             )
             o1 = data.get("output1") or {}
@@ -628,7 +657,7 @@ def pharm_probe(codes: str = "", start: int = 1001, end: int = 1028):
                 if not rec.get("name"):
                     rec["o1_keys"] = sorted(o1.keys())
             rec["rows"] = len(rows)
-            rec["last_close"] = rows[-1].get("stck_clpr") if rows else None
+            rec["last_close"] = rows[-1].get("bstp_nmix_prpr") if rows else None
         except Exception as e:
             rec["error"] = str(e)[:100]
         results.append(rec)
