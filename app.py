@@ -52,6 +52,11 @@ ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 # KRX OpenAPI - 공매도 잔고 조회용. https://openapi.krx.co.kr
 KRX_API_KEY = os.getenv("KRX_API_KEY", "")
 
+# 알려진 종목코드 → ISIN 매핑 (KRX finder API 차단 대비)
+_ISIN_MAP = {
+    "214370": "KR7214370008",  # 케어젠 (KOSDAQ)
+}
+
 _news_cache: dict = {"ts": 0.0, "data": None}
 NEWS_CACHE_TTL = 1800  # 30분
 
@@ -842,8 +847,129 @@ def news_summary(force: bool = False):
     return JSONResponse(result)
 
 
+def _get_isin(code: str) -> str:
+    """종목코드 → ISIN. 캐시 맵 우선, 없으면 data.krx.co.kr finder 시도."""
+    if code in _ISIN_MAP:
+        return _ISIN_MAP[code]
+    try:
+        sess = requests.Session()
+        sess.headers.update({
+            "User-Agent": "Mozilla/5.0",
+            "Accept-Language": "ko-KR,ko;q=0.9",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": "https://data.krx.co.kr/",
+        })
+        r = sess.post(
+            "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
+            data={"bld": "dbms/comm/finder/finder_stkisu", "mktsel": "ALL", "searchText": code},
+            timeout=6,
+        )
+        items = r.json().get("block1", [])
+        for i in items:
+            if i.get("short_code") == code and i.get("full_code"):
+                return i["full_code"]
+        if items and items[0].get("full_code"):
+            return items[0]["full_code"]
+    except Exception:
+        pass
+    return code  # fallback: 종목코드 그대로
+
+
+def _krx_otp_rows(isu_cd: str, start_ymd: str, end_ymd: str) -> list:
+    """KRX OpenAPI OTP 인증 → CSV 다운로드 → 정규화된 dict list 반환.
+    openapi.krx.co.kr 은 해외 IP 허용; data.krx.co.kr 다운로드 단계도 OTP 인증이라 허용됨."""
+    import csv, io
+
+    # Step 1: OTP 생성 (AUTH_KEY 헤더)
+    otp_r = requests.post(
+        "https://openapi.krx.co.kr/contents/COM/GenerateOTP.cmd",
+        headers={"AUTH_KEY": KRX_API_KEY},
+        data={"bld": "dbms/MDC/STAT/srt/MDCSTAT30501", "name": "fileDown"},
+        timeout=10,
+    )
+    if otp_r.status_code != 200:
+        return []
+    otp = otp_r.text.strip()
+    if not otp or len(otp) < 8:
+        return []
+
+    # Step 2: OTP 코드로 CSV 파일 다운로드
+    dl = requests.post(
+        "https://data.krx.co.kr/comm/fileDn/GenerateOTP/download.cmd",
+        headers={
+            "Referer": "https://data.krx.co.kr/",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0",
+        },
+        data={"code": otp, "isuCd": isu_cd, "strtDd": start_ymd, "endDd": end_ymd},
+        timeout=15,
+    )
+    if dl.status_code != 200:
+        return []
+
+    # 인코딩 감지
+    text = None
+    for enc in ("utf-8-sig", "cp949", "euc-kr", "utf-8"):
+        try:
+            text = dl.content.decode(enc)
+            break
+        except (UnicodeDecodeError, LookupError):
+            pass
+    if not text:
+        return []
+
+    # CSV 파싱 + 컬럼명 정규화 (한글/영문 모두 대응)
+    normalized = []
+    for r in csv.DictReader(io.StringIO(text)):
+        date = (r.get("거래일자") or r.get("일자") or r.get("trdDd") or "")
+        date = date.replace("/", "").replace("-", "").strip()
+        qty = (r.get("공매도잔고수량") or r.get("공매도잔고(주)") or r.get("잔고수량") or
+               r.get("공매도잔고") or r.get("srtsellBal") or "")
+        qty = qty.replace(",", "").strip()
+        if date and qty and qty != "0":
+            normalized.append({"trdDd": date, "srtsellBal": qty})
+    return normalized
+
+
+def _krx_session_rows(isu_cd: str, start_ymd: str, end_ymd: str) -> list:
+    """세션쿠키 방식 — data.krx.co.kr MDCSTAT30501 JSON. 한국 IP에서만 동작할 수 있음."""
+    sess = requests.Session()
+    sess.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+    })
+    try:
+        sess.get("https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd", timeout=6)
+    except Exception:
+        pass
+    sess.headers.update({
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd",
+    })
+    for bld, params in [
+        ("dbms/MDC/STAT/srt/MDCSTAT30501",  {"isuCd": isu_cd, "strtDd": start_ymd, "endDd": end_ymd}),
+        ("dbms/MDC/STAT/standard/MDCSTAT11001", {"share": "1", "mktId": "KSQ", "isuCd": isu_cd, "strtDd": start_ymd, "endDd": end_ymd}),
+    ]:
+        try:
+            r = sess.post(
+                "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
+                data={"bld": bld, **params},
+                timeout=8,
+            )
+            rows = r.json().get("output") or r.json().get("block1") or r.json().get("OutBlock_1") or []
+            if rows:
+                return rows
+        except Exception:
+            continue
+    return []
+
+
 def _krx_short_raw(code: str):
-    """KRX 공매도 잔고 원시 응답 반환 — MDCSTAT30501 (개별 종목 공매도 잔고 현황, T+2)"""
+    """공매도 잔고 조회: OTP 방식 우선(API key 필요), 세션 방식 fallback."""
     from datetime import datetime, timedelta
 
     today = datetime.now()
@@ -852,101 +978,90 @@ def _krx_short_raw(code: str):
     end_ymd = end_dt.strftime("%Y%m%d")
     start_ymd = start_dt.strftime("%Y%m%d")
 
-    sess = requests.Session()
-    base_headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
-        "Accept-Language": "ko-KR,ko;q=0.9",
-    }
+    isu_cd = _get_isin(code)
+
+    # OTP 방식 우선 (해외 IP에서 동작)
     if KRX_API_KEY:
-        base_headers["AUTH_KEY"] = KRX_API_KEY
-    sess.headers.update(base_headers)
+        try:
+            rows = _krx_otp_rows(isu_cd, start_ymd, end_ymd)
+            if rows:
+                return rows, end_ymd
+        except Exception:
+            pass
 
-    # 세션 쿠키 획득 (data.krx.co.kr CSRF/세션 초기화)
-    try:
-        sess.get("https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd", timeout=8)
-    except Exception:
-        pass
-
-    sess.headers.update({
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT11001.cmd",
-    })
-
-    # 종목 검색으로 full_code(ISIN) 확보
-    isu_cd = code
-    try:
-        srch = sess.post(
-            "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
-            data={"bld": "dbms/comm/finder/finder_stkisu", "mktsel": "KSQ", "searchText": code},
-            timeout=8,
-        )
-        items = srch.json().get("block1", [])
-        matched = [i for i in items if i.get("short_code") == code]
-        if matched:
-            isu_cd = matched[0].get("full_code") or code
-        elif items:
-            isu_cd = items[0].get("full_code") or code
-    except Exception:
-        pass
-
-    # MDCSTAT30501: 개별 종목 공매도 잔고 현황 (srtsellBal, srtsellBalAmt, trdDd)
-    resp = sess.post(
-        "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
-        data={
-            "bld": "dbms/MDC/STAT/srt/MDCSTAT30501",
-            "isuCd": isu_cd,
-            "strtDd": start_ymd,
-            "endDd": end_ymd,
-        },
-        timeout=10,
-    )
-    raw = resp.json()
-    rows = raw.get("output") or raw.get("block1") or raw.get("OutBlock_1") or []
-
-    # fallback: MDCSTAT30501 결과 없으면 MDCSTAT11001 시도
-    if not rows:
-        resp2 = sess.post(
-            "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd",
-            data={
-                "bld": "dbms/MDC/STAT/standard/MDCSTAT11001",
-                "share": "1",
-                "mktId": "KSQ",
-                "isuCd": isu_cd,
-                "strtDd": start_ymd,
-                "endDd": end_ymd,
-            },
-            timeout=10,
-        )
-        raw2 = resp2.json()
-        rows = raw2.get("output") or raw2.get("block1") or raw2.get("OutBlock_1") or []
-
+    # 세션 방식 (한국 IP fallback)
+    rows = _krx_session_rows(isu_cd, start_ymd, end_ymd)
     return rows, end_ymd
 
 
 @app.get("/api/short-balance/debug")
 def short_balance_debug(code: str = DEFAULT_CODE):
-    """KRX MDCSTAT30501 공매도 잔고 원시 응답 디버그 (필드명 확인용)"""
+    """공매도 잔고 API 디버그 — 각 단계 성공 여부 확인용"""
+    from datetime import datetime, timedelta
+    import csv, io
+
+    today = datetime.now()
+    end_dt = today - timedelta(days=2)
+    start_dt = end_dt - timedelta(days=20)
+    end_ymd = end_dt.strftime("%Y%m%d")
+    start_ymd = start_dt.strftime("%Y%m%d")
+
+    result: dict = {"code": code, "key_set": bool(KRX_API_KEY)}
+
+    # ISIN 조회
+    isu_cd = _get_isin(code)
+    result["isu_cd"] = isu_cd
+
+    # OTP 생성 테스트
+    if KRX_API_KEY:
+        try:
+            otp_r = requests.post(
+                "https://openapi.krx.co.kr/contents/COM/GenerateOTP.cmd",
+                headers={"AUTH_KEY": KRX_API_KEY},
+                data={"bld": "dbms/MDC/STAT/srt/MDCSTAT30501", "name": "fileDown"},
+                timeout=10,
+            )
+            otp = otp_r.text.strip()
+            result["otp_status"] = otp_r.status_code
+            result["otp_len"] = len(otp)
+            result["otp_preview"] = otp[:20] if otp else ""
+
+            # CSV 다운로드 테스트
+            if otp and len(otp) >= 8:
+                dl = requests.post(
+                    "https://data.krx.co.kr/comm/fileDn/GenerateOTP/download.cmd",
+                    headers={"Referer": "https://data.krx.co.kr/", "Content-Type": "application/x-www-form-urlencoded"},
+                    data={"code": otp, "isuCd": isu_cd, "strtDd": start_ymd, "endDd": end_ymd},
+                    timeout=15,
+                )
+                result["dl_status"] = dl.status_code
+                result["dl_content_type"] = dl.headers.get("Content-Type", "")
+                result["dl_size"] = len(dl.content)
+                result["dl_preview"] = dl.content[:300].decode("utf-8-sig", errors="replace")
+        except Exception as e:
+            result["otp_error"] = str(e)
+
+    # 세션 방식 테스트
     try:
-        rows, end_ymd = _krx_short_raw(code)
-        sample = rows[:3] if rows else []
-        keys = list(rows[0].keys()) if rows else []
+        sess_rows = _krx_session_rows(isu_cd, start_ymd, end_ymd)
+        result["session_rows"] = len(sess_rows)
+        result["session_sample"] = sess_rows[:2] if sess_rows else []
     except Exception as e:
-        return JSONResponse({"error": str(e), "rows": [], "keys": []})
-    return JSONResponse({"end_ymd": end_ymd, "count": len(rows), "keys": keys, "sample": sample})
+        result["session_error"] = str(e)
+
+    return JSONResponse(result)
 
 
 @app.get("/api/short-balance")
 def short_balance(code: str = DEFAULT_CODE):
-    """KRX 정보데이터시스템에서 공매도 잔고 현황 조회 (T+2)"""
+    """KRX 공매도 잔고 현황 조회 (T+2) — OTP 우선, 세션 fallback"""
     try:
         rows, end_ymd = _krx_short_raw(code)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"KRX 조회 실패: {e}")
 
     if not rows:
-        raise HTTPException(status_code=404, detail="공매도 잔고 데이터 없음")
+        raise HTTPException(status_code=404, detail="공매도 잔고 데이터 없음 (KRX_API_KEY 미설정 또는 IP 차단)")
 
     latest = rows[-1]
     prev = rows[-2] if len(rows) >= 2 else None
@@ -957,7 +1072,6 @@ def short_balance(code: str = DEFAULT_CODE):
         except Exception:
             return 0
 
-    # MDCSTAT30501: srtsellBal / fallback MDCSTAT11001: BALANCE_QTY 등
     def _get_qty(row):
         for k in ("srtsellBal", "SRTSELL_BAL", "BALANCE_QTY", "BAL_QTY",
                   "CVSRTSELL_BAL_QTY", "SHRTSELL_BAL_QTY", "balance_qty"):
