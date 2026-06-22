@@ -589,6 +589,18 @@ async function load(){
     if(p.nxt)$("closeNxt").textContent=won(p.nxt);
     const t=capT(p.market_cap);if(t)$("mcap").textContent=t;
     if(p.foreign_ratio)$("frgnRatio").textContent=p.foreign_ratio+"%";
+    // 시가총액 순위 자동 업데이트
+    (function(){
+      function fmtRank(rank,chg){
+        if(!rank)return null;
+        const sym=chg===0?"-":chg<0?`▲${-chg}`:`▼${chg}`;
+        return{text:`#${rank} (${sym})`,cls:chg<0?"up":chg>0?"dn":""};
+      }
+      const rk1r=fmtRank(p.kosdaq_rank,p.kosdaq_rank_chg??0);
+      if(rk1r){const el=document.querySelector('[data-k="rk1"]');if(el){el.textContent=`KOSDAQ ${rk1r.text}`;el.className=("meta "+(rk1r.cls)).trim();}}
+      const rk2r=fmtRank(p.krx_rank,p.krx_rank_chg??0);
+      if(rk2r){const el=document.querySelector('[data-k="rk2"]');if(el){el.textContent=`KRX 통합 ${rk2r.text}`;el.className=("meta "+(rk2r.cls)).trim();}}
+    })();
     if(p.price_date&&p.price_date.length===8){const pd=p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8);$("closeBadge").textContent=pd+" 종가 기준";}
     else{$("closeBadge").textContent="실시간/최신 기준";}
     const chip=$("chip");const sign=p.rate>0?"▲":p.rate<0?"▼":"―";

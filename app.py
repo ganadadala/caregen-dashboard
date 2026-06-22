@@ -40,6 +40,7 @@ DEFAULT_CODE = os.getenv("STOCK_CODE", "214370")  # 케어젠
 # KOSDAQ 제약 업종지수 코드(선택). 설정 시 차트에 비교선이 추가됩니다. 미설정 시 종목선만 표시.
 PHARM_CODE = os.getenv("KOSDAQ_PHARM_CODE", "")
 TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
+RANK_CACHE = Path(__file__).parent / ".rank_cache.json"
 
 # OPEN DART (전자공시) - 무료 인증키. https://opendart.fss.or.kr
 DART_KEY = os.getenv("DART_API_KEY", "")
@@ -247,6 +248,71 @@ def _to_float(v, default=0.0):
         return default
 
 
+# ---------------------------------------------------------------------------
+# 시가총액 순위 캐시 (전일 대비 변동 계산용)
+# ---------------------------------------------------------------------------
+def _load_rank_cache() -> dict:
+    try:
+        return json.loads(RANK_CACHE.read_text())
+    except Exception:
+        return {}
+
+
+def _save_rank_cache(data: dict):
+    try:
+        RANK_CACHE.write_text(json.dumps(data))
+    except Exception:
+        pass
+
+
+def _rank_change(today: "int | None", key: str) -> int:
+    """오늘 순위 - 어제 순위. 양수=악화(▼), 음수=개선(▲), 0=동일(-)."""
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    _kst = _tz(timedelta(hours=9))
+    cache = _load_rank_cache()
+    today_str = _dt.now(tz=_kst).strftime("%Y%m%d")
+    yesterday = cache.get(f"{key}_rank")
+    yesterday_date = cache.get(f"{key}_date", "")
+    if today is not None and today_str != yesterday_date:
+        _save_rank_cache({**cache, f"{key}_rank": today, f"{key}_date": today_str})
+    if yesterday is None or today is None:
+        return 0
+    return today - yesterday
+
+
+# ---------------------------------------------------------------------------
+# KRX 통합 시가총액 순위  (TR: FHPST01720000)
+# 전체 시장 시총 순위 리스트를 조회해 해당 종목코드의 순위를 반환한다.
+# API 1회 응답 행 수에 따라 깊은 순위(예: #140)는 못 찾을 수 있음 → None 반환.
+# ---------------------------------------------------------------------------
+def fetch_krx_rank(code: str) -> "int | None":
+    try:
+        data = _get(
+            "/uapi/domestic-stock/v1/ranking/market-cap",
+            "FHPST01720000",
+            {
+                "fid_cond_mrkt_div_code": "N",
+                "fid_cond_scr_div_code": "20171",
+                "fid_input_iscd": "0000",
+                "fid_div_cls_code": "0",
+                "fid_blng_cls_code": "0",
+                "fid_trgt_cls_code": "0",
+                "fid_trgt_exls_cls_code": "0",
+                "fid_input_price_1": "",
+                "fid_input_price_2": "",
+                "fid_vol_cnt": "",
+            },
+        )
+        items = data.get("output") or []
+        target = code.lstrip("0")
+        for item in items:
+            if item.get("mksc_shrn_iscd", "").lstrip("0") == target:
+                return _to_int(item.get("data_rank")) or None
+    except Exception:
+        pass
+    return None
+
+
 def fetch_day_ohlc(code: str, end_ymd: str, div: str = "J") -> list:
     """선택 날짜(end_ymd, YYYYMMDD)까지의 일별 OHLC를 가져온다(날짜 오름차순).
     마지막 행 = 선택일(또는 그 이전 최근 거래일), 그 앞 행 = 전일.
@@ -331,6 +397,14 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     except Exception:
         nxt_price = None
 
+    # 시가총액 순위
+    kosdaq_rank = _to_int(quote.get("kosdaq_bwtp_rnk")) or None
+    krx_rank = None
+    try:
+        krx_rank = fetch_krx_rank(code)
+    except Exception:
+        pass
+
     result = {
         "code": code,
         "name": quote.get("rprs_mrkt_kor_name", ""),
@@ -350,6 +424,10 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "w52_high": _to_int(quote.get("w52_hgpr")),        # 52주 최고(현재값)
             "w52_low": _to_int(quote.get("w52_lwpr")),
             "foreign_ratio": quote.get("hts_frgn_ehrt", ""),   # 외국인 보유비율(현재값)
+            "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위
+            "kosdaq_rank_chg": _rank_change(kosdaq_rank, "kosdaq"),
+            "krx_rank": krx_rank,                              # KRX 통합 시총 순위
+            "krx_rank_chg": _rank_change(krx_rank, "krx"),
         },
         "investor": {
             "foreign_qty": _to_int(investor.get("frgn_ntby_qty")),
