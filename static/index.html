@@ -108,8 +108,11 @@
   .hcap .meta.dn{color:#c8d8ff;}
 
   /* 지표 + 차트 통합 (좌: 지표 / 우: 차트) */
-  .overview{display:grid;grid-template-columns:minmax(230px,300px) 1fr;border-bottom:1px solid var(--line);}
-  .ov-kpi{display:flex;flex-direction:column;border-right:1px solid var(--line);}
+  .overview{display:grid;grid-template-columns:1fr minmax(240px,320px);border-bottom:1px solid var(--line);}
+  .ov-right{display:flex;flex-direction:column;border-left:1px solid var(--line);}
+  .ov-kpi{display:flex;flex-direction:column;border-bottom:1px solid var(--line);}
+  .invpanel{padding:14px 22px;flex:1;min-height:0;}
+  .invpanel .inv-hd{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
   .price-main{display:flex;align-items:baseline;gap:10px;}
   .price-main .v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:46px;line-height:.95;letter-spacing:-.02em;color:var(--ink);}
   .price-main .u{font-size:15px;color:var(--muted);font-weight:500;}
@@ -238,7 +241,8 @@
   @media (max-width:760px){
     /* 통합 레이아웃: 위=지표 / 아래=차트로 전환 */
     .overview{grid-template-columns:1fr;}
-    .ov-kpi{border-right:0;border-bottom:1px solid var(--line);}
+    .ov-right{border-left:0;border-top:1px solid var(--line);}
+    .ov-kpi{border-bottom:1px solid var(--line);}
     .hero-stats{flex-direction:row;}
     .hero-stats .stat{flex:1;border-bottom:0;border-right:1px solid var(--line);}
     .hero-stats .stat:last-child{border-right:0;}
@@ -278,9 +282,8 @@
     /* 내부 여백·간격 정리 */
     .wcard{padding:9px 11px;} .wcard .tag{margin-bottom:5px;} .wcard .body{font-size:11px;line-height:1.5;}
     .autoline{margin-bottom:4px;padding-bottom:4px;}
-    .frbar,.usbar{padding:6px 11px;margin-bottom:7px;font-size:10px;} .flow .tag{margin-bottom:6px;} .flow .body p{margin:4px 0;}
-    /* 투자자 매매동향 표가 바 옆에 남도록 (줄바꿈 방지) */
-    .flowgrid{gap:8px;margin-bottom:7px;} .flowgrid .invtbl{flex:1 1 200px;} .invtbl{font-size:9.5px;}
+    .usbar{padding:6px 11px;margin-bottom:7px;font-size:10px;} .flow .tag{margin-bottom:6px;} .flow .body p{margin:4px 0;}
+    .invpanel{padding:6px 12px;} .invtbl{font-size:9.5px;}
     /* 뉴스가 가장 큰 블록 → 글씨 축소 */
     .nbcol{padding:8px 10px;} .newsbrf .nbcols{gap:8px;} .nbcol .nbtitle{font-size:11px;}
     .nbcol .nbbody{font-size:10px;line-height:1.45;} .nbcol .nbbody p{margin:2px 0;} .nbcol .nbbody p+p{margin-top:5px;}
@@ -333,19 +336,8 @@
     </div>
   </header>
 
-  <!-- 지표 + 차트 통합 (좌: 지표 / 우: 차트) -->
+  <!-- 차트 + 외인지분율 + 투자자 동향 통합 -->
   <section class="overview">
-    <div class="ov-kpi">
-    <div class="hero-stats">
-      <div class="stat">
-        <div class="eyebrow">외국인 지분율</div>
-        <div class="big"><span id="frgnRatio" contenteditable="true">4.03%</span></div>
-        <span class="meta dn" data-k="frgnChg" contenteditable="true">전일 -0.05%p</span>
-        <span class="sub2">'26.5월말 <span data-k="frgnPrev" contenteditable="true">3.92%</span></span>
-      </div>
-    </div>
-    </div><!-- /ov-kpi -->
-
     <!-- 차트 -->
     <div class="chartwrap">
     <div class="head">
@@ -362,6 +354,22 @@
       <span id="pharmLegend" style="display:none"><i style="border-color:#8b5cf6;border-top-style:dashed"></i> 코스닥 제약지수</span>
     </div>
     </div><!-- /chartwrap -->
+    <div class="ov-right">
+      <div class="ov-kpi">
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="eyebrow">외국인 지분율</div>
+          <div class="big"><span id="frgnRatio" contenteditable="true">4.03%</span></div>
+          <span class="meta dn" data-k="frgnChg" contenteditable="true">전일 -0.05%p</span>
+          <span class="sub2">'26.5월말 <span data-k="frgnPrev" contenteditable="true">3.92%</span></span>
+        </div>
+      </div>
+      </div><!-- /ov-kpi -->
+      <div class="invpanel">
+        <div class="inv-hd">투자자별 수급동향</div>
+        <table class="invtbl" id="invTable"><tbody><tr><td class="empty">조회 시 최근 3거래일 투자자별 매매동향이 표시됩니다.</td></tr></tbody></table>
+      </div><!-- /invpanel -->
+    </div><!-- /ov-right -->
   </section>
 
   <!-- 업무 3패널 -->
@@ -399,19 +407,10 @@
   <!-- 주가 변동 및 투자자 동향 -->
   <section class="flow">
     <div class="tag"><span class="dot"></span><h2>주가 변동 및 투자자 동향</h2></div>
-    <div class="flowgrid">
-      <div class="flowleft">
-        <div class="frbar">
-          <span>외국인 지분율 <b data-k="fr1" contenteditable="true">4.03%</b> (<span class="down" data-k="fr2" contenteditable="true">-0.05%</span>)</span>
-          <span>'26년 5월말 <b data-k="fr3" contenteditable="true">3.92%</b></span>
-        </div>
-        <div class="usbar" id="usBar">
-          <span>DOW <b id="usDow" contenteditable="true">+0.70%</b></span>
-          <span>나스닥 <b id="usNas" contenteditable="true">+0.31%</b></span>
-          <span>S&amp;P500 <b id="usSp" contenteditable="true">+0.50%</b></span>
-        </div>
-      </div>
-      <table class="invtbl" id="invTable"><tbody><tr><td class="empty">조회 시 최근 3거래일 투자자별 매매동향이 표시됩니다.</td></tr></tbody></table>
+    <div class="usbar" id="usBar">
+      <span>DOW <b id="usDow" contenteditable="true">+0.70%</b></span>
+      <span>나스닥 <b id="usNas" contenteditable="true">+0.31%</b></span>
+      <span>S&amp;P500 <b id="usSp" contenteditable="true">+0.50%</b></span>
     </div>
     <div class="body">
       <p class="auto" id="narCaregen"><span class="lead"></span>조회 시 케어젠 동향 문장이 자동 생성됩니다.</p>
@@ -746,7 +745,7 @@ async function loadNews(force=false){
   finally{btn.disabled=false;btn.textContent="뉴스 채우기";}
 }
 
-$("date").value=new Date().toISOString().slice(0,10);
+(function(){const d=new Date();$("date").value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0');})();
 $("rptDate").textContent=$("date").value;
 $("loadBtn").addEventListener("click",load);
 $("newsBtn").addEventListener("click",()=>loadNews(false));
