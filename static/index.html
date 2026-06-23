@@ -329,7 +329,7 @@
         <div class="eyebrow">Market Cap</div>
         <div class="big"><span id="mcap" contenteditable="true">4.01T</span> <span class="u">KRW</span></div>
         <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ #24 (-)</span>
-        <span class="meta dn" data-k="rk2" contenteditable="true">KRX 통합 #140 (▼2)</span>
+        <span class="meta dn" data-k="rk2">KRX 통합 #140 (▼2)</span>
       </div>
       <div class="stat">
         <div class="eyebrow">외국인 지분율</div>
@@ -654,6 +654,28 @@ async function load(){
         const sym=delta===0?"-":delta<0?`▲${-delta}`:`▼${delta}`;
         el.textContent=`KOSDAQ #${p.kosdaq_rank} (${sym})`;
         el.className=("meta "+(delta<0?"up":delta>0?"dn":"")).trim();
+      }
+    }
+    if(p.krx_rank){
+      const el2=document.querySelector('[data-k="rk2"]');
+      if(el2){
+        const day2=(p.price_date&&p.price_date.length===8)?p.price_date:new Date().toISOString().slice(0,10).replace(/-/g,"");
+        let delta2=0;
+        try{
+          const h2=JSON.parse(localStorage.getItem("krxRankHist")||"null");
+          if(!h2){
+            localStorage.setItem("krxRankHist",JSON.stringify({day:day2,cur:p.krx_rank,prev:null}));
+          }else if(h2.day===day2){
+            delta2=(h2.prev==null)?0:(p.krx_rank-h2.prev);
+            localStorage.setItem("krxRankHist",JSON.stringify({day:day2,cur:p.krx_rank,prev:h2.prev}));
+          }else{
+            delta2=p.krx_rank-h2.cur;
+            localStorage.setItem("krxRankHist",JSON.stringify({day:day2,cur:p.krx_rank,prev:h2.cur}));
+          }
+        }catch(e){}
+        const sym2=delta2===0?"-":delta2<0?`▲${-delta2}`:`▼${delta2}`;
+        el2.textContent=`KRX 통합 #${p.krx_rank} (${sym2})`;
+        el2.className=("meta "+(delta2<0?"up":delta2>0?"dn":"")).trim();
       }
     }
     if(p.price_date&&p.price_date.length===8){const pd=p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8);$("closeBadge").textContent=pd+" 종가 기준";}

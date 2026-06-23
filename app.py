@@ -53,6 +53,10 @@ CORP_CACHE = Path(__file__).parent / ".corp_code_cache.json"
 # Anthropic Claude API - 뉴스 자동 요약용. https://console.anthropic.com
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
+# KRX OpenAPI — 일별매매정보(전 종목 시총). 키는 Render 환경변수로만 주입.
+KRX_API_KEY = os.getenv("KRX_API_KEY", "").strip()
+KRX_BASE = "https://data-dbg.krx.co.kr/svc/apis/sto"
+
 _news_cache: dict = {"ts": 0.0, "data": None}
 NEWS_CACHE_TTL = 1800  # 30분
 
@@ -284,6 +288,74 @@ def fetch_kosdaq_rank(code: str) -> "int | None":
     return None
 
 
+def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
+    """KRX 일별매매정보로 KOSDAQ 순위 + KRX 통합 순위 계산.
+    KRX_API_KEY 미설정 시 두 값 모두 None.
+    """
+    from datetime import datetime, timedelta
+
+    if not KRX_API_KEY:
+        return {"kosdaq_rank": None, "krx_rank": None}
+
+    if not basDd:
+        d = datetime.now() - timedelta(days=1)
+        while d.weekday() >= 5:
+            d -= timedelta(days=1)
+        basDd = d.strftime("%Y%m%d")
+
+    hdrs = {"AUTH_KEY": KRX_API_KEY}
+    params = {"basDd": basDd}
+
+    def _fetch_rows(path: str) -> list:
+        try:
+            r = requests.get(f"{KRX_BASE}/{path}", headers=hdrs, params=params, timeout=15)
+            if r.status_code != 200:
+                return []
+            j = r.json()
+            rows = j.get("OutBlock_1") or []
+            if not rows:
+                for v in j.values():
+                    if isinstance(v, list):
+                        rows = v
+                        break
+            return rows
+        except Exception:
+            return []
+
+    def _cap(row: dict) -> int:
+        for k in ("MKTCAP", "MKT_CAP"):
+            if k in row:
+                return _to_int(row[k])
+        for k, v in row.items():
+            if "CAP" in k.upper():
+                return _to_int(v)
+        return 0
+
+    def _isucd(row: dict) -> str:
+        for k in ("ISU_SRT_CD", "ISU_CD", "SHRN_ISU_CD"):
+            if k in row:
+                return str(row.get(k, ""))
+        return ""
+
+    target = code.lstrip("0")
+    ksq_rows = _fetch_rows("ksq_bydd_trd")
+    stk_rows = _fetch_rows("stk_bydd_trd")
+
+    kosdaq_rank = None
+    for i, row in enumerate(sorted(ksq_rows, key=_cap, reverse=True), start=1):
+        if _isucd(row).lstrip("0") == target:
+            kosdaq_rank = i
+            break
+
+    krx_rank = None
+    for i, row in enumerate(sorted(ksq_rows + stk_rows, key=_cap, reverse=True), start=1):
+        if _isucd(row).lstrip("0") == target:
+            krx_rank = i
+            break
+
+    return {"kosdaq_rank": kosdaq_rank, "krx_rank": krx_rank}
+
+
 def fetch_day_ohlc(code: str, end_ymd: str, div: str = "J") -> list:
     """선택 날짜(end_ymd, YYYYMMDD)까지의 일별 OHLC를 가져온다(날짜 오름차순).
     마지막 행 = 선택일(또는 그 이전 최근 거래일), 그 앞 행 = 전일.
@@ -368,12 +440,15 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     except Exception:
         nxt_price = None
 
-    # KOSDAQ 시가총액 순위 (상위30 밖이면 None → 화면 수기값 유지)
-    kosdaq_rank = None
+    # KOSDAQ 순위 + KRX 통합 순위 (KRX 일별매매정보, 전 종목 시총 기반)
+    _ranks: dict = {}
     try:
-        kosdaq_rank = fetch_kosdaq_rank(code)
+        basDd = date.replace("-", "") if (date and date < today) else ""
+        _ranks = fetch_krx_ranks(code, basDd)
     except Exception:
         pass
+    kosdaq_rank = _ranks.get("kosdaq_rank")
+    krx_rank = _ranks.get("krx_rank")
 
     result = {
         "code": code,
@@ -395,6 +470,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "w52_low": _to_int(quote.get("w52_lwpr")),
             "foreign_ratio": quote.get("hts_frgn_ehrt", ""),   # 외국인 보유비율(현재값)
             "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위(없으면 null)
+            "krx_rank": krx_rank,                               # KRX 통합 시총 순위(없으면 null)
         },
         "investor": {
             "foreign_qty": _to_int(investor.get("frgn_ntby_qty")),
@@ -405,109 +481,6 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
         "investor_days": investor_days,
     }
     return JSONResponse(result)
-
-
-# ---------------------------------------------------------------------------
-# [진단/임시] KRX OpenAPI 접속 테스트. Render(미국)에서 openapi.krx.co.kr이
-# 차단되는지, 주식 일별매매정보로 KRX 통합 순위 계산이 가능한지 확정한다.
-# 키는 환경변수 KRX_API_KEY로만 주입(하드코딩 금지). 확정 후 제거 예정.
-# ---------------------------------------------------------------------------
-@app.get("/api/krx-probe")
-def krx_probe(code: str = DEFAULT_CODE, basDd: str = ""):
-    from datetime import datetime as _dt, timedelta as _td
-
-    krx_key = os.getenv("KRX_API_KEY", "").strip()
-    out = {"code": code, "key_set": bool(krx_key)}
-    if not krx_key:
-        out["hint"] = "Render 환경변수 KRX_API_KEY 미설정"
-        return JSONResponse(out)
-
-    # 기준일: 미지정 시 최근 평일(주말이면 직전 금요일)
-    if not basDd:
-        d = _dt.now() - _td(days=1)
-        while d.weekday() >= 5:  # 5=토,6=일
-            d -= _td(days=1)
-        basDd = d.strftime("%Y%m%d")
-    out["basDd"] = basDd
-
-    # 실제 API 서버는 포털(openapi.krx.co.kr)이 아니라 data-dbg.krx.co.kr 이다.
-    base = "https://data-dbg.krx.co.kr/svc/apis/sto"
-    targets = {"kospi": "stk_bydd_trd", "kosdaq": "ksq_bydd_trd"}
-    all_rows = []
-
-    def _cap(row):
-        # 시총 필드 추정(MKTCAP) + 방어적으로 'CAP' 포함 키 탐색
-        for k in ("MKTCAP", "MKT_CAP"):
-            if k in row:
-                return _to_int(row.get(k))
-        for k, v in row.items():
-            if "CAP" in k.upper():
-                return _to_int(v)
-        return 0
-
-    def _isucd(row):
-        for k in ("ISU_CD", "ISU_SRT_CD", "SHRN_ISU_CD"):
-            if k in row:
-                return str(row.get(k, ""))
-        return ""
-
-    out["calls"] = {}
-    for label, path in targets.items():
-        rec = {}
-        try:
-            r = requests.get(
-                f"{base}/{path}",
-                headers={"AUTH_KEY": krx_key},
-                params={"basDd": basDd},
-                timeout=15,
-            )
-            rec["status"] = r.status_code
-            rec["resp_headers"] = {
-                k: v for k, v in r.headers.items()
-                if k.lower() in ("server", "content-type", "x-cache", "x-akamai-transformed", "via")
-            }
-            body = r.text or ""
-            rec["body_len"] = len(body)
-            rec["body_preview"] = body[:300]
-            try:
-                j = r.json()
-                rec["root_keys"] = list(j.keys()) if isinstance(j, dict) else "not-dict"
-                rows = (j.get("OutBlock_1") if isinstance(j, dict) else None) or []
-                if not rows and isinstance(j, dict):
-                    # OutBlock 이름이 다를 경우 첫 리스트형 값 사용
-                    for v in j.values():
-                        if isinstance(v, list):
-                            rows = v
-                            break
-                rec["rows"] = len(rows)
-                if rows:
-                    rec["row_keys"] = sorted(rows[0].keys())
-                    rec["sample"] = [
-                        {"isu": _isucd(x), "name": x.get("ISU_NM") or x.get("ISU_ABBRV"),
-                         "cap": _cap(x)} for x in rows[:3]
-                    ]
-                    all_rows.extend(rows)
-            except Exception as e:
-                rec["json_error"] = str(e)
-        except Exception as e:
-            rec["error"] = str(e)
-        out["calls"][label] = rec
-
-    # 양 시장 합쳐 시총 내림차순 → 케어젠 통합 순위 계산
-    if all_rows:
-        try:
-            ranked = sorted(all_rows, key=_cap, reverse=True)
-            target = code.lstrip("0")
-            for i, row in enumerate(ranked, start=1):
-                if _isucd(row).lstrip("0") == target:
-                    out["caregen_integrated_rank"] = i
-                    out["caregen_cap"] = _cap(row)
-                    break
-            out["total_rows_merged"] = len(ranked)
-        except Exception as e:
-            out["rank_error"] = str(e)
-
-    return JSONResponse(out)
 
 
 # ---------------------------------------------------------------------------
