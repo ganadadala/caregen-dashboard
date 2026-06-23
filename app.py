@@ -232,7 +232,7 @@ def fetch_investor_days(code: str, n: int = 3) -> list:
         out.append({
             "date": r.get("stck_bsop_date", ""),
             "close": _to_int(r.get("stck_clpr")),
-            "diff": _to_int(r.get("prdy_vrss")) * mult,
+            "diff": abs(_to_int(r.get("prdy_vrss"))) * mult,
             "volume": _to_int(r.get("acml_vol")),
             "foreign_qty": _to_int(r.get("frgn_ntby_qty")),
             "org_qty": _to_int(r.get("orgn_ntby_qty")),
@@ -418,8 +418,8 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
         sign = quote.get("prdy_vrss_sign", "3")  # 1상한 2상승 3보합 4하한 5하락
         mult = -1 if sign in ("4", "5") else 1
         price = _to_int(quote.get("stck_prpr"))
-        diff = _to_int(quote.get("prdy_vrss")) * mult
-        rate = round(_to_float(quote.get("prdy_ctrt")) * mult, 2)
+        diff = abs(_to_int(quote.get("prdy_vrss"))) * mult
+        rate = round(abs(_to_float(quote.get("prdy_ctrt"))) * mult, 2)
         open_ = _to_int(quote.get("stck_oprc"))
         high = _to_int(quote.get("stck_hgpr"))
         low = _to_int(quote.get("stck_lwpr"))
@@ -742,7 +742,7 @@ def fetch_us_index(symbol: str):
     rate = o1.get("prdy_ctrt")
     if rate not in (None, ""):
         sign = o1.get("prdy_vrss_sign", "")
-        r = _to_float(rate) * (-1 if sign in ("4", "5") else 1)
+        r = abs(_to_float(rate)) * (-1 if sign in ("4", "5") else 1)
         return {"value": _to_float(o1.get("ovrs_nmix_prpr")), "rate": round(r, 2)}
     return None
 
