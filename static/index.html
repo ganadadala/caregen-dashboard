@@ -306,18 +306,17 @@
       </div>
     </div>
     <div class="htitle">
-      <div class="kicker">IR Stock Daily</div>
-      <h1>주식 일일 동향 브리핑</h1>
+      <h1>IR Stock Daily</h1>
+      <div class="hdate" style="text-align:left;padding:6px 0 0;">
+        <div class="d" id="rptDate">2026-06-20</div>
+        <span class="badge" id="closeBadge">장 마감 기준</span>
+      </div>
     </div>
     <div class="hprice">
       <div class="hp-eyebrow">At close · KRX</div>
       <div class="price-main"><span class="v" id="closeKrx" contenteditable="true">76,100</span><span class="u">원</span></div>
-      <div class="chip flat mono" id="chip">전일 比 —</div>
-      <div class="nxt">NXT <b class="mono" id="closeNxt" contenteditable="true">76,200</b> 원</div>
-    </div>
-    <div class="hdate">
-      <div class="d" id="rptDate">2026-06-20</div>
-      <span class="badge" id="closeBadge">장 마감 기준</span>
+      <div class="chip flat mono" id="chip">전일대비 —</div>
+      <div class="nxt">전일 NXT종가 <b class="mono" id="closeNxt" contenteditable="true">76,200</b> 원</div>
     </div>
   </header>
 
@@ -326,7 +325,7 @@
     <div class="ov-kpi">
     <div class="hero-stats">
       <div class="stat">
-        <div class="eyebrow">Market Cap</div>
+        <div class="eyebrow">시가총액</div>
         <div class="big"><span id="mcap" contenteditable="true">4.01T</span> <span class="u">KRW</span></div>
         <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ #24 (-)</span>
         <span class="meta dn" data-k="rk2">KRX 통합 #140 (▼2)</span>
@@ -679,9 +678,9 @@ async function load(){
       }
     }
     if(p.price_date&&p.price_date.length===8){const pd=p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8);$("closeBadge").textContent=pd+" 종가 기준";}
-    else{$("closeBadge").textContent="실시간/최신 기준";}
+    else{$("closeBadge").textContent="";}
     const chip=$("chip");const sign=p.rate>0?"▲":p.rate<0?"▼":"―";
-    chip.textContent=`전일 比 ${sign} ${won(Math.abs(p.diff))} (${p.rate>0?"+":""}${p.rate.toFixed(2)}%)`;
+    chip.textContent=`전일대비 ${sign} ${won(Math.abs(p.diff))} (${p.rate.toFixed(2)}%)`;
     chip.className="chip mono "+(p.rate>0?"up":p.rate<0?"down":"flat");
     genAuto(p,iv);
     renderInvTable(d.investor_days);
