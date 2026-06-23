@@ -1004,61 +1004,6 @@ def news_summary(force: bool = False):
 
 
 
-@app.get("/api/rank-status")
-def rank_status(code: str = DEFAULT_CODE, basDd: str = ""):
-    """KRX 순위 계산 진단용. 확인 후 제거 예정."""
-    from datetime import datetime, timedelta
-
-    krx_key = bool(KRX_API_KEY)
-    if not basDd:
-        d = datetime.now() - timedelta(days=1)
-        while d.weekday() >= 5:
-            d -= timedelta(days=1)
-        basDd = d.strftime("%Y%m%d")
-
-    out: dict = {"key_set": krx_key, "basDd": basDd}
-    if not krx_key:
-        return JSONResponse(out)
-
-    hdrs = {"AUTH_KEY": KRX_API_KEY}
-    params = {"basDd": basDd}
-
-    def _rows(path):
-        try:
-            r = requests.get(f"{KRX_BASE}/{path}", headers=hdrs, params=params, timeout=15)
-            out[path + "_status"] = r.status_code
-            if r.status_code != 200:
-                out[path + "_body"] = r.text[:200]
-                return []
-            j = r.json()
-            rows = j.get("OutBlock_1") or []
-            if not rows:
-                for v in j.values():
-                    if isinstance(v, list):
-                        rows = v
-                        break
-            out[path + "_rows"] = len(rows)
-            if rows:
-                out[path + "_keys"] = sorted(rows[0].keys())
-                out[path + "_sample"] = [{k: rows[0].get(k) for k in sorted(rows[0].keys())[:8]}]
-            return rows
-        except Exception as e:
-            out[path + "_error"] = str(e)
-            return []
-
-    _rows("ksq_bydd_trd")
-    _rows("stk_bydd_trd")
-
-    try:
-        ranks = fetch_krx_ranks(code, basDd)
-        out["kosdaq_rank"] = ranks["kosdaq_rank"]
-        out["krx_rank"] = ranks["krx_rank"]
-    except Exception as e:
-        out["rank_error"] = str(e)
-
-    return JSONResponse(out)
-
-
 @app.get("/api/health")
 def health():
     return {"ok": True, "configured": bool(APPKEY and APPSECRET), "default_code": DEFAULT_CODE}
