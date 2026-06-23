@@ -108,10 +108,10 @@
   .hcap .meta.dn{color:#c8d8ff;}
 
   /* 지표 + 차트 통합 (좌: 지표 / 우: 차트) */
-  .overview{display:grid;grid-template-columns:1fr minmax(240px,320px);border-bottom:1px solid var(--line);}
+  .overview{display:grid;grid-template-columns:1fr minmax(400px,480px);border-bottom:1px solid var(--line);}
   .ov-right{display:flex;flex-direction:column;border-left:1px solid var(--line);}
   .ov-kpi{display:flex;flex-direction:column;border-bottom:1px solid var(--line);}
-  .invpanel{padding:14px 22px;flex:1;min-height:0;}
+  .invpanel{padding:14px 22px;flex:1;min-height:0;overflow-x:auto;}
   .invpanel .inv-hd{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
   .price-main{display:flex;align-items:baseline;gap:10px;}
   .price-main .v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:46px;line-height:.95;letter-spacing:-.02em;color:var(--ink);}
