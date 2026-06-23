@@ -99,6 +99,13 @@
   .hprice .chip.flat{background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);}
   .hprice .nxt{color:rgba(255,255,255,.65);font-size:11px;margin-top:5px;}
   .hprice .nxt b{color:#fff;}
+  .hcap{padding:20px 22px;flex-shrink:0;}
+  .hcap .hp-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:6px;}
+  .hcap .cap-val{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:28px;color:#fff;line-height:1;}
+  .hcap .cap-u{font-size:13px;color:rgba(255,255,255,.7);margin-left:4px;}
+  .hcap .meta{display:block;font-size:11px;color:rgba(255,255,255,.7);margin-top:5px;}
+  .hcap .meta.up{color:#ffcfcc;}
+  .hcap .meta.dn{color:#c8d8ff;}
 
   /* 지표 + 차트 통합 (좌: 지표 / 우: 차트) */
   .overview{display:grid;grid-template-columns:minmax(230px,300px) 1fr;border-bottom:1px solid var(--line);}
@@ -318,18 +325,18 @@
       <div class="chip flat mono" id="chip">전일대비 —</div>
       <div class="nxt">전일 NXT종가 <b class="mono" id="closeNxt" contenteditable="true">76,200</b> 원</div>
     </div>
+    <div class="hcap">
+      <div class="hp-eyebrow">시가총액</div>
+      <div><span class="cap-val" id="mcap" contenteditable="true">4.01T</span><span class="cap-u">KRW</span></div>
+      <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ #25 (-)</span>
+      <span class="meta dn" data-k="rk2">KRX 통합 #146 (▼2)</span>
+    </div>
   </header>
 
   <!-- 지표 + 차트 통합 (좌: 지표 / 우: 차트) -->
   <section class="overview">
     <div class="ov-kpi">
     <div class="hero-stats">
-      <div class="stat">
-        <div class="eyebrow">시가총액</div>
-        <div class="big"><span id="mcap" contenteditable="true">4.01T</span> <span class="u">KRW</span></div>
-        <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ #24 (-)</span>
-        <span class="meta dn" data-k="rk2">KRX 통합 #140 (▼2)</span>
-      </div>
       <div class="stat">
         <div class="eyebrow">외국인 지분율</div>
         <div class="big"><span id="frgnRatio" contenteditable="true">4.03%</span></div>
