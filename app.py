@@ -291,24 +291,20 @@ def fetch_kosdaq_rank(code: str) -> "int | None":
 def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
     """KRX 일별매매정보로 KOSDAQ 순위 + KRX 통합 순위 계산.
     KRX_API_KEY 미설정 시 두 값 모두 None.
+    basDd 지정 시 해당 날짜(또는 직전 거래일) 기준,
+    미지정 시 KST 오늘부터 과거로 훑어 데이터 있는 첫 거래일 사용.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     if not KRX_API_KEY:
         return {"kosdaq_rank": None, "krx_rank": None}
 
-    if not basDd:
-        d = datetime.now() - timedelta(days=1)
-        while d.weekday() >= 5:
-            d -= timedelta(days=1)
-        basDd = d.strftime("%Y%m%d")
-
+    KST = timezone(timedelta(hours=9))
     hdrs = {"AUTH_KEY": KRX_API_KEY}
-    params = {"basDd": basDd}
 
-    def _fetch_rows(path: str) -> list:
+    def _fetch_rows(path: str, dd: str) -> list:
         try:
-            r = requests.get(f"{KRX_BASE}/{path}", headers=hdrs, params=params, timeout=15)
+            r = requests.get(f"{KRX_BASE}/{path}", headers=hdrs, params={"basDd": dd}, timeout=15)
             if r.status_code != 200:
                 return []
             j = r.json()
@@ -337,9 +333,29 @@ def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
                 return str(row.get(k, ""))
         return ""
 
+    # KST 오늘(또는 지정일)부터 하루씩 과거로 훑어 데이터 있는 첫 거래일 채택.
+    # 빈 OutBlock_1 = 당일 미공개 or 휴장 → 다음 후보로.
+    start = (
+        datetime.strptime(basDd, "%Y%m%d")
+        if basDd
+        else datetime.now(KST).replace(tzinfo=None)
+    )
+    ksq_rows: list = []
+    stk_rows: list = []
+    d = start
+    for _ in range(10):
+        if d.weekday() >= 5:          # 주말 건너뜀
+            d -= timedelta(days=1)
+            continue
+        dd = d.strftime("%Y%m%d")
+        rows = _fetch_rows("ksq_bydd_trd", dd)
+        if rows:
+            ksq_rows = rows
+            stk_rows = _fetch_rows("stk_bydd_trd", dd)
+            break
+        d -= timedelta(days=1)
+
     target = code.lstrip("0")
-    ksq_rows = _fetch_rows("ksq_bydd_trd")
-    stk_rows = _fetch_rows("stk_bydd_trd")
 
     kosdaq_rank = None
     for i, row in enumerate(sorted(ksq_rows, key=_cap, reverse=True), start=1):
