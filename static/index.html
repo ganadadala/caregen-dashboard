@@ -114,6 +114,12 @@
   .ov-right{display:flex;flex-direction:column;border-left:1px solid var(--line);}
   .ov-kpi{display:flex;flex-direction:column;border-bottom:1px solid var(--line);}
   .invpanel{padding:14px 22px;flex:1;min-height:0;overflow-x:auto;}
+  /* 2열 통합 행: (당사 주가 동향 | 거래량·외국인 지분율) · (차트 | 투자자별 수급동향) */
+  .ov2{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);align-items:stretch;}
+  .ov2>.ov2-cell{min-width:0;}
+  .ov2>.ov2-cell+.ov2-cell{border-left:1px solid var(--line);}
+  .ov2 .kbul{border-bottom:0;}
+  .ov2 .ov-kpi{border-bottom:0;justify-content:center;}
   .invpanel .inv-hd{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
   .price-main{display:flex;align-items:baseline;gap:10px;}
   .price-main .v{font-family:"Pretendard",system-ui,sans-serif;font-weight:700;font-size:46px;line-height:.95;letter-spacing:-.02em;color:var(--ink);}
@@ -141,7 +147,7 @@
   .chartwrap .head .ksq{font-family:"Pretendard",system-ui,sans-serif;font-size:12.5px;color:var(--ink2);background:var(--raise);border:1px solid var(--line);padding:4px 10px;border-radius:8px;}
   .chartwrap .head .head-chips{display:flex;gap:8px;flex-wrap:wrap;}
   .chartwrap .head .ksq.pharm{}
-  .chartbox{position:relative;height:240px;flex:1;min-height:210px;}
+  .chartbox{position:relative;height:200px;flex:1;min-height:180px;}
   .chart-info{position:absolute;top:4px;left:0;z-index:5;pointer-events:none;background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:10px;line-height:1.45;color:var(--ink2);font-family:"Pretendard",system-ui,sans-serif;box-shadow:0 2px 8px rgba(21,36,32,.1);display:none;white-space:nowrap;}
   .chart-info.show{display:block;}
   .chart-info .crow{display:flex;gap:12px;}
@@ -243,6 +249,8 @@
   @media (max-width:760px){
     /* 통합 레이아웃: 위=지표 / 아래=차트로 전환 */
     .overview{grid-template-columns:1fr;}
+    .ov2{grid-template-columns:1fr;}
+    .ov2>.ov2-cell+.ov2-cell{border-left:0;border-top:1px solid var(--line);}
     .ov-right{border-left:0;border-top:1px solid var(--line);}
     .ov-kpi{border-bottom:1px solid var(--line);}
     .hero-stats{flex-direction:row;}
@@ -437,30 +445,15 @@
     </ul>
   </section>
 
-  <!-- 당사 주가 동향 -->
-  <section class="kbul">
-    <div class="khd"><span class="dot"></span><h2>당사 주가 동향</h2></div>
-    <ul id="trendList" data-k="trendList" contenteditable="true">
-      <li>조회 시 수급·거래량 동향이 자동 생성됩니다.</li>
-    </ul>
-  </section>
-
-  <!-- 차트 + 외인지분율 + 투자자 동향 통합 -->
-  <section class="overview">
-    <!-- 차트 -->
-    <div class="chartwrap">
-    <div class="head">
-      <div class="t">차트 <small>일봉 10일 · OHLC + 코스닥 제약지수</small></div>
+  <!-- 당사 주가 동향 | 거래량·외국인 지분율 (2열) -->
+  <section class="ov2">
+    <div class="ov2-cell kbul">
+      <div class="khd"><span class="dot"></span><h2>당사 주가 동향</h2></div>
+      <ul id="trendList" data-k="trendList" contenteditable="true">
+        <li>조회 시 수급·거래량 동향이 자동 생성됩니다.</li>
+      </ul>
     </div>
-    <div class="chartbox"><canvas id="chart"></canvas><div id="chartInfo" class="chart-info"></div></div>
-    <div class="legend">
-      <span><i style="background:#d92d20;border-top:none;border-radius:2px;height:10px"></i> 양봉 (상승)</span>
-      <span><i style="background:#1c5fcc;border-top:none;border-radius:2px;height:10px"></i> 음봉 (하락)</span>
-      <span id="pharmLegend" style="display:none"><i style="border-color:#8b5cf6;border-top-style:dashed"></i> 코스닥 제약지수</span>
-    </div>
-    </div><!-- /chartwrap -->
-    <div class="ov-right">
-      <div class="ov-kpi">
+    <div class="ov2-cell ov-kpi">
       <div class="hero-stats kpi-two">
         <div class="stat">
           <div class="eyebrow">거래량</div>
@@ -474,12 +467,26 @@
           <span class="sub2">'26.5월말 <span data-k="frgnPrev" contenteditable="true">3.92%</span></span>
         </div>
       </div>
-      </div><!-- /ov-kpi -->
-      <div class="invpanel">
-        <div class="inv-hd">투자자별 수급동향 <span style="font-weight:400;color:var(--muted)">· 최근 10거래일</span></div>
-        <table class="invtbl" id="invTable"><tbody><tr><td class="empty">조회 시 최근 10거래일 투자자별 매매동향이 표시됩니다.</td></tr></tbody></table>
-      </div><!-- /invpanel -->
-    </div><!-- /ov-right -->
+    </div>
+  </section>
+
+  <!-- 일봉 10일 차트 | 투자자별 수급동향 (2열) -->
+  <section class="ov2">
+    <div class="ov2-cell chartwrap">
+      <div class="head">
+        <div class="t">차트 <small>일봉 10일 · OHLC + 코스닥 제약지수</small></div>
+      </div>
+      <div class="chartbox"><canvas id="chart"></canvas><div id="chartInfo" class="chart-info"></div></div>
+      <div class="legend">
+        <span><i style="background:#d92d20;border-top:none;border-radius:2px;height:10px"></i> 양봉 (상승)</span>
+        <span><i style="background:#1c5fcc;border-top:none;border-radius:2px;height:10px"></i> 음봉 (하락)</span>
+        <span id="pharmLegend" style="display:none"><i style="border-color:#8b5cf6;border-top-style:dashed"></i> 코스닥 제약지수</span>
+      </div>
+    </div>
+    <div class="ov2-cell invpanel">
+      <div class="inv-hd">투자자별 수급동향 <span style="font-weight:400;color:var(--muted)">· 최근 10거래일</span></div>
+      <table class="invtbl" id="invTable"><tbody><tr><td class="empty">조회 시 최근 10거래일 투자자별 매매동향이 표시됩니다.</td></tr></tbody></table>
+    </div>
   </section>
 
   <!-- 전체 시장 및 섹터 주요 종목 주가 동향 -->
