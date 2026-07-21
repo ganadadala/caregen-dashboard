@@ -740,14 +740,41 @@ function renderDisc(items){
 }
 
 /* ── 당사 주가 동향 (AUTO 불릿) ── */
-function autoTrend(p,iv){
+// 외국인 지분율 이력 누적(localStorage) → '최근 N거래일 대비' 산출.
+// KIS 무료 API가 일자별 보유비율을 안 줘서, 조회할 때마다 당일 현재값을 하루 1건 저장해 추적.
+function trackFrgnRatio(ratio){
+  const cur=parseFloat(ratio);
+  if(isNaN(cur))return null;
+  const t=new Date(), dk=""+t.getFullYear()+String(t.getMonth()+1).padStart(2,'0')+String(t.getDate()).padStart(2,'0');
+  let arr=[];try{arr=JSON.parse(localStorage.getItem("frgnRatioHist")||"[]");}catch(e){}
+  if(!Array.isArray(arr))arr=[];
+  const last=arr[arr.length-1];
+  if(last&&last.d===dk)last.r=cur; else arr.push({d:dk,r:cur});
+  if(arr.length>45)arr=arr.slice(-45);
+  localStorage.setItem("frgnRatioHist",JSON.stringify(arr));
+  if(arr.length<2)return null;
+  const back=Math.min(20,arr.length-1), prev=arr[arr.length-1-back];
+  if(!prev||prev.r==null)return null;
+  return {delta:+(cur-prev.r).toFixed(2), days:back};
+}
+function autoTrend(p,iv,days){
   const el=$("trendList");if(!el)return;
-  const flow=flowWord(iv.foreign_qty||0,iv.org_qty||0);
-  const fr=$("frgnRatio")?($("frgnRatio").textContent||"").trim():"";
-  const vt=(p.vol_vs_avg!=null)
-    ?`거래량 ${won(p.volume)}주 · 최근 20일 평균 대비 ${p.vol_vs_avg>0?"+":""}${p.vol_vs_avg.toFixed(1)}%`
-    :`거래량 ${won(p.volume)}주`;
-  el.innerHTML=`<li>${flow} 흐름 · 외국인 지분율 ${fr||"—"}</li><li>${vt}</li>`;
+  // 외국인 수급 방향: 최근 10거래일 순매매 합으로 판단
+  let fsum=0;
+  if(days&&days.length)days.slice(-10).forEach(r=>{fsum+=(r.foreign_qty||0);});
+  else fsum=iv.foreign_qty||0;
+  const dir=fsum>0?"순매수세":fsum<0?"순매도세":"수급 혼조";
+  const cont=fsum!==0?" 지속":"";
+  const fr=(p.foreign_ratio!=null&&p.foreign_ratio!=="")?p.foreign_ratio+"%":"—";
+  // 외인 지분율 20(거래일)전 대비 — 이력 누적분이 있으면 표시
+  const tk=trackFrgnRatio(p.foreign_ratio);
+  const frClause=tk?` — 최근 ${tk.days}거래일 대비 ${tk.delta>0?"+":""}${tk.delta}%p ${tk.delta>0?"상승":tk.delta<0?"하락":"보합"}`:"";
+  const b1=`최근 외국인 ${dir}${cont}. 외인 지분율 ${fr}${frClause}.`;
+  let b2;
+  if(p.vol_vs_avg!=null){const s=p.vol_vs_avg>0?"+":"",w=p.vol_vs_avg>0?"증가":p.vol_vs_avg<0?"감소":"유사";
+    b2=`거래량은 약 ${won(p.volume)}주로 최근 20일 평균 대비 ${s}${p.vol_vs_avg.toFixed(1)}% ${w}.`;}
+  else b2=`거래량은 약 ${won(p.volume)}주.`;
+  el.innerHTML=`<li>${b1}</li><li>${b2}</li>`;
   const pill=$("trendPill");if(pill)pill.style.display="";
 }
 
@@ -913,7 +940,7 @@ async function load(){
         va.innerHTML=`최근 20일 평균 대비 <span class="${cls}">${s}${p.vol_vs_avg.toFixed(1)}%</span>`;}
       else va.textContent="최근 20일 평균 대비 —";
     }
-    autoTrend(p,iv);
+    autoTrend(p,iv,d.investor_days);
     renderInvTable(d.investor_days);
     $("status").textContent="주가·시총 갱신 · 차트 로딩…";
 
