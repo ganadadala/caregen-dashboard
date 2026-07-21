@@ -309,6 +309,23 @@
   .qbox .qbody{font-size:12.5px;color:var(--ink2);line-height:1.75;}
   .qbox .qbody p{margin:3px 0;}
 
+  /* ── image2 하단 레이아웃: 동향 박스 / 2열(헤드라인·질의) / 업무보고 ── */
+  .blkhd{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .blkhd .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);}
+  .blkhd h2{font-size:14px;font-weight:800;color:var(--ink);}
+  .blkhd .autopill{margin-left:2px;}
+  .blkhd.inq .dot{background:var(--indigo);}
+  .secbox{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--surface);}
+  .secbox ul{list-style:none;margin:0;padding:0;}
+  .secbox li{position:relative;padding-left:14px;font-size:12.5px;color:var(--ink2);line-height:1.7;margin:4px 0;}
+  .secbox li::before{content:"•";position:absolute;left:2px;color:var(--brand);}
+  .secbox p{font-size:12.5px;color:var(--ink2);line-height:1.7;margin:3px 0;}
+  .edph:empty::before{content:attr(data-ph);color:var(--muted);font-style:italic;font-size:12.5px;pointer-events:none;}
+  .bottom2{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);}
+  .bottom2 .secbox{min-height:150px;}
+  .workbox{min-height:210px;}
+  @media(max-width:760px){.bottom2{grid-template-columns:1fr;}}
+
   @media print{
     @page{size:A4;margin:8mm;}
     body{background:#fff;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -472,69 +489,25 @@
 
   <!-- 일일 업무 보고 -->
   <section class="work">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-      <span style="width:8px;height:8px;border-radius:50%;background:var(--brand);display:inline-block;"></span>
-      <h2 style="font-size:14px;font-weight:800;color:var(--ink);">일일 업무 보고</h2>
-      <span style="font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-left:auto;">Daily Work Report</span>
-    </div>
-    <div class="wcard cd">
-      <div class="tag"><span class="dot"></span><span class="nm">공시</span><span class="en">Corporate Disclosure</span></div>
-      <div class="disc" id="discList"><div class="disc-empty">조회 시 DART 공시가 표시됩니다.</div></div>
-      <div class="memo-label">후속업무 메모</div>
-      <div class="body" data-k="cd" contenteditable="true">
-        <p>1. KRX 경위서 관련 후속업무 F/U</p>
-        <p class="ind">- 특이사항 없음</p>
-        <p>2. 중간배당 기준일 결정 공시 후속 대응</p>
-        <p class="ind">- 예탁결제원, 중간배당 기준일 설정 공문 접수</p>
-      </div>
-    </div>
-    <div class="wcard ir">
-      <div class="tag"><span class="dot"></span><span class="nm">투자자 관계</span><span class="en">Investor Relations</span></div>
-      <div class="autoline" id="irAuto">
-        <p>1. 주가 모니터링 (KRX 시황)<span class="autopill">AUTO</span></p>
-        <p class="ind">- 조회 시 자동 생성</p>
-      </div>
-      <div class="manual-note">수기입력</div>
-      <div class="body" data-k="ir2" contenteditable="true">
-        <p class="ind">- 공매도 순잔고(T-2, 6/11): 68.8만주 (-3.4만주)</p>
-        <p class="ind">- CFD 잔고(6/12): 26.8주 (207.8억, 변동 없음)</p>
-        <p>2. IR팀 업무 공유</p>
-      </div>
-    </div>
-    <div class="wcard pr">
-      <div class="tag"><span class="dot"></span><span class="nm">홍보</span><span class="en">Public Relations</span></div>
-      <div class="body" data-k="pr" contenteditable="true"></div>
-    </div>
+    <div class="blkhd"><span class="dot"></span><h2>일일 업무 보고</h2></div>
+    <div class="secbox workbox edph" data-k="workReport" data-ph="수기 입력" contenteditable="true"></div>
   </section>
 
-  <!-- 주가 변동 및 투자자 동향 -->
+  <!-- 당사 및 섹터 시장 동향 -->
   <section class="flow">
-    <div class="tag"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
-    <div class="usbar" id="usBar">
-      <span>DOW <b id="usDow" contenteditable="true">+0.70%</b></span>
-      <span>나스닥 <b id="usNas" contenteditable="true">+0.31%</b></span>
-      <span>S&amp;P500 <b id="usSp" contenteditable="true">+0.50%</b></span>
-    </div>
-    <div class="body">
-      <p class="auto" id="narCaregen"><span class="lead"></span>조회 시 케어젠 동향 문장이 자동 생성됩니다.</p>
-    </div>
+    <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
+    <div class="secbox edph" data-k="secTrend" data-ph="내용은 조회·수기로 채웁니다." contenteditable="true"></div>
   </section>
 
-  <!-- 뉴스 브리핑 -->
-  <section class="newsbrf">
-    <div class="nbtag"><span class="dot"></span><h2>뉴스 브리핑</h2><span class="nbwindow" id="nbWindow"></span><span class="en">News Briefing</span></div>
-    <div class="nbcols">
-      <div class="nbcol"><div class="nbtitle">케어젠</div><div class="nbbody" data-k="nbCompany" contenteditable="true"><p></p></div></div>
-      <div class="nbcol"><div class="nbtitle">증시 · 매크로</div><div class="nbbody" data-k="nbMacro" contenteditable="true"><p></p></div></div>
-      <div class="nbcol"><div class="nbtitle">바이오 / 제약 섹터</div><div class="nbbody" data-k="nbSector" contenteditable="true"><p></p></div></div>
+  <!-- 주요 뉴스 헤드라인 · 시장 주요 질의 사항 (2열) -->
+  <section class="bottom2">
+    <div class="col news">
+      <div class="blkhd"><span class="dot"></span><h2>주요 뉴스 헤드라인</h2><span class="nbwindow" id="nbWindow"></span></div>
+      <div class="secbox edph" id="newsHeadlines" data-k="newsHeadlines" data-ph="뉴스·요약 채우기 시 자동 표시됩니다." contenteditable="true"></div>
     </div>
-  </section>
-
-  <!-- 시장 주요 질의 사항 -->
-  <section class="qbox">
-    <div class="qhd"><span class="dot"></span><h2>시장 주요 질의 사항</h2><span class="en">Key Inquiries</span></div>
-    <div class="qbody" data-k="qbody" contenteditable="true">
-      <p>1. 조회 후 시장·투자자 문의 내용을 수기로 정리합니다.</p>
+    <div class="col inq">
+      <div class="blkhd inq"><span class="dot"></span><h2>시장 주요 질의 사항</h2></div>
+      <div class="secbox edph" data-k="qbody" data-ph="시장·투자자 문의 내용을 수기로 정리합니다." contenteditable="true"></div>
     </div>
   </section>
 
@@ -687,16 +660,18 @@ function flowWord(f,o){
   return "수급 혼조";
 }
 function genAuto(p,iv){
+  const ir=$("irAuto"), nar=$("narCaregen");
+  if(!ir&&!nar)return;   // 해당 영역 제거됨(레이아웃 개편) → no-op
   const prev=p.current-p.diff;
   const hp=prev?((p.high-prev)/prev*100):0;
   const lp=prev?((p.low-prev)/prev*100):0;
   const rng=prev?((p.high-p.low)/prev*100):0;
-  $("irAuto").innerHTML=
+  if(ir)ir.innerHTML=
     `<p>1. 주가 모니터링 (KRX 시황)<span class="autopill">AUTO</span></p>`+
     `<p class="ind">- 전일 比 ${fmtPct(p.rate)} ${dirWord(p.rate)} 마감 · 변동폭 ${rng.toFixed(2)}%</p>`+
     `<p class="ind">※ <span class="up">高 ${won(p.high)} (${fmtPct(hp)})</span> · <span class="down">低 ${won(p.low)} (${fmtPct(lp)})</span></p>`;
   const md=(p.price_date&&p.price_date.length===8)?(p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8)+" "):"";
-  $("narCaregen").innerHTML=
+  if(nar)nar.innerHTML=
     `<span class="lead"></span>${md}케어젠은 종가 ${won(p.current)}원, 전일 比 ${fmtPct(p.rate)} ${dirWord(p.rate)} 마감. `+
     `${flowWord(iv.foreign_qty||0,iv.org_qty||0)} 흐름 속에 장중 ${won(p.high)}~${won(p.low)} 구간에서 거래 마감.`;
 }
@@ -725,6 +700,7 @@ function setUs(id,o){
 }
 function renderDisc(items){
   const box=$("discList");
+  if(!box)return;   // 공시 카드 제거됨(레이아웃 개편)
   const card=box.parentElement;
   if(!items.length){card.style.display="none";box.innerHTML="";return;}
   card.style.display="";
@@ -944,19 +920,6 @@ async function load(){
 
     const ro=await fetch("/api/ohlc?code="+encodeURIComponent(code)+"&date="+encodeURIComponent($("date").value));
     if(ro.ok){const od=await ro.json();if(od.length)drawCandleChart(od);}
-
-    // DART 공시 (키 없으면 조용히 건너뜀)
-    try{
-      const rd=await fetch("/api/disclosures?code="+encodeURIComponent(code)+"&days=30");
-      if(rd.ok){renderDisc((await rd.json()).items||[]);}
-      else if(rd.status===500){$("discList").innerHTML='<div class="disc-note">DART 미연동 (.env에 DART_API_KEY 입력 시 자동 표시)</div>';}
-    }catch(e){/* 무시 */}
-
-    // 미국 지수 (해외시세 권한 필요)
-    try{
-      const ru=await fetch("/api/us-indices");
-      if(ru.ok){const u=await ru.json();setUs("usDow",u.DOW);setUs("usNas",u.NASDAQ);setUs("usSp",u.SP500);}
-    }catch(e){/* 무시 */}
 
     // 시장 데이터: 헤더 지수·환율 + 시장/섹터 top10 + 지수 미니차트
     await loadMarket();
