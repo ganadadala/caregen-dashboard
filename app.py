@@ -1039,6 +1039,62 @@ def market(code: str = DEFAULT_CODE, date: str = ""):
     })
 
 
+@app.get("/api/krx-debug")
+def krx_debug():
+    """KRX 일별매매정보 호출 진단 — top10이 계속 비는 원인 파악용.
+    키 자체는 노출하지 않고(bool), 날짜별 status·행수·필드명만 반환."""
+    from datetime import datetime, timedelta, timezone
+
+    info = {"key_set": bool(KRX_API_KEY), "base": KRX_BASE}
+    if not KRX_API_KEY:
+        info["msg"] = "KRX_API_KEY 미설정 — Render 환경변수(KRX_API_KEY)를 확인하세요."
+        return JSONResponse(info)
+
+    KST = timezone(timedelta(hours=9))
+    d = datetime.now(KST).replace(tzinfo=None)
+    tries = []
+    for _ in range(6):
+        if d.weekday() >= 5:
+            d -= timedelta(days=1)
+            continue
+        dd = d.strftime("%Y%m%d")
+        rec = {"basDd": dd}
+        try:
+            r = requests.get(
+                f"{KRX_BASE}/ksq_bydd_trd",
+                headers={"AUTH_KEY": KRX_API_KEY},
+                params={"basDd": dd},
+                timeout=15,
+            )
+            rec["status"] = r.status_code
+            try:
+                j = r.json()
+                rows = j.get("OutBlock_1")
+                if not isinstance(rows, list):
+                    for v in j.values():
+                        if isinstance(v, list):
+                            rows = v
+                            break
+                rec["rows"] = len(rows) if isinstance(rows, list) else None
+                if isinstance(rows, list) and rows:
+                    rec["first_row_keys"] = list(rows[0].keys())
+                elif r.status_code != 200:
+                    rec["body"] = r.text[:250]
+                else:
+                    rec["body"] = r.text[:250]
+            except Exception:
+                rec["body"] = r.text[:250]
+            tries.append(rec)
+            if rec.get("rows"):
+                break
+        except Exception as e:
+            rec["error"] = str(e)[:200]
+            tries.append(rec)
+        d -= timedelta(days=1)
+    info["tries"] = tries
+    return JSONResponse(info)
+
+
 # ---------------------------------------------------------------------------
 # 뉴스 자동 요약 — Google News RSS 수집 → Claude Haiku 요약
 # ---------------------------------------------------------------------------
