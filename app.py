@@ -934,14 +934,36 @@ def fetch_index_snapshot(code: str, days: int = 20, tail: int = 10) -> dict:
 
 
 def fetch_usdkrw() -> dict:
-    """USD/KRW 환율 + 전일대비. KIS가 원달러 현물을 안 줘서 무료 FX 소스 사용(키 불필요).
-    여러 소스를 순차 시도, 모두 실패 시 값 없음(프론트에서 수기 입력 가능)."""
-    sources = [
-        "https://open.er-api.com/v6/latest/USD",
-        "https://api.frankfurter.app/latest?from=USD&to=KRW",
-        "https://api.exchangerate.host/latest?base=USD&symbols=KRW",
-    ]
-    for url in sources:
+    """USD/KRW 환율 + 전일대비(원). KIS가 원달러 현물을 안 줘서 무료 FX 소스 사용(키 불필요).
+    frankfurter 기간조회로 rate+전일대비를 함께 구하고, 실패 시 현재값만 폴백."""
+    from datetime import datetime, timedelta, timezone
+
+    # 1) frankfurter 최근 10일 범위 → 최신값·직전 영업일값으로 전일대비 산출
+    try:
+        kst = timezone(timedelta(hours=9))
+        end = datetime.now(kst).date()
+        start = end - timedelta(days=10)
+        r = requests.get(
+            f"https://api.frankfurter.app/{start}..{end}?from=USD&to=KRW", timeout=8
+        )
+        if r.status_code == 200:
+            rates = r.json().get("rates") or {}
+            days = sorted(rates.keys())
+            if days:
+                last = _to_float((rates[days[-1]] or {}).get("KRW"))
+                if last:
+                    diff = None
+                    if len(days) >= 2:
+                        prev = _to_float((rates[days[-2]] or {}).get("KRW"))
+                        if prev:
+                            diff = round(last - prev, 2)
+                    return {"rate": round(last, 2), "diff": diff}
+    except Exception:
+        pass
+
+    # 2) 폴백: 현재값만
+    for url in ("https://open.er-api.com/v6/latest/USD",
+                "https://api.exchangerate.host/latest?base=USD&symbols=KRW"):
         try:
             r = requests.get(url, timeout=8)
             if r.status_code != 200:

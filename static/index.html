@@ -69,8 +69,8 @@
   /* 통합 브랜드 셀: 로고 + CAREGEN + IR Stock Daily + 날짜 */
   .hbrand{
     display:flex;align-items:center;gap:15px;
-    flex:1;min-width:280px;
-    padding:16px 18px 16px 22px;
+    flex:1;min-width:206px;
+    padding:16px 14px 16px 20px;
     border-right:1px solid rgba(255,255,255,.18);
   }
   .hlogo-img-wrap{
@@ -82,7 +82,7 @@
   }
   .hlogo-img{width:50px;height:50px;object-fit:contain;border-radius:50%;}
   .hbrand-text{display:flex;flex-direction:column;justify-content:center;min-width:0;}
-  .hbrand-text .brand-lg{font-family:"IBM Plex Mono",monospace;font-size:30px;font-weight:700;color:#fff;letter-spacing:.02em;line-height:1.02;}
+  .hbrand-text .brand-lg{font-family:"IBM Plex Mono",monospace;font-size:27px;font-weight:700;color:#fff;letter-spacing:.01em;line-height:1.02;}
   .hbrand-text .brand-title{font-family:"Pretendard",system-ui,sans-serif;font-size:18px;font-weight:700;color:#fff;letter-spacing:-.01em;line-height:1.15;margin-top:2px;white-space:nowrap;}
   .hbrand-text .brand-date{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
   .hbrand-text .brand-date .d{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:13px;color:rgba(255,255,255,.92);white-space:nowrap;}
@@ -90,7 +90,7 @@
   .hbrand-text .brand-date .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#7FFFC4;}
 
   /* 헤더 우측 주가 블록 */
-  .hprice{padding:16px 16px;border-right:1px solid rgba(255,255,255,.18);flex-shrink:0;}
+  .hprice{padding:14px 13px;border-right:1px solid rgba(255,255,255,.18);flex-shrink:0;}
   .hp-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:4px;}
   .hprice .price-main .v{color:#fff;font-size:23px;}
   .hprice .price-main .u{color:rgba(255,255,255,.7);}
@@ -100,11 +100,11 @@
   .hprice .chip.flat{background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);}
   .hprice .nxt{color:rgba(255,255,255,.65);font-size:11px;margin-top:5px;}
   .hprice .nxt b{color:#fff;}
-  .hcap{padding:16px 16px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.18);}
+  .hcap{padding:14px 13px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.18);}
   .hcap .hp-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:6px;}
-  .hcap .cap-val{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:22px;color:#fff;line-height:1;}
+  .hcap .cap-val{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:19px;color:#fff;line-height:1;}
   .hcap .cap-u{font-size:13px;color:rgba(255,255,255,.7);margin-left:4px;}
-  .hcap .meta{display:block;font-size:11px;color:rgba(255,255,255,.7);margin-top:5px;}
+  .hcap .meta{display:block;font-size:10px;color:rgba(255,255,255,.7);margin-top:5px;white-space:nowrap;}
   .hcap .meta.up{color:#ffcfcc;}
   .hcap .meta.dn{color:#c8d8ff;}
 
@@ -255,8 +255,8 @@
   }
   /* ===== IR Daily 신규 레이아웃 ===== */
   /* 헤더 우측 지수·환율 */
-  .hidx{padding:14px 16px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:170px;}
-  .hidx .ixrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:11.5px;line-height:1.2;}
+  .hidx{padding:14px 14px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:200px;}
+  .hidx .ixrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:11px;line-height:1.2;}
   .hidx .ixrow .nm{color:rgba(255,255,255,.82);font-weight:600;white-space:nowrap;}
   .hidx .ixrow .rhs{font-family:"IBM Plex Mono",monospace;text-align:right;white-space:nowrap;}
   .hidx .ixrow .vv{color:#fff;font-weight:600;}
@@ -385,13 +385,13 @@
       <div class="hp-eyebrow">금일 종가</div>
       <div class="price-main"><span class="v" id="closeKrx" contenteditable="true">76,100</span><span class="u">원</span></div>
       <div class="chip flat mono" id="chip">전일대비 —</div>
-      <div class="nxt">전일 NXT종가 <b class="mono" id="closeNxt" contenteditable="true">76,200</b> 원</div>
+      <div class="nxt"><span id="nxtLabel">전일 NXT종가</span> <b class="mono" id="closeNxt" contenteditable="true">76,200</b> 원</div>
     </div>
     <div class="hcap">
       <div class="hp-eyebrow">시가총액</div>
-      <div><span class="cap-val" id="mcap" contenteditable="true">4.01T</span><span class="cap-u">KRW</span></div>
-      <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ #25 (-)</span>
-      <span class="meta dn" data-k="rk2">KRX 통합 #146 (▼2)</span>
+      <div><span class="cap-val" id="mcap" contenteditable="true">—억원</span></div>
+      <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ 시총 순위 —위</span>
+      <span class="meta" data-k="rk2">KOSPI 통합 시총 순위 —위</span>
     </div>
     <div class="hidx" id="hIdx">
       <div class="ixrow"><span class="nm">KOSDAQ</span><span class="rhs"><span class="vv" id="ixKosdaqV">—</span><span class="rt flat" id="ixKosdaqR"></span></span></div>
@@ -671,6 +671,13 @@ function showChartInfo(d,caretX,area){
   el.style.left=x+"px";
 }
 function capT(eok){if(!eok)return null;return ((eok*1e8)/1e12).toFixed(2)+"T";}
+// 시가총액(억원 단위) → "N조 M억원" 한글 형식
+function capKor(eok){
+  if(!eok||eok<=0)return null;
+  const jo=Math.floor(eok/10000), rem=Math.round(eok%10000);
+  if(jo>0)return rem>0?`${jo}조 ${rem.toLocaleString("ko-KR")}억원`:`${jo}조원`;
+  return `${rem.toLocaleString("ko-KR")}억원`;
+}
 
 function fmtPct(v){return (v>0?"+":"")+v.toFixed(2)+"%";}
 function dirWord(r){return r>0?"상승":r<0?"하락":"보합";}
@@ -774,7 +781,7 @@ function hdrIdx(vId,rId,snap){
   v.textContent=Number(snap.value).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2});
   if(rt){const r=snap.rate;
     if(r==null){rt.textContent="";rt.className="rt flat";}
-    else{rt.textContent=(r>0?"+":"")+r.toFixed(2)+"%";rt.className="rt "+(r>0?"up":r<0?"down":"flat");}}
+    else{const a=r>0?"▲":r<0?"▼":"–";rt.textContent=`(${a}${Math.abs(r).toFixed(2)}%)`;rt.className="rt "+(r>0?"up":r<0?"down":"flat");}}
 }
 function renderTop(tblId,items){
   const el=document.getElementById(tblId);if(!el)return;
@@ -799,7 +806,14 @@ async function loadMarket(){
     hdrIdx("ixKospiV","ixKospiR",ix.kospi);
     hdrIdx("ixPharmV","ixPharmR",ix.pharm);
     const fx=(m.fx&&m.fx.usdkrw)||{};
-    if(fx.rate!=null){const el=$("ixFxV");if(el)el.textContent=Number(Math.round(fx.rate)).toLocaleString("ko-KR")+"원";}
+    if(fx.rate!=null){
+      const el=$("ixFxV");if(el)el.textContent=Number(Math.round(fx.rate)).toLocaleString("ko-KR")+"원";
+      const rt=$("ixFxR");
+      if(rt){
+        if(fx.diff!=null){const d=fx.diff,a=d>0?"▲":d<0?"▼":"–";rt.textContent=`(${a}${Math.abs(Math.round(d)).toLocaleString("ko-KR")}원)`;rt.className="rt "+(d>0?"up":d<0?"down":"flat");}
+        else{rt.textContent="";rt.className="rt flat";}
+      }
+    }
     idxLine("m5KosdaqLine",ix.kosdaq);drawMiniLine("m5KosdaqChart",(ix.kosdaq||{}).series,"#3AAD35");
     idxLine("m5KospiLine",ix.kospi);drawMiniLine("m5KospiChart",(ix.kospi||{}).series,"#3a4bb0");
     const tops=m.tops||{};
@@ -819,7 +833,19 @@ async function load(){
     const d=await r.json();const p=d.price;const iv=d.investor||{};
     $("closeKrx").textContent=won(p.current);
     if(p.nxt)$("closeNxt").textContent=won(p.nxt);
-    const t=capT(p.market_cap);if(t)$("mcap").textContent=t;
+    // NXT 라벨: 오늘 조회 & NXT 개시중(평일 08:00~20:00 KST)이면 '현재가', 아니면 종가
+    (function(){
+      const lab=$("nxtLabel");if(!lab)return;
+      const dv=$("date").value, now=new Date();
+      const todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,'0')+"-"+String(now.getDate()).padStart(2,'0');
+      const isToday=!dv||dv>=todayStr;
+      if(!isToday){lab.textContent="전일 NXT종가";return;}
+      const kst=new Date(now.getTime()+now.getTimezoneOffset()*60000+9*3600000);
+      const hm=kst.getHours()*100+kst.getMinutes(), dow=kst.getDay();
+      const open=dow>=1&&dow<=5&&hm>=800&&hm<2000;
+      lab.textContent=open?"NXT 현재가":"NXT 종가";
+    })();
+    const t=capKor(p.market_cap);if(t)$("mcap").textContent=t;
     if(p.foreign_ratio)$("frgnRatio").textContent=p.foreign_ratio+"%";
     // KOSDAQ 시가총액 순위 자동 업데이트 (KRX 통합 순위는 API 상위30 제한으로 수기 유지)
     // 전일 대비 변동(▲▼)은 localStorage에 거래일별 순위를 저장해 계산 (서버 무상태)
@@ -843,7 +869,7 @@ async function load(){
           }
         }catch(e){}
         const sym=delta===0?"-":delta<0?`▲${-delta}`:`▼${delta}`;
-        el.textContent=`KOSDAQ #${p.kosdaq_rank} (${sym})`;
+        el.textContent=`KOSDAQ 시총 순위 ${p.kosdaq_rank}위 (${sym})`;
         el.className=("meta "+(delta<0?"up":delta>0?"dn":"")).trim();
       }
     }
@@ -865,7 +891,7 @@ async function load(){
           }
         }catch(e){}
         const sym2=delta2===0?"-":delta2<0?`▲${-delta2}`:`▼${delta2}`;
-        el2.textContent=`KRX 통합 #${p.krx_rank} (${sym2})`;
+        el2.textContent=`KOSPI 통합 시총 순위 ${p.krx_rank}위 (${sym2})`;
         el2.className=("meta "+(delta2<0?"up":delta2>0?"dn":"")).trim();
       }
     }
