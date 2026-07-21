@@ -107,8 +107,6 @@
   .hcap .meta{display:block;font-size:10px;color:rgba(255,255,255,.7);margin-top:5px;white-space:nowrap;}
   .hcap .meta.up{color:#ffcfcc;}
   .hcap .meta.dn{color:#c8d8ff;}
-  /* rk2(KOSPI 통합 순위) 수기 입력: 비어 있으면 이탤릭 안내문구, 입력하면 일반 글씨 */
-  .hcap .meta.rk2:empty::before{content:attr(data-ph);font-style:italic;color:rgba(255,255,255,.5);pointer-events:none;}
 
   /* 지표 + 차트 통합 (좌: 지표 / 우: 차트) */
   .overview{display:grid;grid-template-columns:1fr minmax(400px,480px);border-bottom:1px solid var(--line);}
@@ -418,7 +416,7 @@
       <div class="hp-eyebrow">시가총액</div>
       <div><span class="cap-val" id="mcap" contenteditable="true">—억원</span></div>
       <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ 시총 순위 —위</span>
-      <span class="meta rk2" data-k="rk2" data-ph="KOSPI 통합 시총 순위 —위" contenteditable="true"></span>
+      <span class="meta" data-k="rk2" contenteditable="true">KOSPI 통합 시총 순위 —위 (▲▼ -)</span>
     </div>
     <div class="hidx" id="hIdx">
       <div class="ixrow"><span class="nm">KOSDAQ</span><span class="rhs"><span class="vv" id="ixKosdaqV">—</span><span class="rt flat" id="ixKosdaqR"></span></span></div>
