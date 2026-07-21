@@ -40,6 +40,7 @@
   .toolbar button.primary:hover{background:var(--brand-ink);}
   .toolbar button:disabled{opacity:.55;}
   .toolbar .sp{margin-left:auto;font-size:12px;color:var(--muted);}
+  .toolbar-sub{max-width:900px;margin:3px auto 0;text-align:right;font-size:11px;color:var(--muted);min-height:14px;}
   .err{max-width:900px;margin:10px auto 0;padding:11px 15px;border-radius:10px;background:var(--up-soft);color:#9b211a;font-size:13px;border:1px solid #f3c9c5;}
 
   /* 페이지 */
@@ -391,6 +392,7 @@
   <button id="pdfBtn">PDF 저장</button>
   <span class="sp" id="status">조회 시 주가·시총·차트가 자동 반영됩니다.</span>
 </div>
+<div class="toolbar-sub" id="newsWindow"></div>
 <div id="error"></div>
 
 <div class="page">
@@ -509,7 +511,7 @@
   <!-- 주요 뉴스 헤드라인 · 시장 주요 질의 사항 (2열) -->
   <section class="bottom2">
     <div class="col news">
-      <div class="blkhd"><span class="dot"></span><h2>주요 뉴스 헤드라인</h2><span class="nbwindow" id="nbWindow"></span></div>
+      <div class="blkhd"><span class="dot"></span><h2>주요 뉴스 헤드라인</h2></div>
       <div class="secbox edph" id="newsHeadlines" data-k="newsHeadlines" data-ph="뉴스·요약 채우기 시 자동 표시됩니다." contenteditable="true"></div>
     </div>
     <div class="col inq">
@@ -948,7 +950,7 @@ async function loadNews(force=false){
         return `<li>${inner}${h.source?`<span class="hl-src">(${escH(h.source)})</span>`:""}</li>`;
       }).join("")+"</ul>";
     }
-    if(d.window){const w=$("nbWindow");if(w)w.textContent=`${d.window.start} ~ ${d.window.end} KST`;}
+    if(d.window){const w=$("newsWindow");if(w)w.textContent=`뉴스 조회기간 ${d.window.start} ~ ${d.window.end} KST`;}
     saveAll();
     $("status").textContent="뉴스·핵심요약 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
