@@ -378,84 +378,71 @@ def fetch_krx_market(code: str, basDd: str = "") -> dict:
     return data
 
 
+def _kis_rank_rows(iscd: str) -> list:
+    """KIS 시가총액 상위 랭킹(FHPST01740000) — 시장별 상위 ~30종목.
+    iscd: 0001=코스피, 1001=코스닥. KRX가 Render 해외IP에서 timeout이라 KIS로 대체."""
+    try:
+        data = _get(
+            "/uapi/domestic-stock/v1/ranking/market-cap",
+            "FHPST01740000",
+            {
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_COND_SCR_DIV_CODE": "20174",
+                "FID_DIV_CLS_CODE": "0",
+                "FID_INPUT_ISCD": iscd,
+                "FID_TRGT_CLS_CODE": "0",
+                "FID_TRGT_EXLS_CLS_CODE": "0",
+                "FID_INPUT_PRICE_1": "",
+                "FID_INPUT_PRICE_2": "",
+                "FID_VOL_CNT": "",
+            },
+        )
+        return data.get("output") or []
+    except Exception:
+        return []
+
+
 def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
-    """KRX 일별매매정보 1회 조회로 순위 + 시총 top10을 함께 산출.
-    KRX_API_KEY 미설정 시 값 없음. basDd 지정 시 그 날짜(또는 직전 거래일),
-    미지정 시 KST 오늘부터 과거로 훑어 데이터 있는 첫 거래일 사용.
-    """
-    from datetime import datetime, timedelta, timezone
-
-    empty = {"kosdaq_rank": None, "krx_rank": None,
-             "kosdaq_top": [], "kospi_top": [], "basDd": ""}
-    if not KRX_API_KEY:
-        return empty
-
-    KST = timezone(timedelta(hours=9))
-    hdrs = {"AUTH_KEY": KRX_API_KEY}
-
-    def _fetch_rows(path: str, dd: str) -> list:
-        try:
-            r = requests.get(f"{KRX_BASE}/{path}", headers=hdrs, params={"basDd": dd}, timeout=15)
-            if r.status_code != 200:
-                return []
-            j = r.json()
-            rows = j.get("OutBlock_1") or []
-            if not rows:
-                for v in j.values():
-                    if isinstance(v, list):
-                        rows = v
-                        break
-            return rows
-        except Exception:
-            return []
-
-    # KST 오늘(또는 지정일)부터 하루씩 과거로 훑어 데이터 있는 첫 거래일 채택.
-    start = (
-        datetime.strptime(basDd, "%Y%m%d")
-        if basDd
-        else datetime.now(KST).replace(tzinfo=None)
-    )
-    ksq_rows: list = []
-    stk_rows: list = []
-    used_dd = ""
-    d = start
-    for _ in range(10):
-        if d.weekday() >= 5:          # 주말 건너뜀
-            d -= timedelta(days=1)
-            continue
-        dd = d.strftime("%Y%m%d")
-        rows = _fetch_rows("ksq_bydd_trd", dd)
-        if rows:
-            ksq_rows = rows
-            stk_rows = _fetch_rows("stk_bydd_trd", dd)
-            used_dd = dd
-            break
-        d -= timedelta(days=1)
-
-    if not ksq_rows:
-        return empty
-
+    """시장·섹터 시총 top10 + KOSDAQ 순위 — KIS 시가총액 랭킹 기반.
+    (KRX data-dbg가 Render 해외IP에서 응답 timeout이라 KIS로 전환.
+     통합 순위는 KIS 랭킹이 시장별 상위30만 줘서 자동 산출 불가 → None.)"""
     target = code.lstrip("0")
 
-    kosdaq_rank = None
-    for i, row in enumerate(sorted(ksq_rows, key=_krx_cap, reverse=True), start=1):
-        if _krx_code(row).lstrip("0") == target:
-            kosdaq_rank = i
-            break
+    def _item(r: dict) -> dict:
+        c = str(r.get("mksc_shrn_iscd", "")).lstrip("0")
+        return {
+            "name": r.get("hts_kor_isnm", ""),
+            "code": c,
+            "close": _to_int(r.get("stck_prpr")),        # 현재가(≈종가)
+            "chg": round(_to_float(r.get("prdy_ctrt")), 2),  # 등락률(이미 부호 포함)
+            "cap": _to_int(r.get("stck_avls")),          # 시가총액(억)
+            "self": bool(target) and c == target,
+        }
 
-    krx_rank = None
-    for i, row in enumerate(sorted(ksq_rows + stk_rows, key=_krx_cap, reverse=True), start=1):
-        if _krx_code(row).lstrip("0") == target:
-            krx_rank = i
-            break
+    ksq = _kis_rank_rows("1001")   # 코스닥
+    kospi = _kis_rank_rows("0001")  # 코스피
+    ksq_i = [_item(r) for r in ksq]
+    kospi_i = [_item(r) for r in kospi]
+
+    # 코스닥 제약바이오: 두 시장 랭킹에서 제약 종목군 필터 후 시총순 top10
+    pharma = sorted(
+        [it for it in (ksq_i + kospi_i) if it["code"] in PHARMA_CODES],
+        key=lambda x: x["cap"], reverse=True,
+    )
+
+    kosdaq_rank = next(
+        (_to_int(r.get("data_rank")) for r in ksq
+         if str(r.get("mksc_shrn_iscd", "")).lstrip("0") == target),
+        None,
+    )
 
     return {
         "kosdaq_rank": kosdaq_rank,
-        "krx_rank": krx_rank,
-        "kosdaq_top": _krx_top10(ksq_rows, target),
-        "kospi_top": _krx_top10(stk_rows, target),
-        "pharma_top": _krx_top10(ksq_rows + stk_rows, target, PHARMA_CODES),
-        "basDd": used_dd,
+        "krx_rank": None,          # 통합순위 자동 불가(수기 입력)
+        "kosdaq_top": ksq_i[:10],
+        "kospi_top": kospi_i[:10],
+        "pharma_top": pharma[:10],
+        "basDd": "",
     }
 
 
