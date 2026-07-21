@@ -502,8 +502,8 @@
 
   <!-- 당사 및 섹터 시장 동향 -->
   <section class="flow">
-    <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
-    <div class="secbox edph" id="secTrend" data-k="secTrend" data-ph="조회·뉴스 채우기 시 자동 초안이 생성됩니다." contenteditable="true"></div>
+    <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2><span class="autopill" id="secPill" style="display:none">AUTO</span></div>
+    <div class="secbox edph" id="secTrend" data-k="secTrend" data-ph="'뉴스·요약 채우기' 시 자동 초안이 생성됩니다. (수기 편집 가능)" contenteditable="true"></div>
   </section>
 
   <!-- 주요 뉴스 헤드라인 · 시장 주요 질의 사항 (2열) -->
@@ -973,7 +973,7 @@ async function loadNews(force=false){
     // 핵심 요약 (당사·코스피·코스닥 3불릿)
     if(d.summary&&d.summary.length){fillBullets("sumList",d.summary);const pill=$("sumPill");if(pill)pill.style.display="";}
     // 당사 및 섹터 시장 동향 (자동 초안)
-    if(d.sec_trend&&d.sec_trend.length)fillBullets("secTrend",d.sec_trend);
+    if(d.sec_trend&&d.sec_trend.length){fillBullets("secTrend",d.sec_trend);const pill=$("secPill");if(pill)pill.style.display="";}
     // 주요 뉴스 헤드라인 (원본 제목 링크 + 매체) — 한 줄 말줄임, hover 전체 제목
     if(d.headlines&&d.headlines.length){
       const el=$("newsHeadlines");
