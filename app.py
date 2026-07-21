@@ -1157,16 +1157,33 @@ def _is_major_src(src: str) -> bool:
     return any(k in src for k in _MAJOR_ECON_SOURCES)
 
 
-def _titles_similar(a: str, b: str, thr: float = 0.6) -> bool:
-    """제목 유사도(문자 bigram 포함율) — 같은 사안을 매체마다 다르게 쓴 중복 감지.
-    한글/영숫자만 남겨 공백·문장부호 차이를 무시하고, 짧은 쪽 기준 겹침율로 판정."""
+def _titles_similar(a: str, b: str, thr: float = 0.5) -> bool:
+    """제목 유사도 — 같은 사안을 매체마다 다르게 쓴 중복 감지.
+    ① 문자 bigram 포함율(짧은 쪽 기준) ② 주체(첫 단어)+공유 숫자 일치.
+    둘 중 하나라도 성립하면 동일 사안으로 판정. 한자 국가약칭은 한글로 정규화."""
+    _HANJA = {"韓": "한국", "美": "미국", "中": "중국", "日": "일본", "北": "북한", "獨": "독일", "佛": "프랑스", "英": "영국"}
+
+    def _norm(t):
+        t = t or ""
+        for h, k in _HANJA.items():
+            t = t.replace(h, k)
+        return t
+
     def _bg(t):
-        s = re.sub(r"[^가-힣a-zA-Z0-9]", "", t or "")
+        s = re.sub(r"[^가-힣a-zA-Z0-9]", "", _norm(t))
         return {s[i:i + 2] for i in range(len(s) - 1)}
     A, B = _bg(a), _bg(b)
-    if not A or not B:
-        return False
-    return len(A & B) / min(len(A), len(B)) >= thr
+    if A and B and len(A & B) / min(len(A), len(B)) >= thr:
+        return True
+    # 주체(첫 2자+단어)와 3자리 이상 공유 숫자(금액·규모)가 같으면 동일 사안
+    def _head_num(t):
+        t = _norm(t)
+        toks = re.findall(r"[가-힣a-zA-Z]{2,}", t)
+        nums = {n for n in re.findall(r"\d{3,}", t)}
+        return (toks[0] if toks else ""), nums
+    ha, na = _head_num(a)
+    hb, nb = _head_num(b)
+    return bool(ha) and ha == hb and bool(na & nb)
 
 
 def _news_window_start() -> "datetime":
@@ -1351,6 +1368,12 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
                 continue
             title = _title_of(it)
             if len(title) < 10:      # 'SIGNAL' 등 섹션·브랜드 스텁 제외
+                continue
+            # '삼성생명(032830)' 등 종목명+코드만 있는 시세 스텁 제외
+            if re.match(r"^[가-힣A-Za-z0-9·&\.\s]+\(\d{5,6}\)\s*$", title):
+                continue
+            # 공백 없는 단어 하나짜리 짧은 제목 제외(무슨 내용인지 짐작 불가)
+            if " " not in title and len(title) < 16:
                 continue
             # 동일 사안 중복 제외(제목 유사도) — 매체만 다른 같은 기사 걸러냄
             if any(_titles_similar(title, h["title"]) for h in headlines):
