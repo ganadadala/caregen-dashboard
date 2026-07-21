@@ -45,7 +45,9 @@
   .err{max-width:900px;margin:10px auto 0;padding:11px 15px;border-radius:10px;background:var(--up-soft);color:#9b211a;font-size:13px;border:1px solid #f3c9c5;}
 
   /* 페이지 */
-  .page{max-width:900px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(14,31,24,.07);overflow:hidden;display:flex;flex-direction:column;}
+  /* overflow:hidden 제거 — box-shadow+둥근모서리+클리핑 조합이 카드를 GPU 합성
+     레이어로 승격시켜 헤더 글자가 흐려지던 원인. 대신 헤더 상단·푸터 하단을 직접 둥글림 */
+  .page{max-width:900px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(14,31,24,.07);display:flex;flex-direction:column;}
   /* PDF 배치 순서: 업무보고를 맨 아래로 (마크업 이동 없이 flex order) */
   .page>.work{order:8;} .page>.pg-footer{order:9;}
   .pad{padding:26px 28px;}
@@ -61,6 +63,7 @@
       radial-gradient(circle 80px at calc(100% - 140px) calc(100% - 20px), rgba(255,255,255,.045) 0 99%, transparent 100%),
       linear-gradient(135deg,#2A8226 0%,#3AAD35 55%,#52C44D 100%);
     position:relative;
+    border-radius:16px 16px 0 0;
   }
   /* 통합 브랜드 셀: 로고 + CAREGEN + IR Stock Daily + 날짜 */
   .hbrand{
@@ -81,28 +84,28 @@
   .hbrand-text .brand-lg{font-family:"Pretendard",system-ui,sans-serif;font-size:27px;font-weight:700;color:#fff;letter-spacing:.01em;line-height:1.02;}
   .hbrand-text .brand-title{font-family:"Pretendard",system-ui,sans-serif;font-size:18px;font-weight:700;color:#fff;letter-spacing:-.01em;line-height:1.15;margin-top:2px;white-space:nowrap;}
   .hbrand-text .brand-date{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
-  .hbrand-text .brand-date .d{font-family:"Pretendard",system-ui,sans-serif;font-weight:600;font-size:13px;color:rgba(255,255,255,.92);white-space:nowrap;}
+  .hbrand-text .brand-date .d{font-family:"Pretendard",system-ui,sans-serif;font-weight:600;font-size:13px;color:#fff;white-space:nowrap;}
   .hbrand-text .brand-date .badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.15);padding:3px 9px;border-radius:20px;border:1px solid rgba(255,255,255,.2);white-space:nowrap;}
   .hbrand-text .brand-date .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#7FFFC4;}
 
   /* 헤더 우측 주가 블록 */
   .hprice{padding:14px 13px;border-right:1px solid rgba(255,255,255,.18);flex-shrink:0;}
-  .hp-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.85);margin-bottom:4px;}
+  .hp-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#fff;margin-bottom:4px;}
   .hprice .price-main .v{color:#fff;font-size:23px;}
-  .hprice .price-main .u{color:rgba(255,255,255,.7);}
-  .hprice .chip{margin-top:6px;font-size:12px;padding:4px 9px;}
-  .hprice .chip.up{background:rgba(217,45,32,.22);color:#ffcfcc;}
-  .hprice .chip.down{background:rgba(28,95,204,.22);color:#c8d8ff;}
-  .hprice .chip.flat{background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);}
-  .hprice .nxt{color:rgba(255,255,255,.65);font-size:11px;margin-top:5px;}
+  .hprice .price-main .u{color:#fff;}
+  .hprice .chip{margin-top:6px;font-size:12px;padding:4px 9px;font-weight:700;}
+  .hprice .chip.up{background:rgba(255,58,48,.32);color:#ff8079;}
+  .hprice .chip.down{background:rgba(40,110,230,.34);color:#8ab6ff;}
+  .hprice .chip.flat{background:rgba(255,255,255,.18);color:#fff;}
+  .hprice .nxt{color:#fff;font-size:11px;margin-top:5px;}
   .hprice .nxt b{color:#fff;}
   .hcap{padding:14px 13px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.18);}
-  .hcap .hp-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.85);margin-bottom:6px;}
+  .hcap .hp-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#fff;margin-bottom:6px;}
   .hcap .cap-val{font-family:"Pretendard",system-ui,sans-serif;font-weight:700;font-size:19px;color:#fff;line-height:1;}
-  .hcap .cap-u{font-size:13px;color:rgba(255,255,255,.7);margin-left:4px;}
-  .hcap .meta{display:block;font-size:11px;color:rgba(255,255,255,.85);margin-top:5px;white-space:nowrap;}
-  .hcap .meta.up{color:#ffcfcc;}
-  .hcap .meta.dn{color:#c8d8ff;}
+  .hcap .cap-u{font-size:13px;color:#fff;margin-left:4px;}
+  .hcap .meta{display:block;font-size:11px;color:#fff;margin-top:5px;white-space:nowrap;}
+  .hcap .meta.up{color:#ff6b61;font-weight:700;}
+  .hcap .meta.dn{color:#6fb2ff;font-weight:700;}
 
   /* 지표 + 차트 통합 (좌: 지표 / 우: 차트) */
   .overview{display:grid;grid-template-columns:1fr minmax(400px,480px);border-bottom:1px solid var(--line);}
@@ -238,7 +241,7 @@
   [contenteditable]:focus{outline:2px solid var(--cg-green-mid);outline-offset:2px;border-radius:4px;}
 
   /* 푸터 라인 */
-  .pg-footer{text-align:center;padding:12px 28px;border-top:1px solid var(--line);background:var(--raise);font-size:10.5px;color:var(--muted);letter-spacing:.03em;}
+  .pg-footer{text-align:center;padding:12px 28px;border-top:1px solid var(--line);background:var(--raise);font-size:10.5px;color:var(--muted);letter-spacing:.03em;border-radius:0 0 16px 16px;}
   .pg-footer strong{color:var(--brand);font-weight:700;}
 
   @media (max-width:760px){
@@ -261,11 +264,11 @@
   /* 헤더 우측 지수·환율 */
   .hidx{padding:14px 14px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:200px;}
   .hidx .ixrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:11px;line-height:1.2;}
-  .hidx .ixrow .nm{color:rgba(255,255,255,.82);font-weight:600;white-space:nowrap;}
+  .hidx .ixrow .nm{color:#fff;font-weight:600;white-space:nowrap;}
   .hidx .ixrow .rhs{font-family:"Pretendard",system-ui,sans-serif;text-align:right;white-space:nowrap;}
   .hidx .ixrow .vv{color:#fff;font-weight:600;}
-  .hidx .ixrow .rt{font-size:10px;margin-left:5px;}
-  .hidx .ixrow .rt.up{color:#ffcfcc;} .hidx .ixrow .rt.down{color:#c8d8ff;} .hidx .ixrow .rt.flat{color:rgba(255,255,255,.7);}
+  .hidx .ixrow .rt{font-size:10px;margin-left:5px;font-weight:700;}
+  .hidx .ixrow .rt.up{color:#ff6b61;} .hidx .ixrow .rt.down{color:#6fb2ff;} .hidx .ixrow .rt.flat{color:#fff;}
 
   /* 불릿 요약 섹션 (핵심요약/당사주가동향) */
   .kbul{padding:15px 28px;border-bottom:1px solid var(--line);}
