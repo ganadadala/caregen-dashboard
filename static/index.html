@@ -322,6 +322,8 @@
   .secbox p{font-size:12.5px;color:var(--ink2);line-height:1.7;margin:3px 0;}
   .edph:empty::before{content:attr(data-ph);color:var(--muted);font-style:italic;font-size:12.5px;pointer-events:none;}
   .hl-src{color:var(--muted);font-size:11px;}
+  #newsHeadlines a{color:var(--indigo);text-decoration:none;}
+  #newsHeadlines a:hover{text-decoration:underline;}
   .bottom2{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);}
   .bottom2 .secbox{min-height:150px;}
   .workbox{min-height:210px;}
@@ -965,12 +967,14 @@ async function loadNews(force=false){
     if(d.summary&&d.summary.length){fillBullets("sumList",d.summary);const pill=$("sumPill");if(pill)pill.style.display="";}
     // 당사 및 섹터 시장 동향 (자동 초안)
     if(d.sec_trend&&d.sec_trend.length)fillBullets("secTrend",d.sec_trend);
-    // 주요 뉴스 헤드라인 (원본 제목 + 매체)
+    // 주요 뉴스 헤드라인 (원본 제목 링크 + 매체)
     if(d.headlines&&d.headlines.length){
       const el=$("newsHeadlines");
-      if(el)el.innerHTML="<ul>"+d.headlines.map(h=>
-        `<li>${escH(h.title)}${h.source?` <span class="hl-src">(${escH(h.source)})</span>`:""}</li>`
-      ).join("")+"</ul>";
+      if(el)el.innerHTML="<ul>"+d.headlines.map(h=>{
+        const title=escH(h.title);
+        const linked=h.link?`<a href="${escH(h.link)}" target="_blank" rel="noopener">${title}</a>`:title;
+        return `<li>${linked}${h.source?` <span class="hl-src">(${escH(h.source)})</span>`:""}</li>`;
+      }).join("")+"</ul>";
     }
     if(d.window){const w=$("nbWindow");if(w)w.textContent=`${d.window.start} ~ ${d.window.end} KST`;}
     saveAll();

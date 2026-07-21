@@ -1118,12 +1118,15 @@ def fetch_gnews(query: str, max_items: int = 15, after_dt=None) -> list:
             if after_dt and pub_dt and pub_dt < after_dt:
                 continue
 
+            link = (item.findtext("link") or "").strip()
+
             if t:
                 items.append({
                     "text": f"[제목] {t}" + (f"\n[내용] {desc}" if desc else ""),
                     "source": source,
                     "date": date_str,
                     "time": time_str,
+                    "link": link,
                 })
         return items
     except Exception:
@@ -1214,6 +1217,7 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
             headlines.append({
                 "title": title, "source": it.get("source", ""),
                 "date": it.get("date", ""), "time": it.get("time", ""),
+                "link": it.get("link", ""),
             })
         if len(headlines) >= 8:
             break
