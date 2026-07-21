@@ -463,7 +463,7 @@
         <div class="stat">
           <div class="eyebrow">외국인 지분율</div>
           <div class="big"><span id="frgnRatio" contenteditable="true">4.03%</span></div>
-          <span class="meta dn" data-k="frgnChg" contenteditable="true">전일대비 -0.05%p</span>
+          <span class="meta" data-k="frgnChg" contenteditable="true">최근 거래일 대비 —</span>
           <span class="sub2">'26.5월말 <span data-k="frgnPrev" contenteditable="true">3.92%</span></span>
         </div>
       </div>
@@ -875,6 +875,15 @@ async function load(){
     })();
     const t=capKor(p.market_cap);if(t)$("mcap").textContent=t;
     if(p.foreign_ratio)$("frgnRatio").textContent=p.foreign_ratio+"%";
+    // 외국인 지분율 증감(%p) — 서버 순매매 역산(브라우저 무관). 수기 보정 가능
+    (function(){
+      const el=document.querySelector('[data-k="frgnChg"]');if(!el)return;
+      const d=p.foreign_ratio_delta,dd=p.foreign_delta_days||20;
+      if(d==null){el.textContent="최근 거래일 대비 —";el.className="meta";return;}
+      const s=d>0?"+":"";
+      el.textContent=`최근 ${dd}거래일 ${s}${d}%p`;
+      el.className="meta "+(d>0?"up":d<0?"dn":"");
+    })();
     // KOSDAQ 시총 순위 + 전 거래일 대비 증감(서버 계산 → 어느 기기서든 동일)
     if(p.kosdaq_rank){
       const el=document.querySelector('[data-k="rk1"]');
