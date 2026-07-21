@@ -861,54 +861,13 @@ async function load(){
     })();
     const t=capKor(p.market_cap);if(t)$("mcap").textContent=t;
     if(p.foreign_ratio)$("frgnRatio").textContent=p.foreign_ratio+"%";
-    // KOSDAQ 시가총액 순위 자동 업데이트 (KRX 통합 순위는 API 상위30 제한으로 수기 유지)
-    // 전일 대비 변동(▲▼)은 localStorage에 거래일별 순위를 저장해 계산 (서버 무상태)
+    // KOSDAQ 시총 순위 — 서버 자동값(어느 기기서든 동일). 증감(▲▼)은 기기별
+    // localStorage로만 계산돼 일관성이 없어 제거(노트북↔모바일 불일치 원인).
     if(p.kosdaq_rank){
       const el=document.querySelector('[data-k="rk1"]');
-      if(el){
-        const day=(p.price_date&&p.price_date.length===8)?p.price_date:new Date().toISOString().slice(0,10).replace(/-/g,"");
-        let delta=0;
-        try{
-          const h=JSON.parse(localStorage.getItem("ksqRankHist")||"null");
-          if(!h){
-            localStorage.setItem("ksqRankHist",JSON.stringify({day,cur:p.kosdaq_rank,prev:null}));
-          }else if(h.day===day){
-            // 같은 거래일 재조회: 기준(전일)은 그대로, 오늘 값만 갱신
-            delta=(h.prev==null)?0:(p.kosdaq_rank-h.prev);
-            localStorage.setItem("ksqRankHist",JSON.stringify({day,cur:p.kosdaq_rank,prev:h.prev}));
-          }else{
-            // 새 거래일: 직전 거래일 값을 기준으로 변동 계산
-            delta=p.kosdaq_rank-h.cur;
-            localStorage.setItem("ksqRankHist",JSON.stringify({day,cur:p.kosdaq_rank,prev:h.cur}));
-          }
-        }catch(e){}
-        const sym=delta===0?"-":delta<0?`▲${-delta}`:`▼${delta}`;
-        el.textContent=`KOSDAQ 시총 순위 ${p.kosdaq_rank}위 (${sym})`;
-        el.className=("meta "+(delta<0?"up":delta>0?"dn":"")).trim();
-      }
+      if(el){el.textContent=`KOSDAQ 시총 순위 ${p.kosdaq_rank}위`;el.className="meta";}
     }
-    if(p.krx_rank){
-      const el2=document.querySelector('[data-k="rk2"]');
-      if(el2){
-        const day2=(p.price_date&&p.price_date.length===8)?p.price_date:new Date().toISOString().slice(0,10).replace(/-/g,"");
-        let delta2=0;
-        try{
-          const h2=JSON.parse(localStorage.getItem("krxRankHist")||"null");
-          if(!h2){
-            localStorage.setItem("krxRankHist",JSON.stringify({day:day2,cur:p.krx_rank,prev:null}));
-          }else if(h2.day===day2){
-            delta2=(h2.prev==null)?0:(p.krx_rank-h2.prev);
-            localStorage.setItem("krxRankHist",JSON.stringify({day:day2,cur:p.krx_rank,prev:h2.prev}));
-          }else{
-            delta2=p.krx_rank-h2.cur;
-            localStorage.setItem("krxRankHist",JSON.stringify({day:day2,cur:p.krx_rank,prev:h2.cur}));
-          }
-        }catch(e){}
-        const sym2=delta2===0?"-":delta2<0?`▲${-delta2}`:`▼${delta2}`;
-        el2.textContent=`KOSPI 통합 시총 순위 ${p.krx_rank}위 (${sym2})`;
-        el2.className=("meta "+(delta2<0?"up":delta2>0?"dn":"")).trim();
-      }
-    }
+    // KOSPI 통합 순위는 KIS 미제공(케어젠 ~140위 > 랭킹 상위30) → rk2 수기 입력 유지
     if(p.price_date&&p.price_date.length===8){const pd=p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8);$("closeBadge").textContent=pd+" 종가 기준";}
     else{$("closeBadge").textContent="";}
     const chip=$("chip");const sign=p.rate>0?"▲":p.rate<0?"▼":"―";
