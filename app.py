@@ -996,26 +996,40 @@ def fetch_usdkrw() -> dict:
 
 @app.get("/api/market")
 def market(code: str = DEFAULT_CODE, date: str = ""):
-    """헤더 지수/환율 + 시장·섹터 top10 + 지수 라인차트용 통합 데이터."""
+    """헤더 지수/환율 + 시장·섹터 top10 + 지수 라인차트용 통합 데이터.
+    외부 호출(지수3·KRX·환율)을 병렬로 실행해 지연 최소화."""
     from datetime import datetime
+    from concurrent.futures import ThreadPoolExecutor
 
     today = datetime.now().strftime("%Y-%m-%d")
     basDd = date.replace("-", "") if (date and date < today) else ""
+    empty_idx = {"value": None, "rate": None, "series": []}
 
-    indices = {
-        "kospi": fetch_index_snapshot(KOSPI_CODE),
-        "kosdaq": fetch_index_snapshot(KOSDAQ_CODE),
-        "pharm": fetch_index_snapshot(PHARM_CODE) if PHARM_CODE else {"value": None, "rate": None, "series": []},
-    }
+    def _safe(fn, *a, default=None):
+        try:
+            return fn(*a)
+        except Exception:
+            return default
 
-    try:
-        km = fetch_krx_market(code, basDd)
-    except Exception:
-        km = {"kosdaq_top": [], "kospi_top": [], "pharma_top": [], "basDd": ""}
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        f_kosdaq = ex.submit(_safe, fetch_index_snapshot, KOSDAQ_CODE, default=empty_idx)
+        f_kospi = ex.submit(_safe, fetch_index_snapshot, KOSPI_CODE, default=empty_idx)
+        f_pharm = ex.submit(_safe, fetch_index_snapshot, PHARM_CODE, default=empty_idx) if PHARM_CODE else None
+        f_krx = ex.submit(_safe, fetch_krx_market, code, basDd,
+                          default={"kosdaq_top": [], "kospi_top": [], "pharma_top": [], "basDd": ""})
+        f_fx = ex.submit(_safe, fetch_usdkrw, default={"rate": None, "diff": None})
+
+        indices = {
+            "kosdaq": f_kosdaq.result() or empty_idx,
+            "kospi": f_kospi.result() or empty_idx,
+            "pharm": (f_pharm.result() or empty_idx) if f_pharm else empty_idx,
+        }
+        km = f_krx.result() or {}
+        fx = f_fx.result() or {"rate": None, "diff": None}
 
     return JSONResponse({
         "indices": indices,
-        "fx": {"usdkrw": fetch_usdkrw()},
+        "fx": {"usdkrw": fx},
         "tops": {
             "kosdaq": km.get("kosdaq_top", []),
             "kospi": km.get("kospi_top", []),
