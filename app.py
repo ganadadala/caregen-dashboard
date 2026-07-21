@@ -1201,9 +1201,22 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     sector_lines = "\n".join(i["text"] for i in sector_hl) if sector_hl else "(없음)"
     company_lines = "\n".join(i["text"] for i in company_hl) if company_hl else "(없음)"
 
-    macro_meta = [{"source": i["source"], "date": i["date"], "time": i.get("time", "")} for i in macro_hl]
-    sector_meta = [{"source": i["source"], "date": i["date"], "time": i.get("time", "")} for i in sector_hl]
-    company_meta = [{"source": i["source"], "date": i["date"], "time": i.get("time", "")} for i in company_hl]
+    # 주요 뉴스 헤드라인(원본) — 케어젠 > 섹터 > 매크로 순, 제목 중복 제거 후 최대 8건
+    def _title_of(item) -> str:
+        return item["text"].split("\n")[0].replace("[제목]", "").strip()
+
+    headlines = []
+    _seen_h: set = set()
+    for it in company_hl + sector_hl + macro_hl:
+        title = _title_of(it)
+        if title and title not in _seen_h:
+            _seen_h.add(title)
+            headlines.append({
+                "title": title, "source": it.get("source", ""),
+                "date": it.get("date", ""), "time": it.get("time", ""),
+            })
+        if len(headlines) >= 8:
+            break
 
     # 프론트가 조회로 확보한 시황 수치(선택) — 핵심요약을 수치에 근거해 작성
     _ctx = []
@@ -1218,26 +1231,22 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     market_ctx = " · ".join(_ctx) if _ctx else "(제공된 시황 수치 없음 — 뉴스 기반으로 정성 서술)"
 
     prompt = (
-        f"오늘({today_str}) 뉴스 헤드라인과 내용을 바탕으로 기관투자자용 한국어 브리핑을 작성하세요.\n\n"
+        f"오늘({today_str}) 아래 시황 수치와 뉴스를 바탕으로 기관투자자용 한국어 IR 브리핑 2개 항목을 작성하세요.\n\n"
         "작성 규칙:\n"
-        "1. 각 카테고리에서 주요 이슈 2~3개를 선별해 각각 하나의 단락으로 작성\n"
-        "2. 각 기사별 단락은 최대 5문장 이내로 작성: ① 무슨 일이 있었는지(사실·수치) ② 배경·원인 ③ 투자자 관점 시사점\n"
-        "3. 기업명, 수치, 정책명 등 구체적 정보를 최대한 포함\n"
-        "4. 단순 헤드라인 반복 금지 — 맥락과 의미를 풀어서 설명\n"
-        "5. 뉴스가 없으면 '특이사항 없음'\n"
-        "6. company(케어젠) 항목은 반드시 코스닥 상장사 '케어젠(214370)' 본 기업에 관한 내용만 작성. "
-        "동명이의·무관한 기사는 제외하고, 케어젠과 직접 관련된 기사가 없으면 '특이사항 없음'으로만 작성\n"
-        "7. summary(핵심 요약): 아래 [시황 데이터]와 위 뉴스를 종합해 '금일 시황 핵심요약' 정확히 3개 불릿 작성 — "
+        "A. summary(핵심 요약): '금일 시황 핵심요약' 정확히 3개 불릿 — "
         "① 당사(케어젠) 종가·전일대비와 그 배경(수급 쏠림·섹터 이슈 등) ② 코스피 시황 ③ 코스닥 시황. "
-        "각 불릿 2~4문장이며 [시황 데이터]의 수치를 반드시 반영하고 뉴스에서 원인·배경 근거를 찾아 서술. "
-        "수치가 없으면 뉴스 기반 정성 서술. 단정 대신 '~로 풀이', '~로 보임' 등 완곡 표현 사용\n\n"
+        "각 불릿 2~4문장, [시황 데이터]의 수치를 반드시 반영하고 뉴스에서 원인·배경 근거를 찾아 서술.\n"
+        "B. sec_trend(당사 및 섹터 시장 동향): 2~3개 불릿 — 당사(케어젠) 주가 배경과 "
+        "바이오/제약 섹터의 금일 주요 이슈(구체 종목명·사건, 예: 임상 결과·허가·하한가 등)를 뉴스 근거로 서술. "
+        "IR 내부 정보(전화 문의 등)는 지어내지 말고, 시장에서 관찰되는 사실 위주로.\n"
+        "공통: 구체적 기업명·수치·정책명 포함, 단순 헤드라인 반복 금지, 단정 대신 '~로 풀이/보임' 등 완곡 표현. "
+        "관련 뉴스가 없으면 수치 기반으로만 간결히.\n\n"
         f"[시황 데이터]\n{market_ctx}\n\n"
         f"[증시·매크로 뉴스]\n{macro_lines}\n\n"
         f"[바이오/제약 섹터 뉴스]\n{sector_lines}\n\n"
         f"[케어젠(214370) 관련 뉴스]\n{company_lines}\n\n"
         "아래 JSON만 출력 (다른 텍스트 없이):\n"
-        '{"summary":["당사 불릿","코스피 불릿","코스닥 불릿"],'
-        '"macro":["단락1(최대5문장)","단락2"],"sector":["단락1","단락2"],"company":["단락1","단락2"]}'
+        '{"summary":["당사 불릿","코스피 불릿","코스닥 불릿"],"sec_trend":["불릿1","불릿2"]}'
     )
 
     resp = requests.post(
@@ -1271,13 +1280,11 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"JSON 파싱 오류: {e}")
 
-    for key in ("summary", "macro", "sector", "company"):
+    for key in ("summary", "sec_trend"):
         if key not in result or not isinstance(result[key], list):
             result[key] = ["데이터 없음"]
 
-    result["macro_meta"] = macro_meta
-    result["sector_meta"] = sector_meta
-    result["company_meta"] = company_meta
+    result["headlines"] = headlines
 
     from datetime import datetime, timezone, timedelta
     kst = timezone(timedelta(hours=9))

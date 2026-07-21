@@ -321,6 +321,7 @@
   .secbox li::before{content:"•";position:absolute;left:2px;color:var(--brand);}
   .secbox p{font-size:12.5px;color:var(--ink2);line-height:1.7;margin:3px 0;}
   .edph:empty::before{content:attr(data-ph);color:var(--muted);font-style:italic;font-size:12.5px;pointer-events:none;}
+  .hl-src{color:var(--muted);font-size:11px;}
   .bottom2{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);}
   .bottom2 .secbox{min-height:150px;}
   .workbox{min-height:210px;}
@@ -496,7 +497,7 @@
   <!-- 당사 및 섹터 시장 동향 -->
   <section class="flow">
     <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
-    <div class="secbox edph" data-k="secTrend" data-ph="내용은 조회·수기로 채웁니다." contenteditable="true"></div>
+    <div class="secbox edph" id="secTrend" data-k="secTrend" data-ph="조회·뉴스 채우기 시 자동 초안이 생성됩니다." contenteditable="true"></div>
   </section>
 
   <!-- 주요 뉴스 헤드라인 · 시장 주요 질의 사항 (2열) -->
@@ -959,26 +960,19 @@ async function loadNews(force=false){
     const r=await fetch("/api/news?"+qs.toString());
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
     const d=await r.json();
-    const fill=(k,items,meta)=>{
-      const el=document.querySelector("[data-k='"+k+"']");
-      if(!el||!items)return;
-      el.innerHTML=items.map((t,i)=>{
-        const m=meta&&meta[i];
-        const dt=m?[m.date,m.time].filter(Boolean).join(" "):"";
-        const metaHtml=m&&(m.source||dt)&&t.trim()!=="특이사항 없음"
-          ?`<span class="news-meta">${[m.source,dt].filter(Boolean).join(" · ")}</span>`
-          :"";
-        return`<p>${i+1}. ${escH(t)}</p>${metaHtml}`;
-      }).join("");
-    };
-    fill("nbCompany",d.company,d.company_meta);fill("nbMacro",d.macro,d.macro_meta);fill("nbSector",d.sector,d.sector_meta);
-    // 핵심 요약 (당사·코스피·코스닥 3불릿) 채우기
-    if(d.summary&&d.summary.length){
-      const ul=$("sumList");
-      if(ul){ul.innerHTML=d.summary.map(s=>`<li>${escH(s)}</li>`).join("");}
-      const pill=$("sumPill");if(pill)pill.style.display="";
+    const fillBullets=(id,items)=>{const el=$(id);if(!el||!items||!items.length)return;const lis=items.map(s=>`<li>${escH(s)}</li>`).join("");el.innerHTML=el.tagName==="UL"?lis:("<ul>"+lis+"</ul>");};
+    // 핵심 요약 (당사·코스피·코스닥 3불릿)
+    if(d.summary&&d.summary.length){fillBullets("sumList",d.summary);const pill=$("sumPill");if(pill)pill.style.display="";}
+    // 당사 및 섹터 시장 동향 (자동 초안)
+    if(d.sec_trend&&d.sec_trend.length)fillBullets("secTrend",d.sec_trend);
+    // 주요 뉴스 헤드라인 (원본 제목 + 매체)
+    if(d.headlines&&d.headlines.length){
+      const el=$("newsHeadlines");
+      if(el)el.innerHTML="<ul>"+d.headlines.map(h=>
+        `<li>${escH(h.title)}${h.source?` <span class="hl-src">(${escH(h.source)})</span>`:""}</li>`
+      ).join("")+"</ul>";
     }
-    if(d.window)$("nbWindow").textContent=`${d.window.start} ~ ${d.window.end} KST`;
+    if(d.window){const w=$("nbWindow");if(w)w.textContent=`${d.window.start} ~ ${d.window.end} KST`;}
     saveAll();
     $("status").textContent="뉴스·핵심요약 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
