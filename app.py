@@ -431,20 +431,23 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
     #  1순위: 제약 '업종코드'로 KIS 시총랭킹 직접 요청(성공 시 완전 자동)
     #  검증: 반환 상위10 중 알려진 제약주(PHARMA_CODES)가 4개 이상이면 업종필터 정상으로 간주
     #  실패: 전체시장 상위랭킹에서 제약군 필터로 폴백
-    pharma = None
-    pharma_src = "curated"
+    # KIS 제약 업종(1024)은 '제약'만 분류 → 알테오젠 등 순수 바이오는 빠짐.
+    # 라벨이 '제약바이오'이므로 [제약 업종 랭킹] + [바이오 대형주(큐레이션, 시장랭킹서)]를 병합.
     try:
         sec_i = [_item(r) for r in _kis_rank_rows(PHARM_SECTOR_ISCD)]
-        if sec_i and sum(1 for it in sec_i[:10] if it["code"] in PHARMA_CODES) >= 4:
-            pharma = sec_i[:10]
-            pharma_src = "sector"   # 업종코드 랭킹 성공 → 완전 자동
     except Exception:
-        pharma = None
-    if pharma is None:
-        pharma = sorted(
-            [it for it in (ksq_i + kospi_i) if it["code"] in PHARMA_CODES],
-            key=lambda x: x["cap"], reverse=True,
-        )[:10]
+        sec_i = []
+    sec_ok = bool(sec_i) and sum(1 for it in sec_i[:15] if it["code"] in PHARMA_CODES) >= 4
+    curated = [it for it in (ksq_i + kospi_i) if it["code"] in PHARMA_CODES]
+    if sec_ok:
+        merged = {}
+        for it in sec_i + curated:      # 업종(제약) 우선 + 큐레이션(바이오 보강)
+            merged.setdefault(it["code"], it)
+        pharma = sorted(merged.values(), key=lambda x: x["cap"], reverse=True)[:10]
+        pharma_src = "sector+bio"
+    else:
+        pharma = sorted(curated, key=lambda x: x["cap"], reverse=True)[:10]
+        pharma_src = "curated"
 
     kosdaq_rank = next(
         (_to_int(r.get("data_rank")) for r in ksq
