@@ -362,7 +362,7 @@
   <input class="code" id="code" value="214370" title="종목코드"/>
   <input type="date" id="date"/>
   <button class="primary" id="loadBtn">조회</button>
-  <button id="newsBtn" class="news" title="Claude AI로 최신 뉴스 요약 자동채우기">뉴스 채우기</button>
+  <button id="newsBtn" class="news" title="조회 데이터 + 최신 뉴스로 핵심요약·뉴스 브리핑 자동생성 (우클릭: 강제 새로고침)">뉴스·요약 채우기</button>
   <button id="printBtn">인쇄</button>
   <button id="pdfBtn">PDF 저장</button>
   <span class="sp" id="status">조회 시 주가·시총·차트가 자동 반영됩니다.</span>
@@ -796,12 +796,15 @@ function renderTop(tblId,items){
   });
   el.innerHTML=h+'</tbody>';
 }
+// 조회로 확보한 시황 스냅샷 — 핵심요약 생성 시 뉴스 API로 전달
+let snap={px:null,rate:null,kospi:null,kosdaq:null,pharm:null,date:""};
 async function loadMarket(){
   try{
     const code=$("code").value;
     const r=await fetch("/api/market?code="+encodeURIComponent(code)+"&date="+encodeURIComponent($("date").value));
     if(!r.ok)return;
     const m=await r.json();const ix=m.indices||{};
+    snap.kospi=(ix.kospi||{}).rate; snap.kosdaq=(ix.kosdaq||{}).rate; snap.pharm=(ix.pharm||{}).rate;
     hdrIdx("ixKosdaqV","ixKosdaqR",ix.kosdaq);
     hdrIdx("ixKospiV","ixKospiR",ix.kospi);
     hdrIdx("ixPharmV","ixPharmR",ix.pharm);
@@ -831,6 +834,7 @@ async function load(){
     const r=await fetch("/api/dashboard?code="+encodeURIComponent(code)+"&date="+encodeURIComponent($("date").value));
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||("오류 "+r.status));}
     const d=await r.json();const p=d.price;const iv=d.investor||{};
+    snap.px=p.current; snap.rate=p.rate; snap.date=(p.price_date&&p.price_date.length===8)?p.price_date:$("date").value;
     $("closeKrx").textContent=won(p.current);
     if(p.nxt)$("closeNxt").textContent=won(p.nxt);
     // NXT 라벨: 오늘 조회 & NXT 개시중(평일 08:00~20:00 KST)이면 '현재가', 아니면 종가
@@ -953,7 +957,18 @@ function fmtNews(label,items){
 async function loadNews(force=false){
   const btn=$("newsBtn");btn.disabled=true;btn.textContent=force?"강제 새로고침…":"뉴스 로딩…";$("error").innerHTML="";
   try{
-    const r=await fetch("/api/news"+(force?"?force=true":""));
+    // 핵심요약은 시황 수치가 필요 → 조회를 안 했으면 먼저 조회해 수치 확보
+    if(snap.px==null){btn.textContent="데이터 조회 중…";await load();}
+    // 시황 스냅샷을 파라미터로 전달 (핵심요약 근거)
+    const qs=new URLSearchParams();
+    if(force)qs.set("force","true");
+    if(snap.px!=null)qs.set("px",Math.round(snap.px));
+    if(snap.rate!=null)qs.set("rate",snap.rate);
+    if(snap.kospi!=null)qs.set("kospi",snap.kospi);
+    if(snap.kosdaq!=null)qs.set("kosdaq",snap.kosdaq);
+    if(snap.pharm!=null)qs.set("pharm",snap.pharm);
+    btn.textContent="뉴스 로딩…";
+    const r=await fetch("/api/news?"+qs.toString());
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
     const d=await r.json();
     const fill=(k,items,meta)=>{
@@ -969,11 +984,17 @@ async function loadNews(force=false){
       }).join("");
     };
     fill("nbCompany",d.company,d.company_meta);fill("nbMacro",d.macro,d.macro_meta);fill("nbSector",d.sector,d.sector_meta);
+    // 핵심 요약 (당사·코스피·코스닥 3불릿) 채우기
+    if(d.summary&&d.summary.length){
+      const ul=$("sumList");
+      if(ul){ul.innerHTML=d.summary.map(s=>`<li>${escH(s)}</li>`).join("");}
+      const pill=$("sumPill");if(pill)pill.style.display="";
+    }
     if(d.window)$("nbWindow").textContent=`${d.window.start} ~ ${d.window.end} KST`;
     saveAll();
-    $("status").textContent="뉴스 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
+    $("status").textContent="뉴스·핵심요약 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
-  finally{btn.disabled=false;btn.textContent="뉴스 채우기";}
+  finally{btn.disabled=false;btn.textContent="뉴스·요약 채우기";}
 }
 
 (function(){const d=new Date();$("date").value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0');})();

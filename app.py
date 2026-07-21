@@ -1113,15 +1113,19 @@ def fetch_gnews(query: str, max_items: int = 15, after_dt=None) -> list:
 
 
 @app.get("/api/news")
-def news_summary(force: bool = False):
+def news_summary(force: bool = False, px: str = "", rate: str = "",
+                 kospi: str = "", kosdaq: str = "", pharm: str = ""):
     if not ANTHROPIC_KEY:
         raise HTTPException(
             status_code=500,
             detail="ANTHROPIC_API_KEY가 설정되지 않았습니다. Render 환경변수(또는 .env)에 추가하세요.",
         )
 
-    # 30분 캐시
-    if not force and time.time() - _news_cache["ts"] < NEWS_CACHE_TTL and _news_cache["data"]:
+    # 30분 캐시 — 단, 시황 수치(context)가 바뀌면 핵심요약 갱신 위해 재생성
+    _ctx_sig = f"{px}|{rate}|{kospi}|{kosdaq}|{pharm}"
+    if (not force and _news_cache["data"]
+            and time.time() - _news_cache["ts"] < NEWS_CACHE_TTL
+            and _news_cache.get("ctx") == _ctx_sig):
         return JSONResponse(_news_cache["data"])
 
     # 뉴스 수집 시작 시각 (한국 영업일 기준: 가장 최근 영업일 오후 4시 KST)
@@ -1183,6 +1187,18 @@ def news_summary(force: bool = False):
     sector_meta = [{"source": i["source"], "date": i["date"], "time": i.get("time", "")} for i in sector_hl]
     company_meta = [{"source": i["source"], "date": i["date"], "time": i.get("time", "")} for i in company_hl]
 
+    # 프론트가 조회로 확보한 시황 수치(선택) — 핵심요약을 수치에 근거해 작성
+    _ctx = []
+    if px:
+        _ctx.append(f"케어젠 종가 {px}원" + (f" (전일대비 {rate}%)" if rate else ""))
+    if kospi:
+        _ctx.append(f"코스피 {kospi}%")
+    if kosdaq:
+        _ctx.append(f"코스닥 {kosdaq}%")
+    if pharm:
+        _ctx.append(f"코스닥 제약지수 {pharm}%")
+    market_ctx = " · ".join(_ctx) if _ctx else "(제공된 시황 수치 없음 — 뉴스 기반으로 정성 서술)"
+
     prompt = (
         f"오늘({today_str}) 뉴스 헤드라인과 내용을 바탕으로 기관투자자용 한국어 브리핑을 작성하세요.\n\n"
         "작성 규칙:\n"
@@ -1192,12 +1208,18 @@ def news_summary(force: bool = False):
         "4. 단순 헤드라인 반복 금지 — 맥락과 의미를 풀어서 설명\n"
         "5. 뉴스가 없으면 '특이사항 없음'\n"
         "6. company(케어젠) 항목은 반드시 코스닥 상장사 '케어젠(214370)' 본 기업에 관한 내용만 작성. "
-        "동명이의·무관한 기사는 제외하고, 케어젠과 직접 관련된 기사가 없으면 '특이사항 없음'으로만 작성\n\n"
+        "동명이의·무관한 기사는 제외하고, 케어젠과 직접 관련된 기사가 없으면 '특이사항 없음'으로만 작성\n"
+        "7. summary(핵심 요약): 아래 [시황 데이터]와 위 뉴스를 종합해 '금일 시황 핵심요약' 정확히 3개 불릿 작성 — "
+        "① 당사(케어젠) 종가·전일대비와 그 배경(수급 쏠림·섹터 이슈 등) ② 코스피 시황 ③ 코스닥 시황. "
+        "각 불릿 2~4문장이며 [시황 데이터]의 수치를 반드시 반영하고 뉴스에서 원인·배경 근거를 찾아 서술. "
+        "수치가 없으면 뉴스 기반 정성 서술. 단정 대신 '~로 풀이', '~로 보임' 등 완곡 표현 사용\n\n"
+        f"[시황 데이터]\n{market_ctx}\n\n"
         f"[증시·매크로 뉴스]\n{macro_lines}\n\n"
         f"[바이오/제약 섹터 뉴스]\n{sector_lines}\n\n"
         f"[케어젠(214370) 관련 뉴스]\n{company_lines}\n\n"
         "아래 JSON만 출력 (다른 텍스트 없이):\n"
-        '{"macro":["단락1(최대5문장)","단락2(최대5문장)"],"sector":["단락1","단락2"],"company":["단락1","단락2"]}'
+        '{"summary":["당사 불릿","코스피 불릿","코스닥 불릿"],'
+        '"macro":["단락1(최대5문장)","단락2"],"sector":["단락1","단락2"],"company":["단락1","단락2"]}'
     )
 
     resp = requests.post(
@@ -1231,7 +1253,7 @@ def news_summary(force: bool = False):
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"JSON 파싱 오류: {e}")
 
-    for key in ("macro", "sector", "company"):
+    for key in ("summary", "macro", "sector", "company"):
         if key not in result or not isinstance(result[key], list):
             result[key] = ["데이터 없음"]
 
@@ -1249,6 +1271,7 @@ def news_summary(force: bool = False):
 
     _news_cache["ts"] = time.time()
     _news_cache["data"] = result
+    _news_cache["ctx"] = _ctx_sig
     return JSONResponse(result)
 
 
