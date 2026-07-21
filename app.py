@@ -45,23 +45,29 @@ if PHARM_CODE == os.getenv("STOCK_CODE", "214370"):
     PHARM_CODE = "1024"
 TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
 
-# 코스닥 제약/바이오 섹터 종목군(≈ 코스닥 제약지수 구성종목 기준).
-# KRX 무료 API·KIS 모두 '지수 구성종목'을 제공하지 않아, 구성종목 코드를 정적으로 두고
-# 실시간 시총(KRX)으로 정렬해 top10을 뽑는다. 리밸런싱 시 env(KRX_PHARMA_CODES)로 교체.
-# 코드가 상장폐지·이전상장 등으로 당일 KRX 행에 없으면 자동 제외(무해).
-# ※ 미용/에스테틱주(클래시스·휴젤·파마리서치 등)는 제약바이오에서 제외.
-_PHARMA_DEFAULT = (
-    "196170,028300,000250,298380,950160,141080,214370,347850,087010,237690,"  # 알테오젠·HLB·삼천당제약·에이비엘바이오·코오롱티슈진·리가켐바이오·케어젠·디앤디파마텍·펩트론·에스티팜
-    "068760,310210,290650,085660,243070,064550,039200,082270,183490,323990,"  # 셀트리온제약·보로노이·엘앤씨바이오·차바이오텍·휴온스·바이오니아·오스코텍·젬백스·엔지켐생명과학·박셀바이오
-    "358570,288330,206650,007390,174900,226950,294090,067080,096530"           # 지아이이노베이션·브릿지바이오·유바이오로직스·네이처셀·앱클론·올릭스·이오플로우·대화제약·씨젠
-)
-PHARMA_CODES = {
-    c.strip().lstrip("0")
-    for c in os.getenv("KRX_PHARMA_CODES", _PHARMA_DEFAULT).split(",")
-    if c.strip()
-}
-# 제약 top10 자동화 시도: KIS 시총랭킹에 넣을 '제약 업종코드'. 성공(반환종목이 실제
-# 제약주로 검증)하면 큐레이션 없이 업종 기반 자동. 실패 시 PHARMA_CODES 필터로 폴백.
+# 코스닥 제약바이오 종목군 (code, 종목명). 미용/에스테틱주(클래시스·휴젤·파마리서치)는 제외.
+# 시총만 KIS 실시간으로 받아 top10 정렬. 랭킹에 없는 특수코드(코오롱티슈진 950160 등)는
+# 개별 시세로 시총 보강. 리밸런싱 시 env(KRX_PHARMA_CODES) 또는 아래 리스트 수정.
+_PHARMA_LIST = [
+    ("196170", "알테오젠"), ("028300", "HLB"), ("000250", "삼천당제약"),
+    ("298380", "에이비엘바이오"), ("950160", "코오롱티슈진"), ("141080", "리가켐바이오"),
+    ("214370", "케어젠"), ("347850", "디앤디파마텍"), ("087010", "펩트론"),
+    ("237690", "에스티팜"), ("068760", "셀트리온제약"), ("310210", "보로노이"),
+    ("290650", "엘앤씨바이오"), ("085660", "차바이오텍"), ("243070", "휴온스"),
+    ("064550", "바이오니아"), ("039200", "오스코텍"), ("082270", "젬백스"),
+    ("183490", "엔지켐생명과학"), ("323990", "박셀바이오"), ("358570", "지아이이노베이션"),
+    ("288330", "브릿지바이오"), ("206650", "유바이오로직스"), ("007390", "네이처셀"),
+    ("174900", "앱클론"), ("226950", "올릭스"), ("294090", "이오플로우"),
+    ("067080", "대화제약"), ("096530", "씨젠"),
+]
+_env_pharma = os.getenv("KRX_PHARMA_CODES", "").strip()
+if _env_pharma:
+    _known = {c.lstrip("0"): n for c, n in _PHARMA_LIST}
+    PHARMA_NAMES = {c.strip().lstrip("0"): _known.get(c.strip().lstrip("0"), "")
+                    for c in _env_pharma.split(",") if c.strip()}
+else:
+    PHARMA_NAMES = {c.lstrip("0"): n for c, n in _PHARMA_LIST}
+PHARMA_CODES = set(PHARMA_NAMES.keys())
 PHARM_SECTOR_ISCD = (os.getenv("PHARM_SECTOR_ISCD", "").strip() or "1024")
 
 # OPEN DART (전자공시) - 무료 인증키. https://opendart.fss.or.kr
@@ -442,6 +448,32 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
     for it in sec_i + ksq_i + kospi_i:
         if it["code"] in PHARMA_CODES:
             _ppool.setdefault(it["code"], it)
+    # 랭킹에 없는 종목(코오롱티슈진 950160 등 특수코드/랭킹 밖)은 개별 시세로 시총 보강
+    _missing = [c for c in PHARMA_CODES if c not in _ppool]
+    if _missing:
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _pq(c):
+            try:
+                q = fetch_quote(c)
+                cap = _to_int(q.get("hts_avls"))
+                if cap <= 0:
+                    return None
+                sign = q.get("prdy_vrss_sign", "3")
+                mult = -1 if sign in ("4", "5") else 1
+                return {
+                    "name": PHARMA_NAMES.get(c) or q.get("bstp_kor_isnm", "") or c,
+                    "code": c, "close": _to_int(q.get("stck_prpr")),
+                    "chg": round(abs(_to_float(q.get("prdy_ctrt"))) * mult, 2),
+                    "cap": cap, "self": bool(target) and c == target,
+                }
+            except Exception:
+                return None
+
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            for it in ex.map(_pq, _missing):
+                if it:
+                    _ppool.setdefault(it["code"], it)
     pharma = sorted(_ppool.values(), key=lambda x: x["cap"], reverse=True)[:10]
     pharma_src = "curated"
 
