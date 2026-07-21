@@ -49,11 +49,11 @@ TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
 # KRX 무료 API·KIS 모두 '지수 구성종목'을 제공하지 않아, 구성종목 코드를 정적으로 두고
 # 실시간 시총(KRX)으로 정렬해 top10을 뽑는다. 리밸런싱 시 env(KRX_PHARMA_CODES)로 교체.
 # 코드가 상장폐지·이전상장 등으로 당일 KRX 행에 없으면 자동 제외(무해).
+# ※ 미용/에스테틱주(클래시스·휴젤·파마리서치 등)는 제약바이오에서 제외.
 _PHARMA_DEFAULT = (
-    "196170,028300,141080,298380,068760,214150,214450,145020,310210,087010,"  # 알테오젠·HLB·리가켐바이오·에이비엘바이오·셀트리온제약·클래시스·파마리서치·휴젤·보로노이·펩트론
-    "000250,086900,214370,085660,237690,243070,950160,064550,039200,082270,"  # 삼천당제약·메디톡스·케어젠·차바이오텍·에스티팜·휴온스·코오롱티슈진·바이오니아·오스코텍·젬백스
-    "183490,323990,358570,288330,206650,007390,174900,226950,294090,067080,"  # 엔지켐생명과학·박셀바이오·지아이이노베이션·브릿지바이오·유바이오로직스·네이처셀·앱클론·올릭스·이오플로우·대화제약
-    "096530"                                                                     # 씨젠(분자진단)
+    "196170,028300,000250,298380,950160,141080,214370,347850,087010,237690,"  # 알테오젠·HLB·삼천당제약·에이비엘바이오·코오롱티슈진·리가켐바이오·케어젠·디앤디파마텍·펩트론·에스티팜
+    "068760,310210,290650,085660,243070,064550,039200,082270,183490,323990,"  # 셀트리온제약·보로노이·엘앤씨바이오·차바이오텍·휴온스·바이오니아·오스코텍·젬백스·엔지켐생명과학·박셀바이오
+    "358570,288330,206650,007390,174900,226950,294090,067080,096530"           # 지아이이노베이션·브릿지바이오·유바이오로직스·네이처셀·앱클론·올릭스·이오플로우·대화제약·씨젠
 )
 PHARMA_CODES = {
     c.strip().lstrip("0")
@@ -431,23 +431,19 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
     #  1순위: 제약 '업종코드'로 KIS 시총랭킹 직접 요청(성공 시 완전 자동)
     #  검증: 반환 상위10 중 알려진 제약주(PHARMA_CODES)가 4개 이상이면 업종필터 정상으로 간주
     #  실패: 전체시장 상위랭킹에서 제약군 필터로 폴백
-    # KIS 제약 업종(1024)은 '제약'만 분류 → 알테오젠 등 순수 바이오는 빠짐.
-    # 라벨이 '제약바이오'이므로 [제약 업종 랭킹] + [바이오 대형주(큐레이션, 시장랭킹서)]를 병합.
+    # 코스닥 제약바이오 top10 — 사용자 정의 종목군(PHARMA_CODES, 미용주 제외)으로 필터.
+    # KIS 업종분류(1024)는 미용주 포함·순수바이오 누락이라 부적합 → 정의는 리스트로,
+    # 시총만 [제약 업종랭킹 + 시장랭킹]에서 취득해 실시간 정렬(리밸런싱은 리스트로 관리).
     try:
         sec_i = [_item(r) for r in _kis_rank_rows(PHARM_SECTOR_ISCD)]
     except Exception:
         sec_i = []
-    sec_ok = bool(sec_i) and sum(1 for it in sec_i[:15] if it["code"] in PHARMA_CODES) >= 4
-    curated = [it for it in (ksq_i + kospi_i) if it["code"] in PHARMA_CODES]
-    if sec_ok:
-        merged = {}
-        for it in sec_i + curated:      # 업종(제약) 우선 + 큐레이션(바이오 보강)
-            merged.setdefault(it["code"], it)
-        pharma = sorted(merged.values(), key=lambda x: x["cap"], reverse=True)[:10]
-        pharma_src = "sector+bio"
-    else:
-        pharma = sorted(curated, key=lambda x: x["cap"], reverse=True)[:10]
-        pharma_src = "curated"
+    _ppool: dict = {}
+    for it in sec_i + ksq_i + kospi_i:
+        if it["code"] in PHARMA_CODES:
+            _ppool.setdefault(it["code"], it)
+    pharma = sorted(_ppool.values(), key=lambda x: x["cap"], reverse=True)[:10]
+    pharma_src = "curated"
 
     kosdaq_rank = next(
         (_to_int(r.get("data_rank")) for r in ksq
