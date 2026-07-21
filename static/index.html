@@ -516,7 +516,7 @@
     </div>
     <div class="col inq">
       <div class="blkhd inq"><span class="dot"></span><h2>시장 주요 질의 사항</h2></div>
-      <div class="secbox edph" data-k="qbody" data-ph="시장·투자자 문의 내용을 수기로 정리합니다." contenteditable="true"></div>
+      <div class="secbox edph" data-k="qbody" data-ph="수기 입력" contenteditable="true"></div>
     </div>
   </section>
 
@@ -533,7 +533,10 @@ function keyName(){return "cg2:"+$("code").value+":"+$("date").value;}
 function eds(){return [...document.querySelectorAll("[data-k]")];}
 function autos(){return ["closeKrx","closeNxt","frgnRatio","mcap","usDow","usNas","usSp","ixFxV"].map(id=>$(id)).filter(Boolean);}
 function saveAll(){const o={};eds().forEach(el=>o[el.dataset.k]=el.innerHTML);autos().forEach(el=>o["#"+el.id]=el.innerHTML);localStorage.setItem(keyName(),JSON.stringify(o));}
-function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;const o=JSON.parse(raw);eds().forEach(el=>{if(o[el.dataset.k]!=null)el.innerHTML=o[el.dataset.k];});autos().forEach(el=>{if(o["#"+el.id]!=null)el.innerHTML=o["#"+el.id];});const _q=document.getElementById("ksqVal");if(_q)updateKsqColor(_q);}
+function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;const o=JSON.parse(raw);eds().forEach(el=>{if(o[el.dataset.k]==null)return;
+    // rk2(KOSPI 통합 순위): 구버전 'KRX 통합 …' 형식 저장값은 폐기하고 기본 문구 유지
+    if(el.dataset.k==="rk2"&&!/KOSPI\s*통합/.test(String(o.rk2||"")))return;
+    el.innerHTML=o[el.dataset.k];});autos().forEach(el=>{if(o["#"+el.id]!=null)el.innerHTML=o["#"+el.id];});const _q=document.getElementById("ksqVal");if(_q)updateKsqColor(_q);}
 function updateKsqColor(el){const t=(el.textContent||"").trim();el.style.color=t.startsWith("-")?"var(--down)":t.startsWith("+")||parseFloat(t)>0?"var(--up)":"";}
 document.addEventListener("input",(e)=>{if(e.target.closest("[contenteditable]"))saveAll();});
 
