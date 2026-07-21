@@ -766,9 +766,11 @@ function autoTrend(p,iv,days){
   const dir=fsum>0?"순매수세":fsum<0?"순매도세":"수급 혼조";
   const cont=fsum!==0?" 지속":"";
   const fr=(p.foreign_ratio!=null&&p.foreign_ratio!=="")?p.foreign_ratio+"%":"—";
-  // 외인 지분율 20(거래일)전 대비 — 이력 누적분이 있으면 표시
-  const tk=trackFrgnRatio(p.foreign_ratio);
-  const frClause=tk?` — 최근 ${tk.days}거래일 대비 ${tk.delta>0?"+":""}${tk.delta}%p ${tk.delta>0?"상승":tk.delta<0?"하락":"보합"}`:"";
+  // 외인 지분율 N거래일 대비 — 서버 계산(순매매 역산, 브라우저 무관) 우선, 없으면 localStorage 폴백
+  let frClause="";
+  const fmtFr=(d,dd)=>` — 최근 ${dd}거래일 대비 ${d>0?"+":""}${d}%p ${d>0?"상승":d<0?"하락":"보합"}`;
+  if(p.foreign_ratio_delta!=null){frClause=fmtFr(p.foreign_ratio_delta, p.foreign_delta_days||20);}
+  else{const tk=trackFrgnRatio(p.foreign_ratio);if(tk)frClause=fmtFr(tk.delta, tk.days);}
   const b1=`최근 외국인 ${dir}${cont}. 외인 지분율 ${fr}${frClause}.`;
   let b2;
   if(p.vol_vs_avg!=null){const s=p.vol_vs_avg>0?"+":"",w=p.vol_vs_avg>0?"증가":p.vol_vs_avg<0?"감소":"유사";

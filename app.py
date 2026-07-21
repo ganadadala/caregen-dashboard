@@ -526,9 +526,10 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     quote = fetch_quote(code)          # 현재 스냅샷(시총·52주·외국인비율은 항상 '현재값')
     investor = fetch_investor(code)
     try:
-        investor_days = fetch_investor_days(code, 10)
+        inv_all = fetch_investor_days(code, 20)   # 지분율 변화 계산용 20거래일
     except Exception:
-        investor_days = []
+        inv_all = []
+    investor_days = inv_all[:10]                   # 표에는 최근 10거래일만
 
     today = datetime.now().strftime("%Y-%m-%d")
     use_daily = bool(date) and date < today  # 과거 날짜면 일별시세에서 그 날짜 종가 사용
@@ -600,6 +601,21 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     except Exception:
         pass
 
+    # 외국인 지분율 N거래일 대비(%p) — 외국인 순매매 누적 ÷ 추정 상장주식수
+    # (KIS가 일자별 보유비율 이력을 안 줘서 순매매로 역산; 브라우저 무관하게 서버 계산)
+    frgn_ratio_delta = None
+    frgn_delta_days = 0
+    try:
+        if not use_daily and price > 0 and inv_all:
+            mcap_eok = _to_int(quote.get("hts_avls"))     # 시가총액(억원)
+            shares = (mcap_eok * 1e8) / price if mcap_eok > 0 else 0  # 추정 상장주식수
+            if shares > 0:
+                net = sum(_to_int(r.get("foreign_qty")) for r in inv_all)  # N일 외국인 순매매 합
+                frgn_ratio_delta = round(net / shares * 100, 2)
+                frgn_delta_days = len(inv_all)
+    except Exception:
+        pass
+
     result = {
         "code": code,
         "name": quote.get("rprs_mrkt_kor_name", ""),
@@ -621,6 +637,8 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "w52_high": _to_int(quote.get("w52_hgpr")),        # 52주 최고(현재값)
             "w52_low": _to_int(quote.get("w52_lwpr")),
             "foreign_ratio": quote.get("hts_frgn_ehrt", ""),   # 외국인 보유비율(현재값)
+            "foreign_ratio_delta": frgn_ratio_delta,           # 외인 지분율 N거래일 대비(%p, 순매매 역산)
+            "foreign_delta_days": frgn_delta_days,             # 위 계산에 쓰인 거래일 수
             "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위(없으면 null)
             "krx_rank": krx_rank,                               # KRX 통합 시총 순위(없으면 null)
         },
