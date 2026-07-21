@@ -861,11 +861,15 @@ async function load(){
     })();
     const t=capKor(p.market_cap);if(t)$("mcap").textContent=t;
     if(p.foreign_ratio)$("frgnRatio").textContent=p.foreign_ratio+"%";
-    // KOSDAQ 시총 순위 — 서버 자동값(어느 기기서든 동일). 증감(▲▼)은 기기별
-    // localStorage로만 계산돼 일관성이 없어 제거(노트북↔모바일 불일치 원인).
+    // KOSDAQ 시총 순위 + 전 거래일 대비 증감(서버 계산 → 어느 기기서든 동일)
     if(p.kosdaq_rank){
       const el=document.querySelector('[data-k="rk1"]');
-      if(el){el.textContent=`KOSDAQ 시총 순위 ${p.kosdaq_rank}위`;el.className="meta";}
+      if(el){
+        const d=p.kosdaq_delta;
+        const sym=(d==null)?"":(d>0?` (▲${d})`:d<0?` (▼${-d})`:" (-)");
+        el.textContent=`KOSDAQ 시총 순위 ${p.kosdaq_rank}위${sym}`;
+        el.className=("meta "+(d>0?"up":d<0?"dn":"")).trim();
+      }
     }
     // KOSPI 통합 순위는 KIS 미제공(케어젠 ~140위 > 랭킹 상위30) → rk2 수기 입력 유지
     if(p.price_date&&p.price_date.length===8){const pd=p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8);$("closeBadge").textContent=pd+" 종가 기준";}

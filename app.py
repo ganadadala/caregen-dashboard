@@ -419,12 +419,16 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
 
     def _item(r: dict) -> dict:
         c = str(r.get("mksc_shrn_iscd", "")).lstrip("0")
+        cap = _to_int(r.get("stck_avls"))            # 시가총액(억)
+        chg = _to_float(r.get("prdy_ctrt"))          # 등락률(부호 포함)
+        prev_cap = round(cap / (1 + chg / 100)) if (cap and chg > -100) else cap
         return {
             "name": r.get("hts_kor_isnm", ""),
             "code": c,
             "close": _to_int(r.get("stck_prpr")),        # 현재가(≈종가)
-            "chg": round(_to_float(r.get("prdy_ctrt")), 2),  # 등락률(이미 부호 포함)
-            "cap": _to_int(r.get("stck_avls")),          # 시가총액(억)
+            "chg": round(chg, 2),
+            "cap": cap,
+            "prev_cap": prev_cap,                    # 전 거래일 시총(역산) — 순위 증감 계산용
             "self": bool(target) and c == target,
         }
 
@@ -433,12 +437,7 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
     ksq_i = [_item(r) for r in ksq]
     kospi_i = [_item(r) for r in kospi]
 
-    # 코스닥 제약바이오 top10 —
-    #  1순위: 제약 '업종코드'로 KIS 시총랭킹 직접 요청(성공 시 완전 자동)
-    #  검증: 반환 상위10 중 알려진 제약주(PHARMA_CODES)가 4개 이상이면 업종필터 정상으로 간주
-    #  실패: 전체시장 상위랭킹에서 제약군 필터로 폴백
     # 코스닥 제약바이오 top10 — 사용자 정의 종목군(PHARMA_CODES, 미용주 제외)으로 필터.
-    # KIS 업종분류(1024)는 미용주 포함·순수바이오 누락이라 부적합 → 정의는 리스트로,
     # 시총만 [제약 업종랭킹 + 시장랭킹]에서 취득해 실시간 정렬(리밸런싱은 리스트로 관리).
     try:
         sec_i = [_item(r) for r in _kis_rank_rows(PHARM_SECTOR_ISCD)]
@@ -448,7 +447,8 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
     for it in sec_i + ksq_i + kospi_i:
         if it["code"] in PHARMA_CODES:
             _ppool.setdefault(it["code"], it)
-    # 랭킹에 없는 종목(코오롱티슈진 950160 등 특수코드/랭킹 밖)은 개별 시세로 시총 보강
+    # 랭킹에 없는 종목(코오롱티슈진 950160 등 특수코드)은 개별 시세로 시총 보강
+    _fetched: list = []
     _missing = [c for c in PHARMA_CODES if c not in _ppool]
     if _missing:
         from concurrent.futures import ThreadPoolExecutor
@@ -461,11 +461,14 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
                     return None
                 sign = q.get("prdy_vrss_sign", "3")
                 mult = -1 if sign in ("4", "5") else 1
+                chg = abs(_to_float(q.get("prdy_ctrt"))) * mult
+                prev_cap = round(cap / (1 + chg / 100)) if chg > -100 else cap
                 return {
                     "name": PHARMA_NAMES.get(c) or q.get("bstp_kor_isnm", "") or c,
                     "code": c, "close": _to_int(q.get("stck_prpr")),
-                    "chg": round(abs(_to_float(q.get("prdy_ctrt"))) * mult, 2),
-                    "cap": cap, "self": bool(target) and c == target,
+                    "chg": round(chg, 2), "cap": cap, "prev_cap": prev_cap,
+                    "market": q.get("rprs_mrkt_kor_name", ""),
+                    "self": bool(target) and c == target,
                 }
             except Exception:
                 return None
@@ -474,17 +477,32 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
             for it in ex.map(_pq, _missing):
                 if it:
                     _ppool.setdefault(it["code"], it)
+                    _fetched.append(it)
     pharma = sorted(_ppool.values(), key=lambda x: x["cap"], reverse=True)[:10]
     pharma_src = "curated"
 
-    kosdaq_rank = next(
-        (_to_int(r.get("data_rank")) for r in ksq
-         if str(r.get("mksc_shrn_iscd", "")).lstrip("0") == target),
-        None,
-    )
+    # KOSDAQ 순위 + 전 거래일 대비 증감 —
+    # KIS 랭킹이 특수코드(코오롱티슈진 950160)를 제외해 케어젠 순위가 실제보다 위로 나옴 →
+    # 개별조회한 '코스닥' 제외종목을 풀에 합쳐 절대순위 보정. 전일 시총(현재÷(1+등락률))으로
+    # 재정렬해 전 거래일 순위와 비교 → 증감을 서버에서 산출(브라우저 무관).
+    _ksq_codes = {x["code"] for x in ksq_i}
+    _ksq_extra = [it for it in _fetched
+                  if "코스닥" in (it.get("market") or "") and it["code"] not in _ksq_codes]
+    _ksq_all = ksq_i + _ksq_extra
+
+    def _rank_pos(items, keyfn):
+        for i, x in enumerate(sorted(items, key=keyfn, reverse=True), 1):
+            if x.get("code") == target:
+                return i
+        return None
+
+    kosdaq_rank = _rank_pos(_ksq_all, lambda x: x["cap"])
+    _prev_pos = _rank_pos(_ksq_all, lambda x: x.get("prev_cap", x["cap"]))
+    kosdaq_delta = (_prev_pos - kosdaq_rank) if (kosdaq_rank and _prev_pos) else None
 
     return {
         "kosdaq_rank": kosdaq_rank,
+        "kosdaq_delta": kosdaq_delta,   # 전 거래일 대비 순위 증감(+면 상승/숫자↓)
         "krx_rank": None,          # 통합순위 자동 불가(수기 입력)
         "kosdaq_top": ksq_i[:10],
         "kospi_top": kospi_i[:10],
@@ -497,7 +515,8 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
 def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
     """순위만 필요한 기존 호출부용 얇은 래퍼."""
     m = fetch_krx_market(code, basDd)
-    return {"kosdaq_rank": m["kosdaq_rank"], "krx_rank": m["krx_rank"]}
+    return {"kosdaq_rank": m["kosdaq_rank"], "kosdaq_delta": m.get("kosdaq_delta"),
+            "krx_rank": m["krx_rank"]}
 
 
 def fetch_day_ohlc(code: str, end_ymd: str, div: str = "J") -> list:
@@ -636,6 +655,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     except Exception:
         pass
     kosdaq_rank = _ranks.get("kosdaq_rank")
+    kosdaq_delta = _ranks.get("kosdaq_delta")
     krx_rank = _ranks.get("krx_rank")
 
     # 거래량 20일 평균 대비(%) — 실패 시 None
@@ -689,6 +709,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "foreign_ratio_delta": frgn_ratio_delta,           # 외인 지분율 N거래일 대비(%p, 순매매 역산)
             "foreign_delta_days": frgn_delta_days,             # 위 계산에 쓰인 거래일 수
             "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위(없으면 null)
+            "kosdaq_delta": kosdaq_delta,                       # 전 거래일 대비 순위 증감
             "krx_rank": krx_rank,                               # KRX 통합 시총 순위(없으면 null)
         },
         "investor": {
