@@ -288,16 +288,70 @@ def fetch_kosdaq_rank(code: str) -> "int | None":
     return None
 
 
-def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
-    """KRX 일별매매정보로 KOSDAQ 순위 + KRX 통합 순위 계산.
-    KRX_API_KEY 미설정 시 두 값 모두 None.
-    basDd 지정 시 해당 날짜(또는 직전 거래일) 기준,
+# --- KRX 일별매매정보 행 필드 추출 헬퍼 (필드명이 조금씩 달라 후보키 순회) ---
+def _krx_cap(row: dict) -> int:
+    for k in ("MKTCAP", "MKT_CAP"):
+        if k in row:
+            return _to_int(row[k])
+    for k, v in row.items():
+        if "CAP" in k.upper():
+            return _to_int(v)
+    return 0
+
+
+def _krx_code(row: dict) -> str:
+    for k in ("ISU_SRT_CD", "ISU_CD", "SHRN_ISU_CD"):
+        if k in row:
+            return str(row.get(k, ""))
+    return ""
+
+
+def _krx_name(row: dict) -> str:
+    for k in ("ISU_ABBRV", "ISU_NM", "ISU_KOR_NM", "KOR_ABBRV"):
+        if row.get(k):
+            return str(row.get(k))
+    return ""
+
+
+def _krx_close(row: dict) -> int:
+    for k in ("TDD_CLSPRC", "CLSPRC", "CLPR", "TDD_CLPR"):
+        if k in row:
+            return _to_int(row[k])
+    return 0
+
+
+def _krx_chg_pct(row: dict) -> float:
+    for k in ("FLUC_RT", "CMPPREVDD_RT", "FLT_RT"):
+        if k in row:
+            return _to_float(row[k])
+    return 0.0
+
+
+def _krx_top10(rows: list, target: str = "") -> list:
+    """시총 내림차순 상위 10종목 → [{name, code, close, chg}]. target 종목은 표시용 플래그."""
+    out = []
+    for row in sorted(rows, key=_krx_cap, reverse=True)[:10]:
+        out.append({
+            "name": _krx_name(row),
+            "code": _krx_code(row).lstrip("0"),
+            "close": _krx_close(row),
+            "chg": round(_krx_chg_pct(row), 2),
+            "self": bool(target) and _krx_code(row).lstrip("0") == target,
+        })
+    return out
+
+
+def fetch_krx_market(code: str, basDd: str = "") -> dict:
+    """KRX 일별매매정보 1회 조회로 순위 + 시총 top10을 함께 산출.
+    KRX_API_KEY 미설정 시 값 없음. basDd 지정 시 그 날짜(또는 직전 거래일),
     미지정 시 KST 오늘부터 과거로 훑어 데이터 있는 첫 거래일 사용.
     """
     from datetime import datetime, timedelta, timezone
 
+    empty = {"kosdaq_rank": None, "krx_rank": None,
+             "kosdaq_top": [], "kospi_top": [], "basDd": ""}
     if not KRX_API_KEY:
-        return {"kosdaq_rank": None, "krx_rank": None}
+        return empty
 
     KST = timezone(timedelta(hours=9))
     hdrs = {"AUTH_KEY": KRX_API_KEY}
@@ -318,23 +372,7 @@ def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
         except Exception:
             return []
 
-    def _cap(row: dict) -> int:
-        for k in ("MKTCAP", "MKT_CAP"):
-            if k in row:
-                return _to_int(row[k])
-        for k, v in row.items():
-            if "CAP" in k.upper():
-                return _to_int(v)
-        return 0
-
-    def _isucd(row: dict) -> str:
-        for k in ("ISU_SRT_CD", "ISU_CD", "SHRN_ISU_CD"):
-            if k in row:
-                return str(row.get(k, ""))
-        return ""
-
     # KST 오늘(또는 지정일)부터 하루씩 과거로 훑어 데이터 있는 첫 거래일 채택.
-    # 빈 OutBlock_1 = 당일 미공개 or 휴장 → 다음 후보로.
     start = (
         datetime.strptime(basDd, "%Y%m%d")
         if basDd
@@ -342,6 +380,7 @@ def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
     )
     ksq_rows: list = []
     stk_rows: list = []
+    used_dd = ""
     d = start
     for _ in range(10):
         if d.weekday() >= 5:          # 주말 건너뜀
@@ -352,24 +391,40 @@ def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
         if rows:
             ksq_rows = rows
             stk_rows = _fetch_rows("stk_bydd_trd", dd)
+            used_dd = dd
             break
         d -= timedelta(days=1)
+
+    if not ksq_rows:
+        return empty
 
     target = code.lstrip("0")
 
     kosdaq_rank = None
-    for i, row in enumerate(sorted(ksq_rows, key=_cap, reverse=True), start=1):
-        if _isucd(row).lstrip("0") == target:
+    for i, row in enumerate(sorted(ksq_rows, key=_krx_cap, reverse=True), start=1):
+        if _krx_code(row).lstrip("0") == target:
             kosdaq_rank = i
             break
 
     krx_rank = None
-    for i, row in enumerate(sorted(ksq_rows + stk_rows, key=_cap, reverse=True), start=1):
-        if _isucd(row).lstrip("0") == target:
+    for i, row in enumerate(sorted(ksq_rows + stk_rows, key=_krx_cap, reverse=True), start=1):
+        if _krx_code(row).lstrip("0") == target:
             krx_rank = i
             break
 
-    return {"kosdaq_rank": kosdaq_rank, "krx_rank": krx_rank}
+    return {
+        "kosdaq_rank": kosdaq_rank,
+        "krx_rank": krx_rank,
+        "kosdaq_top": _krx_top10(ksq_rows, target),
+        "kospi_top": _krx_top10(stk_rows, target),
+        "basDd": used_dd,
+    }
+
+
+def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
+    """순위만 필요한 기존 호출부용 얇은 래퍼."""
+    m = fetch_krx_market(code, basDd)
+    return {"kosdaq_rank": m["kosdaq_rank"], "krx_rank": m["krx_rank"]}
 
 
 def fetch_day_ohlc(code: str, end_ymd: str, div: str = "J") -> list:
@@ -397,6 +452,35 @@ def fetch_day_ohlc(code: str, end_ymd: str, div: str = "J") -> list:
     return rows
 
 
+def fetch_avg_volume(code: str, end_ymd: str, n: int = 20) -> int:
+    """end_ymd(포함)까지 최근 n거래일 평균 거래량(주). 실패 시 0."""
+    from datetime import datetime, timedelta
+    try:
+        end = datetime.strptime(end_ymd, "%Y%m%d")
+    except Exception:
+        return 0
+    start = end - timedelta(days=n * 2 + 15)  # 주말·공휴일 감안 넉넉히
+    try:
+        data = _get(
+            "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+            "FHKST03010100",
+            {
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": code,
+                "FID_INPUT_DATE_1": start.strftime("%Y%m%d"),
+                "FID_INPUT_DATE_2": end_ymd,
+                "FID_PERIOD_DIV_CODE": "D",
+                "FID_ORG_ADJ_PRC": "0",
+            },
+        )
+    except Exception:
+        return 0
+    rows = [r for r in (data.get("output2") or []) if r.get("stck_bsop_date")]
+    rows.sort(key=lambda r: r["stck_bsop_date"])
+    vols = [_to_int(r.get("acml_vol")) for r in rows[-n:] if _to_int(r.get("acml_vol")) > 0]
+    return round(sum(vols) / len(vols)) if vols else 0
+
+
 @app.get("/api/dashboard")
 def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     from datetime import datetime
@@ -404,7 +488,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     quote = fetch_quote(code)          # 현재 스냅샷(시총·52주·외국인비율은 항상 '현재값')
     investor = fetch_investor(code)
     try:
-        investor_days = fetch_investor_days(code, 3)
+        investor_days = fetch_investor_days(code, 10)
     except Exception:
         investor_days = []
 
@@ -466,6 +550,18 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     kosdaq_rank = _ranks.get("kosdaq_rank")
     krx_rank = _ranks.get("krx_rank")
 
+    # 거래량 20일 평균 대비(%) — 실패 시 None
+    vol_avg20 = None
+    vol_vs_avg = None
+    try:
+        _end_ymd = date.replace("-", "") if use_daily else datetime.now().strftime("%Y%m%d")
+        _avg = fetch_avg_volume(code, _end_ymd, 20)
+        if _avg > 0:
+            vol_avg20 = _avg
+            vol_vs_avg = round((volume - _avg) / _avg * 100, 1)
+    except Exception:
+        pass
+
     result = {
         "code": code,
         "name": quote.get("rprs_mrkt_kor_name", ""),
@@ -478,6 +574,8 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "high": high,
             "low": low,
             "volume": volume,                                  # 거래량(주)
+            "vol_avg20": vol_avg20,                            # 최근 20거래일 평균 거래량(없으면 null)
+            "vol_vs_avg": vol_vs_avg,                          # 20일 평균 대비 %(없으면 null)
             "value": value,                                    # 거래대금(원)
             "price_date": price_date,                          # 실제 적용된 거래일(YYYYMMDD)
             "nxt": nxt_price,                                  # NXT 가격(없으면 null)
@@ -584,7 +682,7 @@ def ohlc_data(code: str = DEFAULT_CODE, date: str = ""):
     from datetime import datetime
     end_ymd = date.replace("-", "") if date else datetime.now().strftime("%Y%m%d")
     rows = fetch_day_ohlc(code, end_ymd)
-    rows = rows[-5:]  # 최근 5 거래일 일봉
+    rows = rows[-10:]  # 최근 10 거래일 일봉
 
     # 코스닥 제약 업종지수 같은 기간 종가 — 비교선용(실패 시 종목선만)
     pharm_map = {}
@@ -772,6 +870,81 @@ def us_indices():
         except Exception:
             out[name] = None  # 권한/심볼 문제 시 해당 지수만 None
     return JSONResponse(out)
+
+
+# ---------------------------------------------------------------------------
+# 시장 데이터 — 국내지수(값+등락+10일 라인) · USD환율 · KRX 시총 top10
+# ---------------------------------------------------------------------------
+# KIS 국내지수 코드 (inquire-daily-indexchartprice, 시장 U)
+KOSPI_CODE = os.getenv("KOSPI_INDEX_CODE", "0001").strip() or "0001"
+KOSDAQ_CODE = os.getenv("KOSDAQ_INDEX_CODE", "1001").strip() or "1001"
+
+
+def fetch_index_snapshot(code: str, days: int = 20, tail: int = 10) -> dict:
+    """지수 현재값 + 전일대비 등락률 + 최근 tail일 종가 시리즈.
+    fetch_index_closes 재사용 — 실패 시 값 없음."""
+    try:
+        series = fetch_index_closes(code, days=days)
+    except Exception:
+        series = []
+    if not series:
+        return {"value": None, "rate": None, "series": []}
+    closes = [s["close"] for s in series]
+    value = closes[-1]
+    rate = round((closes[-1] - closes[-2]) / closes[-2] * 100, 2) if len(closes) >= 2 and closes[-2] else None
+    return {"value": value, "rate": rate, "series": series[-tail:]}
+
+
+def fetch_usdkrw() -> dict:
+    """USD/KRW 환율 + 전일대비. KIS가 원달러 현물을 안 줘서 무료 FX 소스 사용(키 불필요).
+    여러 소스를 순차 시도, 모두 실패 시 값 없음(프론트에서 수기 입력 가능)."""
+    sources = [
+        "https://open.er-api.com/v6/latest/USD",
+        "https://api.frankfurter.app/latest?from=USD&to=KRW",
+        "https://api.exchangerate.host/latest?base=USD&symbols=KRW",
+    ]
+    for url in sources:
+        try:
+            r = requests.get(url, timeout=8)
+            if r.status_code != 200:
+                continue
+            krw = (r.json().get("rates") or {}).get("KRW")
+            if krw:
+                return {"rate": round(_to_float(krw), 2), "diff": None}
+        except Exception:
+            continue
+    return {"rate": None, "diff": None}
+
+
+@app.get("/api/market")
+def market(code: str = DEFAULT_CODE, date: str = ""):
+    """헤더 지수/환율 + 시장·섹터 top10 + 지수 라인차트용 통합 데이터."""
+    from datetime import datetime
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    basDd = date.replace("-", "") if (date and date < today) else ""
+
+    indices = {
+        "kospi": fetch_index_snapshot(KOSPI_CODE),
+        "kosdaq": fetch_index_snapshot(KOSDAQ_CODE),
+        "pharm": fetch_index_snapshot(PHARM_CODE) if PHARM_CODE else {"value": None, "rate": None, "series": []},
+    }
+
+    try:
+        km = fetch_krx_market(code, basDd)
+    except Exception:
+        km = {"kosdaq_top": [], "kospi_top": [], "basDd": ""}
+
+    return JSONResponse({
+        "indices": indices,
+        "fx": {"usdkrw": fetch_usdkrw()},
+        "tops": {
+            "kosdaq": km.get("kosdaq_top", []),
+            "kospi": km.get("kospi_top", []),
+            "pharma": [],   # 제약바이오 top10: 소스 미확정 → 자리표시(placeholder)
+        },
+        "basDd": km.get("basDd", ""),
+    })
 
 
 # ---------------------------------------------------------------------------

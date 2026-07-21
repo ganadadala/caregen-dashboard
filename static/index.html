@@ -44,7 +44,9 @@
   .err{max-width:900px;margin:10px auto 0;padding:11px 15px;border-radius:10px;background:var(--up-soft);color:#9b211a;font-size:13px;border:1px solid #f3c9c5;}
 
   /* 페이지 */
-  .page{max-width:900px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(14,31,24,.07);overflow:hidden;}
+  .page{max-width:900px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(14,31,24,.07);overflow:hidden;display:flex;flex-direction:column;}
+  /* PDF 배치 순서: 업무보고를 맨 아래로 (마크업 이동 없이 flex order) */
+  .page>.work{order:8;} .page>.pg-footer{order:9;}
   .pad{padding:26px 28px;}
 
   /* 헤더 */
@@ -66,7 +68,7 @@
   }
   .hlogo{
     display:flex;align-items:center;gap:0;
-    padding:20px 24px 20px 28px;
+    padding:16px 16px 16px 20px;
     border-right:1px solid rgba(255,255,255,.18);
     flex-shrink:0;
   }
@@ -81,19 +83,19 @@
   .hlogo-text{margin-left:11px;}
   .hlogo-text .brand{font-family:"IBM Plex Mono",monospace;font-size:18px;font-weight:700;color:#fff;letter-spacing:.06em;line-height:1;}
   .hlogo-text .brand-sub{font-size:9.5px;font-weight:500;color:rgba(255,255,255,.72);letter-spacing:.04em;margin-top:3px;}
-  .htitle{flex:1;padding:20px 22px;}
+  .htitle{flex:1;min-width:132px;padding:16px 14px;}
   .htitle .kicker{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:4px;}
-  .htitle h1{font-family:"Pretendard",system-ui,sans-serif;font-size:22px;font-weight:700;letter-spacing:-.01em;color:#ffffff;line-height:1.1;}
+  .htitle h1{font-family:"Pretendard",system-ui,sans-serif;font-size:18px;font-weight:700;letter-spacing:-.01em;color:#ffffff;line-height:1.15;white-space:nowrap;}
   .htitle .sub{font-size:12px;color:rgba(255,255,255,.65);margin-top:5px;}
   .hdate{text-align:right;padding:20px 28px 20px 0;}
-  .hdate .d{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:17px;color:#fff;}
-  .hdate .badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px;margin-top:6px;border:1px solid rgba(255,255,255,.2);}
+  .hdate .d{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:15px;color:#fff;white-space:nowrap;}
+  .hdate .badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px;margin-top:6px;border:1px solid rgba(255,255,255,.2);white-space:nowrap;}
   .hdate .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#7FFFC4;}
 
   /* 헤더 우측 주가 블록 */
-  .hprice{padding:20px 22px;border-right:1px solid rgba(255,255,255,.18);flex-shrink:0;}
+  .hprice{padding:16px 16px;border-right:1px solid rgba(255,255,255,.18);flex-shrink:0;}
   .hp-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:4px;}
-  .hprice .price-main .v{color:#fff;font-size:30px;}
+  .hprice .price-main .v{color:#fff;font-size:23px;}
   .hprice .price-main .u{color:rgba(255,255,255,.7);}
   .hprice .chip{margin-top:6px;font-size:12px;padding:4px 9px;}
   .hprice .chip.up{background:rgba(217,45,32,.22);color:#ffcfcc;}
@@ -101,9 +103,9 @@
   .hprice .chip.flat{background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);}
   .hprice .nxt{color:rgba(255,255,255,.65);font-size:11px;margin-top:5px;}
   .hprice .nxt b{color:#fff;}
-  .hcap{padding:20px 22px;flex-shrink:0;}
+  .hcap{padding:16px 16px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.18);}
   .hcap .hp-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.72);margin-bottom:6px;}
-  .hcap .cap-val{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:28px;color:#fff;line-height:1;}
+  .hcap .cap-val{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:22px;color:#fff;line-height:1;}
   .hcap .cap-u{font-size:13px;color:rgba(255,255,255,.7);margin-left:4px;}
   .hcap .meta{display:block;font-size:11px;color:rgba(255,255,255,.7);margin-top:5px;}
   .hcap .meta.up{color:#ffcfcc;}
@@ -255,6 +257,60 @@
     .hprice{border-right:none;border-top:1px solid rgba(255,255,255,.18);width:100%;padding:12px 20px;}
     .hdate{padding:0 20px 16px;text-align:left;}
   }
+  /* ===== IR Daily 신규 레이아웃 ===== */
+  /* 헤더 우측 지수·환율 */
+  .hidx{padding:14px 16px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:170px;}
+  .hidx .ixrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:11.5px;line-height:1.2;}
+  .hidx .ixrow .nm{color:rgba(255,255,255,.82);font-weight:600;white-space:nowrap;}
+  .hidx .ixrow .rhs{font-family:"IBM Plex Mono",monospace;text-align:right;white-space:nowrap;}
+  .hidx .ixrow .vv{color:#fff;font-weight:600;}
+  .hidx .ixrow .rt{font-size:10px;margin-left:5px;}
+  .hidx .ixrow .rt.up{color:#ffcfcc;} .hidx .ixrow .rt.down{color:#c8d8ff;} .hidx .ixrow .rt.flat{color:rgba(255,255,255,.7);}
+
+  /* 불릿 요약 섹션 (핵심요약/당사주가동향) */
+  .kbul{padding:15px 28px;border-bottom:1px solid var(--line);}
+  .kbul .khd{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .kbul .khd .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);}
+  .kbul .khd h2{font-size:14px;font-weight:800;color:var(--ink);}
+  .kbul .khd .autopill{margin-left:2px;}
+  .kbul .khd .en{font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
+  .kbul ul{list-style:none;margin:0;padding:0;}
+  .kbul li{position:relative;padding-left:14px;font-size:12.5px;color:var(--ink2);line-height:1.62;margin:3px 0;}
+  .kbul li::before{content:"•";position:absolute;left:2px;color:var(--brand);}
+
+  /* ov-kpi 2분할(거래량+외국인지분율) */
+  .ov-kpi .kpi-two{display:grid;grid-template-columns:1fr 1fr;}
+  .ov-kpi .kpi-two .stat{border-right:1px solid var(--line);}
+  .ov-kpi .kpi-two .stat:last-child{border-right:0;}
+
+  /* 5분할 시장·섹터 */
+  .market5{padding:18px 28px;border-bottom:1px solid var(--line);}
+  .market5 .m5grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+  .m5box{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--brand);padding:10px 11px;display:flex;flex-direction:column;min-height:158px;}
+  .m5box .mt{font-size:10.5px;font-weight:800;color:var(--brand-ink);margin-bottom:7px;letter-spacing:.01em;line-height:1.25;}
+  .m5box .idxline{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink2);margin-bottom:6px;}
+  .m5box .idxline .rt.up{color:var(--up);} .m5box .idxline .rt.down{color:var(--down);}
+  .m5box .mchart{position:relative;height:112px;flex:1;min-height:80px;}
+  .toptbl{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:10px;}
+  .toptbl td{padding:2px 2px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  .toptbl td.rk{color:var(--muted);width:14px;}
+  .toptbl td.nm{text-align:left;font-family:"Pretendard",sans-serif;color:var(--ink);max-width:74px;overflow:hidden;text-overflow:ellipsis;}
+  .toptbl td.pr{text-align:right;color:var(--ink2);}
+  .toptbl td.ch{text-align:right;}
+  .toptbl td.ch.up{color:var(--up);} .toptbl td.ch.down{color:var(--down);} .toptbl td.ch.flat{color:var(--muted);}
+  .toptbl tr.self td{background:var(--brand-soft);font-weight:700;}
+  .m5box .ph-note{font-size:10.5px;color:var(--muted);font-style:italic;margin:auto 0;text-align:center;line-height:1.55;}
+  @media(max-width:760px){.market5 .m5grid{grid-template-columns:1fr 1fr;}}
+
+  /* 시장 주요 질의 사항 */
+  .qbox{padding:18px 28px;border-bottom:1px solid var(--line);}
+  .qbox .qhd{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+  .qbox .qhd .dot{width:8px;height:8px;border-radius:50%;background:var(--indigo);}
+  .qbox .qhd h2{font-size:14px;font-weight:800;color:var(--ink);}
+  .qbox .qhd .en{font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-left:auto;}
+  .qbox .qbody{font-size:12.5px;color:var(--ink2);line-height:1.75;}
+  .qbox .qbody p{margin:3px 0;}
+
   @media print{
     @page{size:A4;margin:8mm;}
     body{background:#fff;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -291,6 +347,14 @@
     .nbcol .nbbody{font-size:10px;line-height:1.45;} .nbcol .nbbody p{margin:2px 0;} .nbcol .nbbody p+p{margin-top:5px;}
     /* 그리드 칸(카드)만 중간 분할 방지 — 섹션은 자유롭게 흐르도록 */
     .wcard,.nbcol{break-inside:avoid;}
+    /* 신규 섹션 인쇄 압축 */
+    .kbul,.market5,.qbox{padding:6px 14px;}
+    .kbul li{font-size:10.5px;line-height:1.45;margin:2px 0;}
+    .hidx{padding:5px 10px;flex:0 0 100%;border-left:none;border-top:1px solid rgba(255,255,255,.15);min-width:0;flex-direction:row;flex-wrap:wrap;gap:4px 16px;}
+    .hidx .ixrow{font-size:9.5px;}
+    .m5box{min-height:0;padding:6px 8px;} .m5box .mchart{height:64px;min-height:46px;} .m5box .mt{font-size:9px;}
+    .toptbl{font-size:8.5px;} .qbox .qbody{font-size:10px;}
+    .m5box,.qbox,.kbul{break-inside:avoid;}
   }
 </style>
 </head>
@@ -337,14 +401,36 @@
       <span class="meta" data-k="rk1" contenteditable="true">KOSDAQ #25 (-)</span>
       <span class="meta dn" data-k="rk2">KRX 통합 #146 (▼2)</span>
     </div>
+    <div class="hidx" id="hIdx">
+      <div class="ixrow"><span class="nm">KOSDAQ</span><span class="rhs"><span class="vv" id="ixKosdaqV">—</span><span class="rt flat" id="ixKosdaqR"></span></span></div>
+      <div class="ixrow"><span class="nm">KOSPI</span><span class="rhs"><span class="vv" id="ixKospiV">—</span><span class="rt flat" id="ixKospiR"></span></span></div>
+      <div class="ixrow"><span class="nm">KOSDAQ 제약</span><span class="rhs"><span class="vv" id="ixPharmV">—</span><span class="rt flat" id="ixPharmR"></span></span></div>
+      <div class="ixrow"><span class="nm">USD 환율</span><span class="rhs"><span class="vv" id="ixFxV" contenteditable="true">—</span><span class="rt flat" id="ixFxR"></span></span></div>
+    </div>
   </header>
+
+  <!-- 핵심 요약 -->
+  <section class="kbul">
+    <div class="khd"><span class="dot"></span><h2>핵심 요약</h2><span class="autopill" id="sumPill" style="display:none">AUTO</span><span class="en">Executive Summary</span></div>
+    <ul id="sumList" data-k="sumList" contenteditable="true">
+      <li>조회 시 당일 시황 요약이 자동 생성됩니다. (수기 편집 가능)</li>
+    </ul>
+  </section>
+
+  <!-- 당사 주가 동향 -->
+  <section class="kbul">
+    <div class="khd"><span class="dot"></span><h2>당사 주가 동향</h2><span class="autopill" id="trendPill" style="display:none">AUTO</span><span class="en">Price Action</span></div>
+    <ul id="trendList" data-k="trendList" contenteditable="true">
+      <li>조회 시 수급·거래량 동향이 자동 생성됩니다.</li>
+    </ul>
+  </section>
 
   <!-- 차트 + 외인지분율 + 투자자 동향 통합 -->
   <section class="overview">
     <!-- 차트 -->
     <div class="chartwrap">
     <div class="head">
-      <div class="t">차트 <small>일봉 5일 · OHLC</small></div>
+      <div class="t">차트 <small>일봉 10일 · OHLC + 코스닥 제약지수</small></div>
       <div class="head-chips">
         <div class="ksq">KOSDAQ <span data-k="ksq" id="ksqVal" contenteditable="true" oninput="updateKsqColor(this)">+0.00%</span></div>
         <div class="ksq pharm" id="pharmChip" style="display:none">코스닥 제약지수 <span id="pharmVal"></span></div>
@@ -359,7 +445,12 @@
     </div><!-- /chartwrap -->
     <div class="ov-right">
       <div class="ov-kpi">
-      <div class="hero-stats">
+      <div class="hero-stats kpi-two">
+        <div class="stat">
+          <div class="eyebrow">거래량</div>
+          <div class="big"><span id="volBig">—</span><span class="u"> 주</span></div>
+          <span class="meta" id="volAvg">최근 20일 평균 대비 —</span>
+        </div>
         <div class="stat">
           <div class="eyebrow">외국인 지분율</div>
           <div class="big"><span id="frgnRatio" contenteditable="true">4.03%</span></div>
@@ -369,14 +460,35 @@
       </div>
       </div><!-- /ov-kpi -->
       <div class="invpanel">
-        <div class="inv-hd">투자자별 수급동향</div>
-        <table class="invtbl" id="invTable"><tbody><tr><td class="empty">조회 시 최근 3거래일 투자자별 매매동향이 표시됩니다.</td></tr></tbody></table>
+        <div class="inv-hd">투자자별 수급동향 <span style="font-weight:400;color:var(--muted)">· 최근 10거래일</span></div>
+        <table class="invtbl" id="invTable"><tbody><tr><td class="empty">조회 시 최근 10거래일 투자자별 매매동향이 표시됩니다.</td></tr></tbody></table>
       </div><!-- /invpanel -->
     </div><!-- /ov-right -->
   </section>
 
-  <!-- 업무 3패널 -->
+  <!-- 전체 시장 및 섹터 주요 종목 주가 동향 -->
+  <section class="market5">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--brand);display:inline-block;"></span>
+      <h2 style="font-size:14px;font-weight:800;color:var(--ink);">전체 시장 및 섹터 주요 종목 주가 동향</h2>
+      <span style="font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-left:auto;">Market &amp; Sector</span>
+    </div>
+    <div class="m5grid">
+      <div class="m5box"><div class="mt">코스닥 지수 (최근 10일)</div><div class="idxline" id="m5KosdaqLine">—</div><div class="mchart"><canvas id="m5KosdaqChart"></canvas></div></div>
+      <div class="m5box"><div class="mt">코스피 지수 (최근 10일)</div><div class="idxline" id="m5KospiLine">—</div><div class="mchart"><canvas id="m5KospiChart"></canvas></div></div>
+      <div class="m5box"><div class="mt">코스닥 시총 상위 10 · 종가/등락</div><table class="toptbl" id="topKosdaq"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
+      <div class="m5box"><div class="mt">코스피 시총 상위 10 · 종가/등락</div><table class="toptbl" id="topKospi"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
+      <div class="m5box"><div class="mt">코스닥 제약바이오 시총 상위 10</div><div class="ph-note" id="topPharma">데이터 소스 확정 후 연동 예정<br>(자리표시)</div></div>
+    </div>
+  </section>
+
+  <!-- 일일 업무 보고 -->
   <section class="work">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--brand);display:inline-block;"></span>
+      <h2 style="font-size:14px;font-weight:800;color:var(--ink);">일일 업무 보고</h2>
+      <span style="font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-left:auto;">Daily Work Report</span>
+    </div>
     <div class="wcard cd">
       <div class="tag"><span class="dot"></span><span class="nm">공시</span><span class="en">Corporate Disclosure</span></div>
       <div class="disc" id="discList"><div class="disc-empty">조회 시 DART 공시가 표시됩니다.</div></div>
@@ -409,7 +521,7 @@
 
   <!-- 주가 변동 및 투자자 동향 -->
   <section class="flow">
-    <div class="tag"><span class="dot"></span><h2>주가 변동 및 투자자 동향</h2></div>
+    <div class="tag"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
     <div class="usbar" id="usBar">
       <span>DOW <b id="usDow" contenteditable="true">+0.70%</b></span>
       <span>나스닥 <b id="usNas" contenteditable="true">+0.31%</b></span>
@@ -430,6 +542,14 @@
     </div>
   </section>
 
+  <!-- 시장 주요 질의 사항 -->
+  <section class="qbox">
+    <div class="qhd"><span class="dot"></span><h2>시장 주요 질의 사항</h2><span class="en">Key Inquiries</span></div>
+    <div class="qbody" data-k="qbody" contenteditable="true">
+      <p>1. 조회 후 시장·투자자 문의 내용을 수기로 정리합니다.</p>
+    </div>
+  </section>
+
   <div class="pg-footer"><strong>CAREGEN</strong> · ㈜케어젠 · KOSDAQ 214370 · IR Stock Daily · 본 자료는 내부 업무용입니다.</div>
 
 </div>
@@ -441,7 +561,7 @@ const won=(n)=>(n||n===0)?Number(n).toLocaleString("ko-KR"):"—";
 /* 저장/복원 (날짜+종목별) */
 function keyName(){return "cg2:"+$("code").value+":"+$("date").value;}
 function eds(){return [...document.querySelectorAll("[data-k]")];}
-function autos(){return ["closeKrx","closeNxt","frgnRatio","mcap","usDow","usNas","usSp"].map(id=>$(id)).filter(Boolean);}
+function autos(){return ["closeKrx","closeNxt","frgnRatio","mcap","usDow","usNas","usSp","ixFxV"].map(id=>$(id)).filter(Boolean);}
 function saveAll(){const o={};eds().forEach(el=>o[el.dataset.k]=el.innerHTML);autos().forEach(el=>o["#"+el.id]=el.innerHTML);localStorage.setItem(keyName(),JSON.stringify(o));}
 function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;const o=JSON.parse(raw);eds().forEach(el=>{if(o[el.dataset.k]!=null)el.innerHTML=o[el.dataset.k];});autos().forEach(el=>{if(o["#"+el.id]!=null)el.innerHTML=o["#"+el.id];});const _q=document.getElementById("ksqVal");if(_q)updateKsqColor(_q);}
 function updateKsqColor(el){const t=(el.textContent||"").trim();el.style.color=t.startsWith("-")?"var(--down)":t.startsWith("+")||parseFloat(t)>0?"var(--up)":"";}
@@ -620,6 +740,83 @@ function renderDisc(items){
   }).join("");
 }
 
+/* ── 당사 주가 동향 (AUTO 불릿) ── */
+function autoTrend(p,iv){
+  const el=$("trendList");if(!el)return;
+  const flow=flowWord(iv.foreign_qty||0,iv.org_qty||0);
+  const fr=$("frgnRatio")?($("frgnRatio").textContent||"").trim():"";
+  const vt=(p.vol_vs_avg!=null)
+    ?`거래량 ${won(p.volume)}주 · 최근 20일 평균 대비 ${p.vol_vs_avg>0?"+":""}${p.vol_vs_avg.toFixed(1)}%`
+    :`거래량 ${won(p.volume)}주`;
+  el.innerHTML=`<li>${flow} 흐름 · 외국인 지분율 ${fr||"—"}</li><li>${vt}</li>`;
+  const pill=$("trendPill");if(pill)pill.style.display="";
+}
+
+/* ── 시장 데이터: 지수·환율·top10 ── */
+const miniCharts={};
+function drawMiniLine(canvasId,series,color){
+  const cv=document.getElementById(canvasId);if(!cv)return;
+  if(miniCharts[canvasId]){try{miniCharts[canvasId].destroy();}catch(e){}}
+  if(!series||series.length<2)return;
+  const labels=series.map(s=>s.date?(s.date.slice(4,6)+"/"+s.date.slice(6,8)):"");
+  const data=series.map(s=>s.close);
+  const up=data[data.length-1]>=data[0];
+  const col=color||(up?"#d92d20":"#1c5fcc");
+  miniCharts[canvasId]=new Chart(cv,{type:"line",
+    data:{labels,datasets:[{data,borderColor:col,borderWidth:1.6,pointRadius:0,tension:.25,fill:false}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},y:{display:false,grace:"6%"}}}});
+}
+function idxLine(elId,snap){
+  const el=document.getElementById(elId);if(!el)return;
+  if(!snap||snap.value==null){el.textContent="—";return;}
+  const r=snap.rate,cls=r==null?"":r>0?"up":r<0?"down":"";
+  const v=Number(snap.value).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  el.innerHTML=v+(r==null?"":` <span class="rt ${cls}">(${r>0?"+":""}${r.toFixed(2)}%)</span>`);
+}
+function hdrIdx(vId,rId,snap){
+  const v=document.getElementById(vId),rt=document.getElementById(rId);
+  if(!v)return;
+  if(!snap||snap.value==null){v.textContent="—";if(rt){rt.textContent="";rt.className="rt flat";}return;}
+  v.textContent=Number(snap.value).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(rt){const r=snap.rate;
+    if(r==null){rt.textContent="";rt.className="rt flat";}
+    else{rt.textContent=(r>0?"+":"")+r.toFixed(2)+"%";rt.className="rt "+(r>0?"up":r<0?"down":"flat");}}
+}
+function renderTop(tblId,items){
+  const el=document.getElementById(tblId);if(!el)return;
+  if(!items||!items.length){el.innerHTML='<tbody><tr><td class="ph-note">데이터 없음</td></tr></tbody>';return;}
+  let h='<tbody>';
+  items.forEach((it,i)=>{
+    const c=it.chg>0?"up":it.chg<0?"down":"flat",s=it.chg>0?"+":"";
+    h+=`<tr class="${it.self?"self":""}"><td class="rk">${i+1}</td>`+
+       `<td class="nm" title="${escH(it.name)}">${escH(it.name)}</td>`+
+       `<td class="pr">${won(it.close)}</td>`+
+       `<td class="ch ${c}">${s}${(it.chg||0).toFixed(2)}%</td></tr>`;
+  });
+  el.innerHTML=h+'</tbody>';
+}
+async function loadMarket(){
+  try{
+    const code=$("code").value;
+    const r=await fetch("/api/market?code="+encodeURIComponent(code)+"&date="+encodeURIComponent($("date").value));
+    if(!r.ok)return;
+    const m=await r.json();const ix=m.indices||{};
+    hdrIdx("ixKosdaqV","ixKosdaqR",ix.kosdaq);
+    hdrIdx("ixKospiV","ixKospiR",ix.kospi);
+    hdrIdx("ixPharmV","ixPharmR",ix.pharm);
+    const fx=(m.fx&&m.fx.usdkrw)||{};
+    if(fx.rate!=null){const el=$("ixFxV");if(el)el.textContent=Number(Math.round(fx.rate)).toLocaleString("ko-KR")+"원";}
+    idxLine("m5KosdaqLine",ix.kosdaq);drawMiniLine("m5KosdaqChart",(ix.kosdaq||{}).series,"#3AAD35");
+    idxLine("m5KospiLine",ix.kospi);drawMiniLine("m5KospiChart",(ix.kospi||{}).series,"#3a4bb0");
+    const tops=m.tops||{};
+    renderTop("topKosdaq",tops.kosdaq);
+    renderTop("topKospi",tops.kospi);
+    saveAll();
+  }catch(e){/* 무시 */}
+}
+
 async function load(){
   const btn=$("loadBtn");btn.disabled=true;btn.textContent="조회 중…";$("error").innerHTML="";
   const code=$("code").value;
@@ -685,6 +882,15 @@ async function load(){
     chip.textContent=`전일대비 ${sign} ${won(Math.abs(p.diff))} (${p.rate.toFixed(2)}%)`;
     chip.className="chip mono "+(p.rate>0?"up":p.rate<0?"down":"flat");
     genAuto(p,iv);
+    // 거래량 박스
+    const vb=$("volBig");if(vb)vb.textContent=won(p.volume);
+    const va=$("volAvg");
+    if(va){
+      if(p.vol_vs_avg!=null){const s=p.vol_vs_avg>0?"+":"";const cls=p.vol_vs_avg>0?"up":p.vol_vs_avg<0?"down":"";
+        va.innerHTML=`최근 20일 평균 대비 <span class="${cls}">${s}${p.vol_vs_avg.toFixed(1)}%</span>`;}
+      else va.textContent="최근 20일 평균 대비 —";
+    }
+    autoTrend(p,iv);
     renderInvTable(d.investor_days);
     $("status").textContent="주가·시총 갱신 · 차트 로딩…";
 
@@ -703,6 +909,9 @@ async function load(){
       const ru=await fetch("/api/us-indices");
       if(ru.ok){const u=await ru.json();setUs("usDow",u.DOW);setUs("usNas",u.NASDAQ);setUs("usSp",u.SP500);}
     }catch(e){/* 무시 */}
+
+    // 시장 데이터: 헤더 지수·환율 + 시장/섹터 top10 + 지수 미니차트
+    await loadMarket();
 
     // 공매도 잔고: KRX 공식 OpenAPI 미제공 + data.krx.co.kr 해외IP 차단으로
     // Render에서 자동조회 불가 → IR 카드에서 수기입력으로 운영
