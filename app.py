@@ -534,6 +534,20 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
         inv_all = []
     investor_days = inv_all[:10]                   # 표에는 최근 10거래일만
 
+    # 투자자별 매매동향 API엔 거래량(acml_vol)이 없어 표의 '거래량'이 0으로 뜸 →
+    # 일별 OHLC에서 날짜별 거래량을 가져와 채워넣는다.
+    try:
+        _iv_end = date.replace("-", "") if date else datetime.now().strftime("%Y%m%d")
+        _vol_by_date = {
+            r.get("stck_bsop_date"): _to_int(r.get("acml_vol"))
+            for r in fetch_day_ohlc(code, _iv_end)
+        }
+        for r in investor_days:
+            if not r.get("volume"):
+                r["volume"] = _vol_by_date.get(r.get("date"), 0)
+    except Exception:
+        pass
+
     today = datetime.now().strftime("%Y-%m-%d")
     use_daily = bool(date) and date < today  # 과거 날짜면 일별시세에서 그 날짜 종가 사용
 
