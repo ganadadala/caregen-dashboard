@@ -1247,6 +1247,8 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
             if _is_major_src(it.get("source", "")) != major_only:
                 continue
             title = _title_of(it)
+            if len(title) < 10:      # 'SIGNAL' 등 섹션·브랜드 스텁 제외
+                continue
             if title and title not in _seen_h:
                 _seen_h.add(title)
                 headlines.append({
