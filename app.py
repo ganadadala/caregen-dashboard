@@ -1050,6 +1050,20 @@ _BLOCKED_SOURCE_KW = [
     "daum cafe", "다음 카페",
 ]
 
+# 주요 뉴스 헤드라인 우선 매체 — 경제·금융 메인 매체 및 주요 종합일간지
+_MAJOR_ECON_SOURCES = [
+    "매일경제", "한국경제", "서울경제", "머니투데이", "이데일리", "파이낸셜뉴스",
+    "아시아경제", "헤럴드경제", "이코노믹리뷰", "이코노미스트", "연합뉴스", "연합인포맥스",
+    "뉴스핌", "조선비즈", "조선일보", "중앙일보", "동아일보", "한겨레", "경향신문",
+    "뉴시스", "뉴스1", "비즈니스포스트", "이투데이", "브릿지경제", "프라임경제",
+    "글로벌이코노믹", "MTN", "머니에스", "머니S", "디지털타임스", "전자신문",
+    "인포스탁", "더벨", "팍스넷", "딜사이트", "데일리안", "시장경제", "톱데일리",
+]
+
+
+def _is_major_src(src: str) -> bool:
+    return any(k in src for k in _MAJOR_ECON_SOURCES)
+
 
 def _news_window_start() -> "datetime":
     """한국 영업일 기준 뉴스 수집 시작 시각(KST) 반환.
@@ -1218,22 +1232,29 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     sector_lines = "\n".join(i["text"] for i in sector_hl) if sector_hl else "(없음)"
     company_lines = "\n".join(i["text"] for i in company_hl) if company_hl else "(없음)"
 
-    # 주요 뉴스 헤드라인(원본) — 케어젠 > 섹터 > 매크로 순, 제목 중복 제거 후 최대 8건
+    # 주요 뉴스 헤드라인(원본) — 경제 메인 매체 우선, 케어젠 > 섹터 > 매크로 순, 최대 5건
     def _title_of(item) -> str:
         return item["text"].split("\n")[0].replace("[제목]", "").strip()
 
+    _pool = company_hl + sector_hl + macro_hl
     headlines = []
     _seen_h: set = set()
-    for it in company_hl + sector_hl + macro_hl:
-        title = _title_of(it)
-        if title and title not in _seen_h:
-            _seen_h.add(title)
-            headlines.append({
-                "title": title, "source": it.get("source", ""),
-                "date": it.get("date", ""), "time": it.get("time", ""),
-                "link": it.get("link", ""),
-            })
-        if len(headlines) >= 8:
+    # 1차: 주요 경제매체만 / 2차: 나머지(양질) 매체로 5건 채움
+    for major_only in (True, False):
+        for it in _pool:
+            if len(headlines) >= 5:
+                break
+            if _is_major_src(it.get("source", "")) != major_only:
+                continue
+            title = _title_of(it)
+            if title and title not in _seen_h:
+                _seen_h.add(title)
+                headlines.append({
+                    "title": title, "source": it.get("source", ""),
+                    "date": it.get("date", ""), "time": it.get("time", ""),
+                    "link": it.get("link", ""),
+                })
+        if len(headlines) >= 5:
             break
 
     # 프론트가 조회로 확보한 시황 수치(선택) — 핵심요약을 수치에 근거해 작성
