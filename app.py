@@ -60,6 +60,9 @@ PHARMA_CODES = {
     for c in os.getenv("KRX_PHARMA_CODES", _PHARMA_DEFAULT).split(",")
     if c.strip()
 }
+# 제약 top10 자동화 시도: KIS 시총랭킹에 넣을 '제약 업종코드'. 성공(반환종목이 실제
+# 제약주로 검증)하면 큐레이션 없이 업종 기반 자동. 실패 시 PHARMA_CODES 필터로 폴백.
+PHARM_SECTOR_ISCD = (os.getenv("PHARM_SECTOR_ISCD", "").strip() or "1024")
 
 # OPEN DART (전자공시) - 무료 인증키. https://opendart.fss.or.kr
 DART_KEY = os.getenv("DART_API_KEY", "")
@@ -424,11 +427,24 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
     ksq_i = [_item(r) for r in ksq]
     kospi_i = [_item(r) for r in kospi]
 
-    # 코스닥 제약바이오: 두 시장 랭킹에서 제약 종목군 필터 후 시총순 top10
-    pharma = sorted(
-        [it for it in (ksq_i + kospi_i) if it["code"] in PHARMA_CODES],
-        key=lambda x: x["cap"], reverse=True,
-    )
+    # 코스닥 제약바이오 top10 —
+    #  1순위: 제약 '업종코드'로 KIS 시총랭킹 직접 요청(성공 시 완전 자동)
+    #  검증: 반환 상위10 중 알려진 제약주(PHARMA_CODES)가 4개 이상이면 업종필터 정상으로 간주
+    #  실패: 전체시장 상위랭킹에서 제약군 필터로 폴백
+    pharma = None
+    pharma_src = "curated"
+    try:
+        sec_i = [_item(r) for r in _kis_rank_rows(PHARM_SECTOR_ISCD)]
+        if sec_i and sum(1 for it in sec_i[:10] if it["code"] in PHARMA_CODES) >= 4:
+            pharma = sec_i[:10]
+            pharma_src = "sector"   # 업종코드 랭킹 성공 → 완전 자동
+    except Exception:
+        pharma = None
+    if pharma is None:
+        pharma = sorted(
+            [it for it in (ksq_i + kospi_i) if it["code"] in PHARMA_CODES],
+            key=lambda x: x["cap"], reverse=True,
+        )[:10]
 
     kosdaq_rank = next(
         (_to_int(r.get("data_rank")) for r in ksq
@@ -442,6 +458,7 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
         "kosdaq_top": ksq_i[:10],
         "kospi_top": kospi_i[:10],
         "pharma_top": pharma[:10],
+        "pharma_src": pharma_src,   # "sector"=업종자동 / "curated"=큐레이션 폴백
         "basDd": "",
     }
 
@@ -1022,64 +1039,31 @@ def market(code: str = DEFAULT_CODE, date: str = ""):
             "kospi": km.get("kospi_top", []),
             "pharma": km.get("pharma_top", []),   # 코스닥 제약지수 구성종목군 중 시총 top10
         },
+        "pharma_src": km.get("pharma_src", ""),   # sector=업종자동 / curated=폴백
         "basDd": km.get("basDd", ""),
     })
 
 
-@app.get("/api/krx-debug")
-def krx_debug():
-    """KRX 일별매매정보 호출 진단 — top10이 계속 비는 원인 파악용.
-    키 자체는 노출하지 않고(bool), 날짜별 status·행수·필드명만 반환."""
-    from datetime import datetime, timedelta, timezone
-
-    info = {"key_set": bool(KRX_API_KEY), "base": KRX_BASE}
-    if not KRX_API_KEY:
-        info["msg"] = "KRX_API_KEY 미설정 — Render 환경변수(KRX_API_KEY)를 확인하세요."
-        return JSONResponse(info)
-
-    KST = timezone(timedelta(hours=9))
-    d = datetime.now(KST).replace(tzinfo=None)
-    tries = []
-    for _ in range(6):
-        if d.weekday() >= 5:
-            d -= timedelta(days=1)
-            continue
-        dd = d.strftime("%Y%m%d")
-        rec = {"basDd": dd}
-        try:
-            r = requests.get(
-                f"{KRX_BASE}/ksq_bydd_trd",
-                headers={"AUTH_KEY": KRX_API_KEY},
-                params={"basDd": dd},
-                timeout=15,
-            )
-            rec["status"] = r.status_code
-            try:
-                j = r.json()
-                rows = j.get("OutBlock_1")
-                if not isinstance(rows, list):
-                    for v in j.values():
-                        if isinstance(v, list):
-                            rows = v
-                            break
-                rec["rows"] = len(rows) if isinstance(rows, list) else None
-                if isinstance(rows, list) and rows:
-                    rec["first_row_keys"] = list(rows[0].keys())
-                elif r.status_code != 200:
-                    rec["body"] = r.text[:250]
-                else:
-                    rec["body"] = r.text[:250]
-            except Exception:
-                rec["body"] = r.text[:250]
-            tries.append(rec)
-            if rec.get("rows"):
-                break
-        except Exception as e:
-            rec["error"] = str(e)[:200]
-            tries.append(rec)
-        d -= timedelta(days=1)
-    info["tries"] = tries
-    return JSONResponse(info)
+@app.get("/api/pharma-debug")
+def pharma_debug():
+    """제약 top10 자동화(업종코드 랭킹) 진단 — 업종코드가 KIS에서 먹히는지 확인.
+    sector_iscd로 받은 상위 종목명과 '제약주 검증' 결과를 반환."""
+    rows = _kis_rank_rows(PHARM_SECTOR_ISCD)
+    top = [{
+        "rank": r.get("data_rank"),
+        "name": r.get("hts_kor_isnm", ""),
+        "code": str(r.get("mksc_shrn_iscd", "")).lstrip("0"),
+        "cap": _to_int(r.get("stck_avls")),
+        "is_pharma_known": str(r.get("mksc_shrn_iscd", "")).lstrip("0") in PHARMA_CODES,
+    } for r in rows[:12]]
+    hit = sum(1 for t in top[:10] if t["is_pharma_known"])
+    return JSONResponse({
+        "sector_iscd": PHARM_SECTOR_ISCD,
+        "rows_returned": len(rows),
+        "known_pharma_in_top10": hit,
+        "verdict": "sector(자동)" if (top and hit >= 4) else "curated(폴백)",
+        "top": top,
+    })
 
 
 # ---------------------------------------------------------------------------
