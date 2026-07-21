@@ -359,7 +359,26 @@ def _krx_top10(rows: list, target: str = "", code_set: "set | None" = None) -> l
     return out
 
 
+# KRX 일별매매정보는 전 종목 조회라 무거움. dashboard(순위)·market(top10)가
+# 짧은 간격으로 동일 조회를 두 번 하면 rate-limit로 두 번째가 빌 수 있어 캐시로 dedup.
+_krx_market_cache: dict = {}
+KRX_MARKET_TTL = 300  # 5분
+
+
 def fetch_krx_market(code: str, basDd: str = "") -> dict:
+    """KRX 일별매매정보 조회 결과(순위+top10) — (code, basDd)별 5분 캐시."""
+    key = f"{code}:{basDd}"
+    ent = _krx_market_cache.get(key)
+    if ent and (time.time() - ent[0] < KRX_MARKET_TTL):
+        return ent[1]
+    data = _fetch_krx_market_impl(code, basDd)
+    # 실제 데이터가 있었던 경우만 캐시(빈 응답은 캐시 안 해 다음 조회 때 재시도)
+    if data.get("kosdaq_top") or data.get("kosdaq_rank") or data.get("kospi_top"):
+        _krx_market_cache[key] = (time.time(), data)
+    return data
+
+
+def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
     """KRX 일별매매정보 1회 조회로 순위 + 시총 top10을 함께 산출.
     KRX_API_KEY 미설정 시 값 없음. basDd 지정 시 그 날짜(또는 직전 거래일),
     미지정 시 KST 오늘부터 과거로 훑어 데이터 있는 첫 거래일 사용.

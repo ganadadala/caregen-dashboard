@@ -286,13 +286,15 @@
   /* 5분할 시장·섹터 */
   .market5{padding:18px 28px;border-bottom:1px solid var(--line);}
   .market5 .m5grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
-  .m5box{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--brand);padding:10px 11px;display:flex;flex-direction:column;min-height:158px;}
-  .m5box .mt{font-size:10.5px;font-weight:800;color:var(--brand-ink);margin-bottom:7px;letter-spacing:.01em;line-height:1.25;}
+  .market5 .m5grid{align-items:stretch;}
+  .m5box{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--brand);padding:10px 11px;display:flex;flex-direction:column;}
+  .m5box .mt{font-size:10.5px;font-weight:800;color:var(--brand-ink);margin-bottom:6px;letter-spacing:.01em;line-height:1.25;min-height:26px;}
   .m5box .idxline{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink2);margin-bottom:6px;}
   .m5box .idxline .rt.up{color:var(--up);} .m5box .idxline .rt.down{color:var(--down);}
-  .m5box .mchart{position:relative;height:112px;flex:1;min-height:80px;}
-  .toptbl{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:10px;}
-  .toptbl td{padding:2px 2px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  /* 고정 높이 필수 — Chart.js(maintainAspectRatio:false)가 flex/auto 높이면 무한 확장함 */
+  .m5box .mchart{position:relative;width:100%;height:150px;flex:0 0 150px;margin-top:auto;margin-bottom:auto;}
+  .toptbl{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:9.5px;}
+  .toptbl td{padding:1.5px 2px;border-bottom:1px solid var(--line);white-space:nowrap;}
   .toptbl td.rk{color:var(--muted);width:14px;}
   .toptbl td.nm{text-align:left;font-family:"Pretendard",sans-serif;color:var(--ink);max-width:74px;overflow:hidden;text-overflow:ellipsis;}
   .toptbl td.pr{text-align:right;color:var(--ink2);}
@@ -352,7 +354,7 @@
     .kbul li{font-size:10.5px;line-height:1.45;margin:2px 0;}
     .hidx{padding:5px 10px;flex:0 0 100%;border-left:none;border-top:1px solid rgba(255,255,255,.15);min-width:0;flex-direction:row;flex-wrap:wrap;gap:4px 16px;}
     .hidx .ixrow{font-size:9.5px;}
-    .m5box{min-height:0;padding:6px 8px;} .m5box .mchart{height:64px;min-height:46px;} .m5box .mt{font-size:9px;}
+    .m5box{padding:6px 8px;} .m5box .mchart{height:74px;flex:0 0 74px;} .m5box .mt{font-size:9px;min-height:0;}
     .toptbl{font-size:8.5px;} .qbox .qbody{font-size:10px;}
     .m5box,.qbox,.kbul{break-inside:avoid;}
   }
