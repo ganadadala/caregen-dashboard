@@ -482,12 +482,11 @@ def _fetch_krx_market_impl(code: str, basDd: str = "") -> dict:
     pharma_src = "curated"
 
     # KOSDAQ 순위 + 전 거래일 대비 증감 —
-    # KIS 랭킹이 특수코드(코오롱티슈진 950160)를 제외해 케어젠 순위가 실제보다 위로 나옴 →
-    # 개별조회한 '코스닥' 제외종목을 풀에 합쳐 절대순위 보정. 전일 시총(현재÷(1+등락률))으로
-    # 재정렬해 전 거래일 순위와 비교 → 증감을 서버에서 산출(브라우저 무관).
+    # KIS 코스닥 랭킹(1001)이 특수코드(코오롱티슈진 950160)를 제외해 케어젠 순위가 실제보다
+    # 위로 나옴 → 랭킹에 없는 제약종목군(전부 코스닥 상장)을 소스 무관하게 풀에 합쳐 절대순위
+    # 보정. 전일 시총(현재÷(1+등락률))으로 재정렬해 전 거래일 순위와 비교 → 증감 자동 산출.
     _ksq_codes = {x["code"] for x in ksq_i}
-    _ksq_extra = [it for it in _fetched
-                  if "코스닥" in (it.get("market") or "") and it["code"] not in _ksq_codes]
+    _ksq_extra = [it for it in _ppool.values() if it["code"] not in _ksq_codes]
     _ksq_all = ksq_i + _ksq_extra
 
     def _rank_pos(items, keyfn):
