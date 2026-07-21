@@ -478,7 +478,7 @@
       <div class="m5box"><div class="mt">코스피 지수 (최근 10일)</div><div class="idxline" id="m5KospiLine">—</div><div class="mchart"><canvas id="m5KospiChart"></canvas></div></div>
       <div class="m5box"><div class="mt">코스닥 시총 상위 10 · 종가/등락</div><table class="toptbl" id="topKosdaq"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
       <div class="m5box"><div class="mt">코스피 시총 상위 10 · 종가/등락</div><table class="toptbl" id="topKospi"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
-      <div class="m5box"><div class="mt">코스닥 제약바이오 시총 상위 10</div><div class="ph-note" id="topPharma">데이터 소스 확정 후 연동 예정<br>(자리표시)</div></div>
+      <div class="m5box"><div class="mt">코스닥 제약바이오 시총 상위 10 · 종가/등락</div><table class="toptbl" id="topPharma"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
     </div>
   </section>
 
@@ -813,6 +813,7 @@ async function loadMarket(){
     const tops=m.tops||{};
     renderTop("topKosdaq",tops.kosdaq);
     renderTop("topKospi",tops.kospi);
+    renderTop("topPharma",tops.pharma);
     saveAll();
   }catch(e){/* 무시 */}
 }

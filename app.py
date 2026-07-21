@@ -45,6 +45,22 @@ if PHARM_CODE == os.getenv("STOCK_CODE", "214370"):
     PHARM_CODE = "1024"
 TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
 
+# 코스닥 제약/바이오 섹터 종목군(≈ 코스닥 제약지수 구성종목 기준).
+# KRX 무료 API·KIS 모두 '지수 구성종목'을 제공하지 않아, 구성종목 코드를 정적으로 두고
+# 실시간 시총(KRX)으로 정렬해 top10을 뽑는다. 리밸런싱 시 env(KRX_PHARMA_CODES)로 교체.
+# 코드가 상장폐지·이전상장 등으로 당일 KRX 행에 없으면 자동 제외(무해).
+_PHARMA_DEFAULT = (
+    "196170,028300,141080,298380,068760,214150,214450,145020,310210,087010,"  # 알테오젠·HLB·리가켐바이오·에이비엘바이오·셀트리온제약·클래시스·파마리서치·휴젤·보로노이·펩트론
+    "000250,086900,214370,085660,237690,243070,950160,064550,039200,082270,"  # 삼천당제약·메디톡스·케어젠·차바이오텍·에스티팜·휴온스·코오롱티슈진·바이오니아·오스코텍·젬백스
+    "183490,323990,358570,288330,206650,007390,174900,226950,294090,067080,"  # 엔지켐생명과학·박셀바이오·지아이이노베이션·브릿지바이오·유바이오로직스·네이처셀·앱클론·올릭스·이오플로우·대화제약
+    "096530"                                                                     # 씨젠(분자진단)
+)
+PHARMA_CODES = {
+    c.strip().lstrip("0")
+    for c in os.getenv("KRX_PHARMA_CODES", _PHARMA_DEFAULT).split(",")
+    if c.strip()
+}
+
 # OPEN DART (전자공시) - 무료 인증키. https://opendart.fss.or.kr
 DART_KEY = os.getenv("DART_API_KEY", "")
 DART_BASE = "https://opendart.fss.or.kr/api"
@@ -327,10 +343,12 @@ def _krx_chg_pct(row: dict) -> float:
     return 0.0
 
 
-def _krx_top10(rows: list, target: str = "") -> list:
-    """시총 내림차순 상위 10종목 → [{name, code, close, chg}]. target 종목은 표시용 플래그."""
+def _krx_top10(rows: list, target: str = "", code_set: "set | None" = None) -> list:
+    """시총 내림차순 상위 10종목 → [{name, code, close, chg}]. target 종목은 표시용 플래그.
+    code_set 지정 시 해당 종목코드(선행 0 제거)만 대상으로 필터."""
+    pool = rows if code_set is None else [r for r in rows if _krx_code(r).lstrip("0") in code_set]
     out = []
-    for row in sorted(rows, key=_krx_cap, reverse=True)[:10]:
+    for row in sorted(pool, key=_krx_cap, reverse=True)[:10]:
         out.append({
             "name": _krx_name(row),
             "code": _krx_code(row).lstrip("0"),
@@ -417,6 +435,7 @@ def fetch_krx_market(code: str, basDd: str = "") -> dict:
         "krx_rank": krx_rank,
         "kosdaq_top": _krx_top10(ksq_rows, target),
         "kospi_top": _krx_top10(stk_rows, target),
+        "pharma_top": _krx_top10(ksq_rows + stk_rows, target, PHARMA_CODES),
         "basDd": used_dd,
     }
 
@@ -933,7 +952,7 @@ def market(code: str = DEFAULT_CODE, date: str = ""):
     try:
         km = fetch_krx_market(code, basDd)
     except Exception:
-        km = {"kosdaq_top": [], "kospi_top": [], "basDd": ""}
+        km = {"kosdaq_top": [], "kospi_top": [], "pharma_top": [], "basDd": ""}
 
     return JSONResponse({
         "indices": indices,
@@ -941,7 +960,7 @@ def market(code: str = DEFAULT_CODE, date: str = ""):
         "tops": {
             "kosdaq": km.get("kosdaq_top", []),
             "kospi": km.get("kospi_top", []),
-            "pharma": [],   # 제약바이오 top10: 소스 미확정 → 자리표시(placeholder)
+            "pharma": km.get("pharma_top", []),   # 코스닥 제약지수 구성종목군 중 시총 top10
         },
         "basDd": km.get("basDd", ""),
     })
