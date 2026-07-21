@@ -428,7 +428,7 @@
 
   <!-- 핵심 요약 -->
   <section class="kbul">
-    <div class="khd"><span class="dot"></span><h2>핵심 요약</h2><span class="autopill" id="sumPill" style="display:none">AUTO</span></div>
+    <div class="khd"><span class="dot"></span><h2>핵심 요약</h2></div>
     <ul id="sumList" data-k="sumList" contenteditable="true">
       <li>조회 시 당일 시황 요약이 자동 생성됩니다. (수기 편집 가능)</li>
     </ul>
@@ -436,7 +436,7 @@
 
   <!-- 당사 주가 동향 -->
   <section class="kbul">
-    <div class="khd"><span class="dot"></span><h2>당사 주가 동향</h2><span class="autopill" id="trendPill" style="display:none">AUTO</span></div>
+    <div class="khd"><span class="dot"></span><h2>당사 주가 동향</h2></div>
     <ul id="trendList" data-k="trendList" contenteditable="true">
       <li>조회 시 수급·거래량 동향이 자동 생성됩니다.</li>
     </ul>
@@ -503,7 +503,7 @@
 
   <!-- 당사 및 섹터 시장 동향 -->
   <section class="flow">
-    <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2><span class="autopill" id="secPill" style="display:none">AUTO</span></div>
+    <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
     <div class="secbox edph" id="secTrend" data-k="secTrend" data-ph="'뉴스·요약 채우기' 시 자동 초안이 생성됩니다. (수기 편집 가능)" contenteditable="true"></div>
   </section>
 
@@ -681,7 +681,7 @@ function genAuto(p,iv){
   const lp=prev?((p.low-prev)/prev*100):0;
   const rng=prev?((p.high-p.low)/prev*100):0;
   if(ir)ir.innerHTML=
-    `<p>1. 주가 모니터링 (KRX 시황)<span class="autopill">AUTO</span></p>`+
+    `<p>1. 주가 모니터링 (KRX 시황)</p>`+
     `<p class="ind">- 전일 比 ${fmtPct(p.rate)} ${dirWord(p.rate)} 마감 · 변동폭 ${rng.toFixed(2)}%</p>`+
     `<p class="ind">※ <span class="up">高 ${won(p.high)} (${fmtPct(hp)})</span> · <span class="down">低 ${won(p.low)} (${fmtPct(lp)})</span></p>`;
   const md=(p.price_date&&p.price_date.length===8)?(p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8)+" "):"";
@@ -763,7 +763,6 @@ function autoTrend(p,iv,days){
     b2=`거래량은 약 ${won(p.volume)}주로 최근 20일 평균 대비 ${s}${p.vol_vs_avg.toFixed(1)}% ${w}.`;}
   else b2=`거래량은 약 ${won(p.volume)}주.`;
   el.innerHTML=`<li>${b1}</li><li>${b2}</li>`;
-  const pill=$("trendPill");if(pill)pill.style.display="";
 }
 
 /* ── 시장 데이터: 지수·환율·top10 ── */
@@ -918,7 +917,7 @@ function syncDate(){$("rptDate").textContent=$("date").value;restoreAll();}
 function escH(s){const d=document.createElement("div");d.textContent=String(s);return d.innerHTML;}
 function fmtNews(label,items){
   if(!items||!items.length)return"";
-  let h=`<p><b>${escH(label)}</b><span class="autopill">AUTO</span></p>`;
+  let h=`<p><b>${escH(label)}</b></p>`;
   items.forEach((it,i)=>{h+=`<p>${i+1}. ${escH(it)}</p>`;});
   return h;
 }
@@ -941,9 +940,9 @@ async function loadNews(force=false){
     const d=await r.json();
     const fillBullets=(id,items)=>{const el=$(id);if(!el||!items||!items.length)return;const lis=items.map(s=>`<li>${escH(s)}</li>`).join("");el.innerHTML=el.tagName==="UL"?lis:("<ul>"+lis+"</ul>");};
     // 핵심 요약 (당사·코스피·코스닥 3불릿)
-    if(d.summary&&d.summary.length){fillBullets("sumList",d.summary);const pill=$("sumPill");if(pill)pill.style.display="";}
+    if(d.summary&&d.summary.length){fillBullets("sumList",d.summary);}
     // 당사 및 섹터 시장 동향 (자동 초안)
-    if(d.sec_trend&&d.sec_trend.length){fillBullets("secTrend",d.sec_trend);const pill=$("secPill");if(pill)pill.style.display="";}
+    if(d.sec_trend&&d.sec_trend.length){fillBullets("secTrend",d.sec_trend);}
     // 주요 뉴스 헤드라인 (원본 제목 링크 + 매체) — 한 줄 말줄임, hover 전체 제목
     if(d.headlines&&d.headlines.length){
       const el=$("newsHeadlines");
