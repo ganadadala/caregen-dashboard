@@ -1092,6 +1092,18 @@ def _is_major_src(src: str) -> bool:
     return any(k in src for k in _MAJOR_ECON_SOURCES)
 
 
+def _titles_similar(a: str, b: str, thr: float = 0.6) -> bool:
+    """제목 유사도(문자 bigram 포함율) — 같은 사안을 매체마다 다르게 쓴 중복 감지.
+    한글/영숫자만 남겨 공백·문장부호 차이를 무시하고, 짧은 쪽 기준 겹침율로 판정."""
+    def _bg(t):
+        s = re.sub(r"[^가-힣a-zA-Z0-9]", "", t or "")
+        return {s[i:i + 2] for i in range(len(s) - 1)}
+    A, B = _bg(a), _bg(b)
+    if not A or not B:
+        return False
+    return len(A & B) / min(len(A), len(B)) >= thr
+
+
 def _news_window_start() -> "datetime":
     """한국 영업일 기준 뉴스 수집 시작 시각(KST) 반환.
 
@@ -1265,7 +1277,6 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
 
     _pool = company_hl + sector_hl + macro_hl
     headlines = []
-    _seen_h: set = set()
     # 1차: 주요 경제매체만 / 2차: 나머지(양질) 매체로 5건 채움
     for major_only in (True, False):
         for it in _pool:
@@ -1276,13 +1287,14 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
             title = _title_of(it)
             if len(title) < 10:      # 'SIGNAL' 등 섹션·브랜드 스텁 제외
                 continue
-            if title and title not in _seen_h:
-                _seen_h.add(title)
-                headlines.append({
-                    "title": title, "source": it.get("source", ""),
-                    "date": it.get("date", ""), "time": it.get("time", ""),
-                    "link": it.get("link", ""),
-                })
+            # 동일 사안 중복 제외(제목 유사도) — 매체만 다른 같은 기사 걸러냄
+            if any(_titles_similar(title, h["title"]) for h in headlines):
+                continue
+            headlines.append({
+                "title": title, "source": it.get("source", ""),
+                "date": it.get("date", ""), "time": it.get("time", ""),
+                "link": it.get("link", ""),
+            })
         if len(headlines) >= 5:
             break
 
