@@ -343,9 +343,11 @@
   .nhl li{display:flex;align-items:baseline;gap:5px;}
   .nhl .hl-title{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 주요 뉴스 헤드라인 3분류(케어젠 / 제약·바이오 / 매크로) */
-  .newsgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  .newsgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:14px;}
+  .newsgrid>.nsub{min-width:0;}            /* 긴 제목이 칸을 밀어내 보고서 폭 초과하는 것 방지 */
   .nsub .nsub-hd{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--brand-ink);margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid var(--line);}
-  .nhl{min-height:120px;}
+  .nhl{min-height:120px;min-width:0;overflow:hidden;}
+  .nhl ul,.nhl li{min-width:0;max-width:100%;}
   .flow .secbox{min-height:120px;}
   .workbox{min-height:210px;}
   /* 일일 업무 보고 3분류(IR / PR / 공시 및 주식사무) */
