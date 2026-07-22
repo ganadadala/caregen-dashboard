@@ -1287,6 +1287,42 @@ CAREGEN_KEYWORDS = [
     "마이오키", "myoki", "cg-p5", "cg-luxidase", "progsterol",
 ]
 
+# 제약·바이오 섹션 검색 키워드(그룹 OR) — 주제(임상·허가·딜·테마·자금·정책) + 주요 기업
+SECTOR_QUERIES = [
+    "제약 임상 결과 OR 바이오 임상 OR 신약 임상 3상",
+    "FDA 승인 OR EMA 승인 OR 식약처 허가 OR 품목허가",
+    "기술수출 OR 라이선스 계약 OR 공동개발 OR 제약 인수합병",
+    "임상 실패 OR 승인 거절 OR 임상 중단 OR 안전성 이슈",
+    "비만치료제 OR GLP-1 OR 위고비 OR 마운자로",
+    "펩타이드 치료제 OR 펩타이드 건강기능식품",
+    "근감소증 OR 대사질환 치료제 OR 안과질환 치료제",
+    "약물전달 플랫폼 OR siRNA OR ADC",
+    "바이오 유상증자 OR 전환사채 OR 바이오 관리종목 OR 바이오 자금조달",
+    "제약 바이오 규제 OR 약가 정책",
+    "삼성바이오로직스 OR 셀트리온 OR SK바이오팜 OR 한미약품 OR 유한양행",
+    "알테오젠 OR 리가켐바이오 OR 펩트론 OR 에이비엘바이오 OR 올릭스",
+    "노보노디스크 OR 일라이릴리 OR 글로벌 제약 실적",
+]
+
+# '단순 개별 종목 등락' 기사 판정 — 시세 움직임 단어만 있고 실질 이벤트 단어가 없으면 제외
+_PRICEMOVE_WORDS = (
+    "급등", "급락", "강세", "약세", "상한가", "하한가", "신고가", "신저가",
+    "오름세", "내림세", "반등", "상승 마감", "하락 마감", "상승세", "하락세", "급반등",
+)
+_SUBSTANTIVE_WORDS = (
+    "임상", "승인", "허가", "품목허가", "적응증", "계약", "수출", "라이선스", "기술이전",
+    "기술수출", "인수", "합병", "출시", "발매", "증자", "전환사채", "자금조달", "실적",
+    "매출", "수주", "협약", "공급", "파트너", "제휴", "특허", "투자유치", "중단", "실패",
+    "거절", "안전성", "FDA", "EMA", "식약처", "임상시험", "신제품", "흑자", "적자",
+)
+
+
+def _is_pricemove_only(title: str) -> bool:
+    """단순 개별 종목 등락(내용 없는 시세) 헤드라인이면 True."""
+    has_move = any(w in title for w in _PRICEMOVE_WORDS)
+    has_sub = any(w in title for w in _SUBSTANTIVE_WORDS)
+    return has_move and not has_sub
+
 
 def _is_good_source(source: str) -> bool:
     sl = source.lower()
@@ -1406,11 +1442,8 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
         "미국증시 나스닥",
     ])
 
-    # 섹터: 바이오·제약 (AND 조건)
-    sector_hl = _collect([
-        "바이오 제약 임상",
-        "신약 의약품 허가",
-    ])
+    # 섹터: 국내외 제약·바이오 (임상·허가·딜·테마·자금·정책 + 주요 기업)
+    sector_hl = _collect(SECTOR_QUERIES, per_query=5, cap=20)
 
     # 케어젠: 사명·영문명·파이프라인/제품명 키워드로 검색, 관련 키워드 포함 기사만
     def _is_caregen(item) -> bool:
@@ -1441,7 +1474,7 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     def _title_of(item) -> str:
         return item["text"].split("\n")[0].replace("[제목]", "").strip()
 
-    def _select_headlines(pool, limit=5, exclude=None):
+    def _select_headlines(pool, limit=5, exclude=None, drop_pricemove=False):
         out, exclude = [], (exclude or [])
         # 1차: 주요 경제매체만 / 2차: 나머지(양질) 매체로 limit건 채움
         for major_only in (True, False):
@@ -1459,6 +1492,9 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
                 # 공백 없는 단어 하나짜리 짧은 제목 제외(무슨 내용인지 짐작 불가)
                 if " " not in title and len(title) < 16:
                     continue
+                # 단순 개별 종목 등락 기사 제외(케어젠·섹터 섹션)
+                if drop_pricemove and _is_pricemove_only(title):
+                    continue
                 # 동일 사안 중복 제외(섹션 내부 + 다른 섹션에 이미 뽑힌 것)
                 if any(_titles_similar(title, h["title"]) for h in out):
                     continue
@@ -1473,8 +1509,8 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
                 break
         return out
 
-    headlines_caregen = _select_headlines(company_hl, 5)
-    headlines_sector = _select_headlines(sector_hl, 5, exclude=headlines_caregen)
+    headlines_caregen = _select_headlines(company_hl, 5, drop_pricemove=True)
+    headlines_sector = _select_headlines(sector_hl, 5, exclude=headlines_caregen, drop_pricemove=True)
     headlines_macro = _select_headlines(macro_hl, 5, exclude=headlines_caregen + headlines_sector)
     headlines = headlines_caregen + headlines_sector + headlines_macro  # 하위호환
 
