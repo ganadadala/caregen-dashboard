@@ -1163,12 +1163,52 @@ def _fetch_naver_frgn_ratio_series(code: str, pages: int = 3) -> list:
     return out
 
 
+def _fetch_hana_usdkrw() -> dict:
+    """하나은행 현재환율(외환>환율/외화예금 금리>현재환율)에서 USD 매매기준율 조회.
+    영업시간 중 수십 분 단위 갱신 → 실시간에 가까움. 실패 시 None."""
+    from datetime import datetime, timedelta, timezone
+    kst = timezone(timedelta(hours=9))
+    today = datetime.now(kst).strftime("%Y%m%d")
+    try:
+        r = requests.post(
+            "https://www.kebhana.com/cms/rate/wpfxd651_01i.do",
+            data={
+                "ajax": "true", "curCd": "", "tmpInqStrDt": today,
+                "pbldDvCd": "", "pbldSqn": "", "inqStrDt": today,
+                "inqKindCd": "1", "requestTarget": "searchContentDiv",
+            },
+            headers={"User-Agent": "Mozilla/5.0",
+                     "Referer": "https://www.kebhana.com/cms/rate/index.do",
+                     "X-Requested-With": "XMLHttpRequest"},
+            timeout=8,
+        )
+        if r.status_code != 200:
+            return None
+        html = r.text
+        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+            if "미국" not in row and "USD" not in row:
+                continue
+            nums = [float(x.replace(",", "")) for x in re.findall(r"[\d,]+\.\d+", row)]
+            rates = sorted(n for n in nums if 500 < n < 5000)   # 환율대만
+            if rates:
+                mid = rates[len(rates) // 2]                    # 중앙값 ≈ 매매기준율
+                return {"rate": round(mid, 2), "diff": None}
+        return None
+    except Exception:
+        return None
+
+
 def fetch_usdkrw() -> dict:
-    """USD/KRW 환율 + 전일대비(원). 1순위 네이버 매매기준율(고시환율),
-    실패 시 frankfurter(ECB) → open.er-api → exchangerate.host 순 폴백. 키 불필요."""
+    """USD/KRW 환율 + 전일대비(원). 1순위 하나은행 매매기준율(실시간 근접),
+    2순위 네이버, 이후 frankfurter(ECB) → open.er-api → exchangerate.host. 키 불필요."""
     from datetime import datetime, timedelta, timezone
 
-    # 0) 네이버 고시환율(매매기준율) — 한국 기준값 우선
+    # 0) 하나은행 현재환율(USD 매매기준율) — 실시간 근접
+    hana = _fetch_hana_usdkrw()
+    if hana and hana.get("rate"):
+        return hana
+
+    # 0-2) 네이버 고시환율(매매기준율)
     naver = _fetch_naver_usdkrw()
     if naver and naver.get("rate"):
         return naver
@@ -1834,6 +1874,40 @@ def frgn_debug(code: str = DEFAULT_CODE):
         out["current_naver"] = series[0]
         out["d20_naver"] = series[20]               # D-20 실측치(=6/23이어야 정상)
         out["delta_naver"] = round(series[0][1] - series[20][1], 2)
+    return out
+
+
+@app.get("/api/fx-debug")
+def fx_debug():
+    """USD 환율 소스 진단 — 하나은행 원본(USD 행) + 각 소스 파싱 결과."""
+    from datetime import datetime, timedelta, timezone
+    kst = timezone(timedelta(hours=9))
+    today = datetime.now(kst).strftime("%Y%m%d")
+    out = {"today_kst": today}
+    try:
+        r = requests.post(
+            "https://www.kebhana.com/cms/rate/wpfxd651_01i.do",
+            data={"ajax": "true", "curCd": "", "tmpInqStrDt": today, "pbldDvCd": "",
+                  "pbldSqn": "", "inqStrDt": today, "inqKindCd": "1",
+                  "requestTarget": "searchContentDiv"},
+            headers={"User-Agent": "Mozilla/5.0",
+                     "Referer": "https://www.kebhana.com/cms/rate/index.do",
+                     "X-Requested-With": "XMLHttpRequest"},
+            timeout=8,
+        )
+        out["hana_status"] = r.status_code
+        out["hana_len"] = len(r.text)
+        usd_row = ""
+        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", r.text, re.S):
+            if "미국" in row or "USD" in row:
+                usd_row = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", row)).strip()
+                break
+        out["hana_usd_row"] = usd_row[:500]
+    except Exception as e:
+        out["hana_error"] = str(e)
+    out["hana_parsed"] = _fetch_hana_usdkrw()
+    out["naver_parsed"] = _fetch_naver_usdkrw()
+    out["final_fetch_usdkrw"] = fetch_usdkrw()
     return out
 
 
