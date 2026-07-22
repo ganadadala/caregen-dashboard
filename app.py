@@ -1355,6 +1355,82 @@ def _is_bare_index_move(title: str) -> bool:
     return has_move and not has_cause
 
 
+# 섹션별 헤드라인 큐레이션 기준(Claude 관련성 판정용)
+_CURATION_CRITERIA = {
+    "caregen": (
+        "케어젠(214370) 관련. 포함: 케어젠 제품의 인허가·임상·유통·판매, 해외 파트너/고객사 동향, "
+        "주요 사업지역 규제 변화, 비만·대사질환·안과질환·근육건강·약물전달 시장 변화, "
+        "케어젠 사업·기업가치에 직접 영향 줄 경쟁사 발표. "
+        "제외: 단순 기업소개, 과거 기사 재게시, 광고성 콘텐츠, 내용 없는 주가 급등락."
+    ),
+    "sector": (
+        "국내외 제약·바이오 섹터. 임상 결과, FDA/EMA/식약처 허가, 기술수출·라이선스·공동개발·M&A, "
+        "임상 실패·승인 거절·중단·안전성, 비만/GLP-1, 펩타이드 치료제·건기식, 대사·근감소·안과질환, "
+        "약물전달·siRNA, 글로벌 제약사 실적·전략, 자금조달·유상증자·CB·관리종목, 정책·규제. "
+        "단순 개별 종목 등락 제외. 섹터 투자심리 또는 케어젠 사업환경에 의미 있는 기사만."
+    ),
+    "macro": (
+        "케어젠·국내 제약바이오 주가에 영향 줄 시장 뉴스. 국내(코스피/코스닥, 외국인·기관 수급, "
+        "환율, 금리, 자본시장·바이오 정책) 및 해외(미증시·나스닥 바이오, 국채금리, 연준, 물가/고용/GDP, "
+        "달러/유가, 지정학, 글로벌 위험자산 심리). "
+        "단순 지수 등락 나열 제외 — 변동의 핵심 원인과 국내 증시 영향을 설명하는 기사만."
+    ),
+}
+
+
+def _curate_headlines(cands: dict) -> dict:
+    """섹션별 후보 헤드라인을 각 기준에 따라 Claude가 관련성 높은 순으로 ≤5건 선별.
+    키 없음·호출 실패·JSON 파싱 실패 시 각 섹션 앞 5건으로 폴백."""
+    fallback = {k: (cands.get(k) or [])[:5] for k in ("caregen", "sector", "macro")}
+    if not ANTHROPIC_KEY or not any(cands.get(k) for k in ("caregen", "sector", "macro")):
+        return fallback
+
+    def _fmt(items):
+        return "\n".join(f"{i}. {it['title']} ({it.get('source', '')})"
+                         for i, it in enumerate(items)) or "(없음)"
+
+    prompt = (
+        "아래 3개 섹션의 뉴스 헤드라인 후보 중, 각 섹션 기준에 부합하는 기사만 관련성 높은 순으로 "
+        "최대 5건씩 선별하세요. 기준에 맞지 않거나(광고성·과거 재게시·단순 등락 등) 관련성이 불확실하면 제외합니다.\n\n"
+        f"[케어젠 기준]\n{_CURATION_CRITERIA['caregen']}\n후보:\n{_fmt(cands.get('caregen') or [])}\n\n"
+        f"[제약·바이오 기준]\n{_CURATION_CRITERIA['sector']}\n후보:\n{_fmt(cands.get('sector') or [])}\n\n"
+        f"[매크로 기준]\n{_CURATION_CRITERIA['macro']}\n후보:\n{_fmt(cands.get('macro') or [])}\n\n"
+        "각 섹션에서 선택한 후보의 '번호'만 중요도 순으로 배열해 아래 JSON만 출력 (다른 텍스트 없이):\n"
+        '{"caregen":[번호,...],"sector":[번호,...],"macro":[번호,...]}'
+    )
+    try:
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"},
+            json={"model": "claude-haiku-4-5-20251001", "max_tokens": 400,
+                  "messages": [{"role": "user", "content": prompt}]},
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            return fallback
+        raw = resp.json()["content"][0]["text"].strip()
+        m = re.search(r'\{[\s\S]*\}', raw)
+        sel = json.loads(m.group(0)) if m else {}
+    except Exception:
+        return fallback
+
+    out = {}
+    for key in ("caregen", "sector", "macro"):
+        pool = cands.get(key) or []
+        picked, seen = [], set()
+        for i in (sel.get(key) or []):
+            if isinstance(i, bool):
+                continue
+            if isinstance(i, int) and 0 <= i < len(pool) and i not in seen:
+                seen.add(i)
+                picked.append(pool[i])
+            if len(picked) >= 5:
+                break
+        out[key] = picked
+    return out
+
+
 def _is_good_source(source: str) -> bool:
     sl = source.lower()
     return not any(kw in sl for kw in _BLOCKED_SOURCE_KW)
@@ -1539,10 +1615,16 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
                 break
         return out
 
-    headlines_caregen = _select_headlines(company_hl, 5, drop_pricemove=True)
-    headlines_sector = _select_headlines(sector_hl, 5, exclude=headlines_caregen, drop_pricemove=True)
-    headlines_macro = _select_headlines(macro_hl, 5, exclude=headlines_caregen + headlines_sector,
-                                        drop_bare_index=True)
+    # 1차(휴리스틱): 섹션별 후보 넉넉히 확보(스텁·중복·단순등락 제외)
+    cand_caregen = _select_headlines(company_hl, 12, drop_pricemove=True)
+    cand_sector = _select_headlines(sector_hl, 12, exclude=cand_caregen, drop_pricemove=True)
+    cand_macro = _select_headlines(macro_hl, 12, exclude=cand_caregen + cand_sector,
+                                   drop_bare_index=True)
+    # 2차(Claude 큐레이션): 섹션 기준으로 관련성 판정해 각 ≤5건 선별(실패 시 앞 5건 폴백)
+    _cur = _curate_headlines({"caregen": cand_caregen, "sector": cand_sector, "macro": cand_macro})
+    headlines_caregen = _cur["caregen"]
+    headlines_sector = _cur["sector"]
+    headlines_macro = _cur["macro"]
     headlines = headlines_caregen + headlines_sector + headlines_macro  # 하위호환
 
     # 프론트가 조회로 확보한 시황 수치(선택) — 핵심요약을 수치에 근거해 작성
