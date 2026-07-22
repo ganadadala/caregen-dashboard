@@ -527,7 +527,7 @@ def _krx_rows_for_date(d: str) -> list:
     def _one(path):
         try:
             r = requests.get(f"{KRX_BASE}/{path}", params={"basDd": d},
-                             headers={"AUTH_KEY": KRX_API_KEY}, timeout=8)
+                             headers={"AUTH_KEY": KRX_API_KEY}, timeout=15)
             if r.status_code == 200:
                 j = r.json()
                 return j.get("OutBlock_1") or j.get("output") or []
@@ -537,16 +537,20 @@ def _krx_rows_for_date(d: str) -> list:
 
     with ThreadPoolExecutor(max_workers=2) as ex:
         a, b = list(ex.map(_one, ("stk_bydd_trd", "ksq_bydd_trd")))
-    return (a or []) + (b or [])
+    a, b = (a or []), (b or [])
+    # 유가·코스닥 둘 다 충분히 받았을 때만 유효(부분 응답이면 순위 왜곡 → 빈값 처리)
+    if len(a) < 700 or len(b) < 1000:
+        return []
+    return a + b
 
 
-def _krx_latest_rows(base_dt, days: int = 4):
-    """base_dt부터 거슬러 데이터 있는 최신 날짜의 rows + 그 날짜(YYYYMMDD) 반환."""
+def _krx_latest_rows(base_dt, days: int = 3):
+    """base_dt부터 거슬러 '완전한' 전 종목 데이터가 있는 최신 날짜의 rows + 날짜 반환."""
     from datetime import timedelta
     for back in range(days):
         d = (base_dt - timedelta(days=back)).strftime("%Y%m%d")
         rows = _krx_rows_for_date(d)
-        if len(rows) > 100:
+        if len(rows) > 2000:      # 유가+코스닥 전 종목(≈2600) 정상 수신
             return rows, d
     return [], ""
 
