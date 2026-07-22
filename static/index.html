@@ -490,7 +490,7 @@
         <div class="stat">
           <div class="eyebrow">외국인 지분율</div>
           <div class="big"><span id="frgnRatio">—</span></div>
-          <span class="meta" data-k="frgnChg" contenteditable="true">최근 거래일 대비 —</span>
+          <span class="meta" id="frgnChg">최근 20거래일 전 대비 —</span>
         </div>
       </div>
     </div>
@@ -944,11 +944,11 @@ async function load(){
     if(p.foreign_ratio)$("frgnRatio").textContent=p.foreign_ratio+"%";
     // 외국인 지분율 증감(%p) — 서버 순매매 역산(브라우저 무관). 수기 보정 가능
     (function(){
-      const el=document.querySelector('[data-k="frgnChg"]');if(!el)return;
+      const el=$("frgnChg");if(!el)return;
       const d=p.foreign_ratio_delta,dd=p.foreign_delta_days||20;
-      if(d==null){el.textContent="최근 거래일 대비 —";el.className="meta";return;}
+      if(d==null){el.textContent="최근 20거래일 전 대비 —";el.className="meta";return;}
       const s=d>0?"+":"";
-      el.textContent=`최근 ${dd}거래일 ${s}${d}%p`;
+      el.textContent=`최근 ${dd}거래일 전 대비 ${s}${d}%p`;
       el.className="meta "+(d>0?"up":d<0?"dn":"");
     })();
     // KOSDAQ 시총 순위 + 전 거래일 대비 증감(서버 계산 → 어느 기기서든 동일)
