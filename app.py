@@ -1163,6 +1163,34 @@ def _fetch_naver_frgn_ratio_series(code: str, pages: int = 3) -> list:
     return out
 
 
+def _fetch_naver_exchange() -> dict:
+    """네이버 금융 환율 상세(일별 시세)에서 USD 매매기준율 + 전일대비.
+    일별표 각 행의 첫 환율값(=매매기준율), 최상단=최신. 실패 시 None."""
+    try:
+        r = requests.get(
+            "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW",
+            headers={"User-Agent": "Mozilla/5.0",
+                     "Referer": "https://finance.naver.com/marketindex/"},
+            timeout=8,
+        )
+        if r.status_code != 200:
+            return None
+        html = r.content.decode("euc-kr", "ignore")
+        rates = []
+        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+            if not re.search(r"\d{4}\.\d{2}\.\d{2}", row):   # 날짜 있는 일별표 행만
+                continue
+            m = re.search(r"([12],\d{3}\.\d{2})", row)        # 첫 환율값 = 매매기준율
+            if m:
+                rates.append(float(m.group(1).replace(",", "")))
+        if not rates:
+            return None
+        diff = round(rates[0] - rates[1], 2) if len(rates) >= 2 else None
+        return {"rate": round(rates[0], 2), "diff": diff}
+    except Exception:
+        return None
+
+
 def _hana_fx_html(pbld_dv_cd: str = "3", request_target: str = "searchContentDiv") -> str:
     """하나은행 현재환율 데이터(.do) 요청 → EUC-KR 디코딩 HTML. 실패 시 ''.
     오늘자 고시환율은 pbldDvCd='3'(과거일은 '0'), inqKindCd='1'(고시환율)."""
@@ -1215,12 +1243,17 @@ def fetch_usdkrw() -> dict:
     2순위 네이버, 이후 frankfurter(ECB) → open.er-api → exchangerate.host. 키 불필요."""
     from datetime import datetime, timedelta, timezone
 
-    # 0) 하나은행 현재환율(USD 매매기준율) — 실시간 근접
+    # 0) 네이버 금융 환율상세(매매기준율 + 전일대비) — finance.naver.com(Render 동작 확인)
+    nx = _fetch_naver_exchange()
+    if nx and nx.get("rate"):
+        return nx
+
+    # 0-2) 하나은행 현재환율(USD 매매기준율)
     hana = _fetch_hana_usdkrw()
     if hana and hana.get("rate"):
         return hana
 
-    # 0-2) 네이버 고시환율(매매기준율)
+    # 0-3) 네이버 시장지표 API(매매기준율)
     naver = _fetch_naver_usdkrw()
     if naver and naver.get("rate"):
         return naver
@@ -1948,6 +1981,7 @@ def fx_debug():
         out["js_snippets"] = uniq[:20]
     except Exception as e:
         out["js_error"] = str(e)
+    out["naver_exchange_parsed"] = _fetch_naver_exchange()
     out["hana_parsed"] = _fetch_hana_usdkrw()
     out["naver_parsed"] = _fetch_naver_usdkrw()
     out["final_fetch_usdkrw"] = fetch_usdkrw()
