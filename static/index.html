@@ -846,13 +846,28 @@ function drawMiniLine(canvasId,series,color){
   const data=series.map(s=>s.close);
   const up=data[data.length-1]>=data[0];
   const col=color||(up?"#d92d20":"#1c5fcc");
+  // Y축은 숨기되 최고·최저값만 해당 지점에 라벨로 표기(세로축 공간 최소화)
+  const minMaxLabels={id:"minmax",afterDatasetsDraw(chart){
+    const {ctx,chartArea:{left,right},scales:{x,y}}=chart, d=chart.data.datasets[0].data;
+    if(!d||d.length<2)return;
+    let hi=0,lo=0;d.forEach((v,i)=>{if(v>d[hi])hi=i;if(v<d[lo])lo=i;});
+    ctx.save();ctx.font='700 8px Pretendard,system-ui,sans-serif';
+    [[hi,"#d92d20",-4,"bottom"],[lo,"#1c5fcc",4,"top"]].forEach(([i,c,dy,base])=>{
+      const px=x.getPixelForValue(i),py=y.getPixelForValue(d[i]);
+      const t=Number(d[i]).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2});
+      ctx.textBaseline=base;
+      ctx.textAlign=px>right-28?"right":px<left+28?"left":"center";
+      ctx.fillStyle=c;ctx.fillText(t,px,py+dy);
+    });ctx.restore();
+  }};
   miniCharts[canvasId]=new Chart(cv,{type:"line",
     data:{labels,datasets:[{data,borderColor:col,borderWidth:1.6,pointRadius:0,tension:.2,fill:false}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:2}},
+    plugins:[minMaxLabels],
+    options:{responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:8,bottom:8}},
       plugins:{legend:{display:false},tooltip:{enabled:false}},
       scales:{
         x:{display:true,grid:{display:false},ticks:{color:"#9aa6a1",font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:3}},
-        y:{display:false,grace:"6%"}   // Y축(값 라벨) 숨김 → 그래프가 폭 전체 사용(현재값은 차트 위 텍스트에 표기)
+        y:{display:false,grace:"12%"}   // Y축 라벨 숨김, 최고·최저는 포인트 라벨로 표기
       }}});
 }
 function idxLine(elId,snap){
