@@ -55,6 +55,7 @@
   .arch-item .sz{font-size:11px;color:var(--muted);margin-left:8px;}
   .arch-item a{font-size:12px;font-weight:700;color:var(--brand);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 12px;white-space:nowrap;}
   .arch-item a:hover{border-color:var(--brand);}
+  .arch-week{padding:9px 20px 6px;font-size:11px;font-weight:800;color:var(--brand-ink);background:var(--raise);border-bottom:1px solid var(--line);position:sticky;top:0;letter-spacing:.01em;}
   .arch-empty{padding:28px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;}
   .toolbar .sp{margin-left:auto;font-size:12px;color:var(--muted);}
   .statuswrap{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;}
@@ -1226,6 +1227,10 @@ $("saveBtn").addEventListener("click",async function(){
 });
 // 저장함 목록 모달
 function fmtSize(n){if(!n&&n!==0)return"";if(n<1024)return n+"B";if(n<1048576)return(n/1024).toFixed(0)+"KB";return(n/1048576).toFixed(1)+"MB";}
+// 날짜(YYYY-MM-DD)가 속한 주(월요일 시작)의 월요일 Date 반환
+function weekMonday(ymd){const [y,m,d]=ymd.split("-").map(Number);const dt=new Date(y,m-1,d);const dow=(dt.getDay()+6)%7;return new Date(y,m-1,d-dow);}
+// 그 주의 라벨: "2026년 7월 3주차 · 7/14~7/20" (월 기준 주차는 해당 주 월요일의 달로 계산)
+function weekLabel(mon){const y=mon.getFullYear(),m=mon.getMonth()+1,d=mon.getDate();const firstDow=(new Date(y,m-1,1).getDay()+6)%7;const wk=Math.floor((d-1+firstDow)/7)+1;const sun=new Date(y,m-1,d+6);const md=x=>`${x.getMonth()+1}/${x.getDate()}`;return `${y}년 ${m}월 ${wk}주차 · ${md(mon)}~${md(sun)}`;}
 async function openArchive(){
   $("archBack").classList.add("on");
   const body=$("archBody");
@@ -1236,7 +1241,16 @@ async function openArchive(){
     if(!j.configured){body.innerHTML='<div class="arch-empty">저장소가 아직 설정되지 않았습니다.<br>Render 환경변수(SUPABASE_URL·SUPABASE_SERVICE_KEY)를 확인하세요.</div>';return;}
     const items=j.items||[];
     if(!items.length){body.innerHTML='<div class="arch-empty">저장된 리포트가 없습니다.<br>‘리포트 저장’을 눌러 보관해 보세요.</div>';return;}
-    body.innerHTML=items.map(it=>`<div class="arch-item"><div><span class="d">${it.date}</span><span class="sz">${fmtSize(it.size)}</span></div><a href="#" data-n="${it.name}">열기</a></div>`).join("");
+    // 주차(월~일)별로 그룹핑 후 최신 주 → 최신 날짜 순으로 표시
+    const groups={};
+    items.forEach(it=>{const mon=weekMonday(it.date);const k=`${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,"0")}-${String(mon.getDate()).padStart(2,"0")}`;(groups[k]=groups[k]||{mon,items:[]}).items.push(it);});
+    const keys=Object.keys(groups).sort().reverse();
+    body.innerHTML=keys.map(k=>{
+      const g=groups[k];
+      g.items.sort((a,b)=>a.date<b.date?1:-1);
+      return `<div class="arch-week">${weekLabel(g.mon)}</div>`+
+        g.items.map(it=>`<div class="arch-item"><div><span class="d">${it.date}</span><span class="sz">${fmtSize(it.size)}</span></div><a href="#" data-n="${it.name}">열기</a></div>`).join("");
+    }).join("");
     body.querySelectorAll("a[data-n]").forEach(a=>{
       a.addEventListener("click",async ev=>{
         ev.preventDefault();a.textContent="여는 중…";
