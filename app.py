@@ -713,18 +713,23 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     except Exception:
         pass
 
-    # 외국인 지분율 20거래일 대비(%p) —
-    # 1순위: 네이버 일자별 보유율에서 D-20 실측치와 현재값(KIS) 비교(정확).
-    # 폴백: 순매매 누적 ÷ 추정 상장주식수(KIS 일자별 보유율 미제공 시 추정).
+    # 외국인 지분율(현재값) + 20거래일 대비(%p) —
+    # 1순위: 네이버 종목 외국인 페이지 일자별 보유율(현재값·D-20 동일 소스, 매일 갱신).
+    #   → KIS 소진율(hts_frgn_ehrt)이 잘 안 바뀌거나 비어 있는 문제 회피.
+    # 폴백: 현재값=KIS 소진율, 증감=순매매 역산 추정.
+    frgn_ratio = quote.get("hts_frgn_ehrt", "")   # 기본(KIS)
     frgn_ratio_delta = None
     frgn_delta_days = 0
+    frgn_src = "kis"
     try:
-        cur_r = _to_float(str(quote.get("hts_frgn_ehrt", "")).replace(",", ""))
         series = _fetch_naver_frgn_ratio_series(code)      # 최신순 [(YYYYMMDD, ratio)]
-        if cur_r and series:
+        if series:
             target = price_date or datetime.now().strftime("%Y%m%d")
-            base_i = next((i for i, (d, _) in enumerate(series) if d <= target), None)
-            if base_i is not None and base_i + 20 < len(series):
+            base_i = next((i for i, (d, _) in enumerate(series) if d <= target), 0)
+            cur_r = series[base_i][1]
+            frgn_ratio = f"{cur_r:.2f}"                     # 네이버 실측 보유율(매일 갱신)
+            frgn_src = "naver"
+            if base_i + 20 < len(series):
                 frgn_ratio_delta = round(cur_r - series[base_i + 20][1], 2)
                 frgn_delta_days = 20
     except Exception:
@@ -764,9 +769,10 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "market_cap": _to_int(quote.get("hts_avls")),      # 시가총액(억원, 현재값)
             "w52_high": _to_int(quote.get("w52_hgpr")),        # 52주 최고(현재값)
             "w52_low": _to_int(quote.get("w52_lwpr")),
-            "foreign_ratio": quote.get("hts_frgn_ehrt", ""),   # 외국인 보유비율(현재값)
-            "foreign_ratio_delta": frgn_ratio_delta,           # 외인 지분율 N거래일 대비(%p, 순매매 역산)
+            "foreign_ratio": frgn_ratio,                       # 외국인 보유율(현재값, 네이버 우선)
+            "foreign_ratio_delta": frgn_ratio_delta,           # 외인 지분율 N거래일 대비(%p)
             "foreign_delta_days": frgn_delta_days,             # 위 계산에 쓰인 거래일 수
+            "foreign_ratio_src": frgn_src,                     # 값 출처(naver/kis) — 진단용
             "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위(없으면 null)
             "kosdaq_delta": kosdaq_delta,                       # 전 거래일 대비 순위 증감
             "krx_rank": krx_rank,                               # KRX 통합 시총 순위(없으면 null)
