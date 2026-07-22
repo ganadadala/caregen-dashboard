@@ -307,7 +307,7 @@
   .toptbl td{padding:1px 2px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .toptbl td.rk{color:var(--muted);width:15px;}
   .toptbl td.nm{text-align:left;font-family:"Pretendard",sans-serif;color:var(--ink);overflow:hidden;text-overflow:ellipsis;}
-  .toptbl td.pr{width:48px;} .toptbl td.ch{width:46px;}
+  .toptbl td.pr{width:56px;} .toptbl td.ch{width:44px;}
   .toptbl td.pr{text-align:right;color:var(--ink2);}
   .toptbl td.ch{text-align:right;}
   .toptbl td.ch.up{color:var(--up);} .toptbl td.ch.down{color:var(--down);} .toptbl td.ch.flat{color:var(--muted);}
@@ -514,14 +514,14 @@
   <section class="market5">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
       <span style="width:8px;height:8px;border-radius:50%;background:var(--brand);display:inline-block;"></span>
-      <h2 style="font-size:14px;font-weight:800;color:var(--ink);">전체 시장 및 섹터 주요 종목 주가 동향</h2>
+      <h2 style="font-size:14px;font-weight:800;color:var(--ink);">금일 전체 시장 및 섹터 주요 종목 주가 동향</h2>
     </div>
     <div class="m5grid">
       <div class="m5box"><div class="mt">코스닥 지수 (최근 10일)</div><div class="idxline" id="m5KosdaqLine">—</div><div class="mchart"><canvas id="m5KosdaqChart"></canvas></div></div>
       <div class="m5box"><div class="mt">코스피 지수 (최근 10일)</div><div class="idxline" id="m5KospiLine">—</div><div class="mchart"><canvas id="m5KospiChart"></canvas></div></div>
-      <div class="m5box"><div class="mt">코스닥 시총 상위 10 · 종가/등락</div><table class="toptbl" id="topKosdaq"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
-      <div class="m5box"><div class="mt">코스피 시총 상위 10 · 종가/등락</div><table class="toptbl" id="topKospi"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
-      <div class="m5box"><div class="mt">코스닥 제약바이오 시총 상위 10 · 종가/등락</div><table class="toptbl" id="topPharma"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
+      <div class="m5box"><div class="mt">코스닥 시총 Top 10</div><table class="toptbl" id="topKosdaq"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
+      <div class="m5box"><div class="mt">코스피 시총 Top 10</div><table class="toptbl" id="topKospi"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
+      <div class="m5box"><div class="mt">코스닥 제약, 바이오 시총 Top 10</div><table class="toptbl" id="topPharma"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
     </div>
   </section>
 
@@ -864,6 +864,8 @@ function hdrIdx(vId,rId,snap){
     if(r==null){rt.textContent="";rt.className="rt flat";}
     else{const a=r>0?"▲":r<0?"▼":"–";rt.textContent=`(${a}${Math.abs(r).toFixed(2)}%)`;rt.className="rt "+(r>0?"up":r<0?"down":"flat");}}
 }
+// 주가를 만원 단위·소수 1자리로 표기 (274,500원 → 27.5만원, 둘째 자리 반올림)
+function manwon(n){return (n||n===0)?(Math.round(n/1000)/10).toFixed(1)+"만원":"—";}
 function renderTop(tblId,items){
   const el=document.getElementById(tblId);if(!el)return;
   if(!items||!items.length){el.innerHTML='<tbody><tr><td class="ph-note">데이터 없음</td></tr></tbody>';return;}
@@ -872,7 +874,7 @@ function renderTop(tblId,items){
     const c=it.chg>0?"up":it.chg<0?"down":"flat",s=it.chg>0?"+":"";
     h+=`<tr class="${it.self?"self":""}"><td class="rk">${i+1}</td>`+
        `<td class="nm" title="${escH(it.name)}">${escH(it.name)}</td>`+
-       `<td class="pr">${won(it.close)}</td>`+
+       `<td class="pr">${manwon(it.close)}</td>`+
        `<td class="ch ${c}">${s}${(it.chg||0).toFixed(2)}%</td></tr>`;
   });
   el.innerHTML=h+'</tbody>';
