@@ -852,7 +852,7 @@ function drawMiniLine(canvasId,series,color){
       plugins:{legend:{display:false},tooltip:{enabled:false}},
       scales:{
         x:{display:true,grid:{display:false},ticks:{color:"#9aa6a1",font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:3}},
-        y:{display:true,position:"right",grace:"8%",grid:{color:"rgba(21,36,32,.06)"},ticks:{color:"#9aa6a1",font:{size:8},maxTicksLimit:3,callback:v=>Number(v).toLocaleString("ko-KR",{maximumFractionDigits:0})}}
+        y:{display:false,grace:"6%"}   // Y축(값 라벨) 숨김 → 그래프가 폭 전체 사용(현재값은 차트 위 텍스트에 표기)
       }}});
 }
 function idxLine(elId,snap){
