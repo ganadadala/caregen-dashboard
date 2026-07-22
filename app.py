@@ -2074,8 +2074,8 @@ def _sb_headers(extra=None):
 
 
 @app.post("/api/reports")
-async def save_report(file: UploadFile = File(...), date: str = Form("")):
-    """브라우저에서 만든 리포트 PDF를 Supabase 버킷에 '{날짜}.pdf'로 업로드(덮어쓰기)."""
+async def save_report(file: UploadFile = File(...), date: str = Form(""), stamp: str = Form("")):
+    """리포트 PDF를 Supabase 버킷에 '{날짜}_{저장시각}.pdf'로 업로드. 같은 날짜도 버전별 보관."""
     if not _supabase_ready():
         raise HTTPException(503, "저장소(Supabase)가 설정되지 않았습니다. Render 환경변수를 확인하세요.")
     d = (date or "").strip()
@@ -2085,7 +2085,9 @@ async def save_report(file: UploadFile = File(...), date: str = Form("")):
     data = await file.read()
     if not data:
         raise HTTPException(400, "빈 파일입니다.")
-    path = f"{d}.pdf"
+    st = (stamp or "").strip()
+    # stamp(저장시각 epoch ms)가 있으면 버전 파일명으로 → 같은 날짜 여러 번 저장해도 안 덮어씀
+    path = f"{d}_{st}.pdf" if st.isdigit() else f"{d}.pdf"
     url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{path}"
     try:
         r = requests.post(
@@ -2120,9 +2122,11 @@ def list_reports():
         if not name.endswith(".pdf"):
             continue
         meta = o.get("metadata") or {}
+        stem = name[:-4]
+        d = stem[:10] if re.match(r"^\d{4}-\d{2}-\d{2}", stem) else stem
         items.append({
             "name": name,
-            "date": name[:-4],
+            "date": d,
             "size": meta.get("size"),
             "created_at": o.get("created_at") or o.get("updated_at"),
         })
@@ -2151,6 +2155,23 @@ def report_link(name: str):
     else:
         full = signed
     return {"url": full}
+
+
+@app.delete("/api/reports")
+def delete_report(name: str):
+    """저장된 리포트 1건 삭제."""
+    if not _supabase_ready():
+        raise HTTPException(503, "저장소가 설정되지 않았습니다.")
+    if not re.match(r"^[\w\-.]+\.pdf$", name):
+        raise HTTPException(400, "잘못된 파일명")
+    url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{name}"
+    try:
+        r = requests.delete(url, headers=_sb_headers(), timeout=15)
+    except Exception as e:
+        raise HTTPException(502, f"삭제 통신 실패: {str(e)[:200]}")
+    if r.status_code not in (200, 204):
+        raise HTTPException(502, f"삭제 실패: {r.status_code} {r.text[:200]}")
+    return {"ok": True}
 
 
 @app.get("/api/health")

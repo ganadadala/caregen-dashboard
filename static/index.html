@@ -52,9 +52,14 @@
   .arch-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 20px;border-bottom:1px solid var(--line);font-size:13px;}
   .arch-item:last-child{border-bottom:none;}
   .arch-item .d{font-weight:700;color:var(--ink);font-family:"Pretendard",system-ui,sans-serif;}
+  .arch-item .tm{font-size:11px;color:var(--ink2);margin-left:6px;font-variant-numeric:tabular-nums;}
   .arch-item .sz{font-size:11px;color:var(--muted);margin-left:8px;}
+  .arch-act{display:flex;gap:6px;align-items:center;flex:0 0 auto;}
   .arch-item a{font-size:12px;font-weight:700;color:var(--brand);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 12px;white-space:nowrap;}
   .arch-item a:hover{border-color:var(--brand);}
+  .arch-item button.del{font-size:12px;font-weight:700;color:#c0392b;background:none;border:1px solid var(--line);border-radius:8px;padding:5px 11px;cursor:pointer;white-space:nowrap;}
+  .arch-item button.del:hover{border-color:#c0392b;background:#fdecec;}
+  .arch-item button.del:disabled{opacity:.5;}
   .arch-week{padding:9px 20px 6px;font-size:11px;font-weight:800;color:var(--brand-ink);background:var(--raise);border-bottom:1px solid var(--line);position:sticky;top:0;letter-spacing:.01em;}
   .arch-empty{padding:28px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;}
   .toolbar .sp{margin-left:auto;font-size:12px;color:var(--muted);}
@@ -1217,6 +1222,7 @@ $("saveBtn").addEventListener("click",async function(){
     const blob=pdf.output("blob");
     const fd=new FormData();
     fd.append("date",date);
+    fd.append("stamp",String(Date.now()));   // 같은 날짜도 버전별 보관
     fd.append("file",blob,`${date}.pdf`);
     const res=await fetch("/api/reports",{method:"POST",body:fd});
     if(!res.ok){const t=await res.text();throw new Error(t||res.status);}
@@ -1227,6 +1233,8 @@ $("saveBtn").addEventListener("click",async function(){
 });
 // 저장함 목록 모달
 function fmtSize(n){if(!n&&n!==0)return"";if(n<1024)return n+"B";if(n<1048576)return(n/1024).toFixed(0)+"KB";return(n/1048576).toFixed(1)+"MB";}
+// 파일명 '2026-07-22_1737530000000.pdf' 의 저장시각(epoch ms) → 'HH:MM'. 구버전(스탬프 없음)은 빈값.
+function fileTime(name){const m=name.match(/^\d{4}-\d{2}-\d{2}_(\d{10,})\.pdf$/);if(!m)return"";const dt=new Date(Number(m[1]));if(isNaN(dt.getTime()))return"";return `${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}`;}
 // 날짜(YYYY-MM-DD)가 속한 주(월요일 시작)의 월요일 Date 반환
 function weekMonday(ymd){const [y,m,d]=ymd.split("-").map(Number);const dt=new Date(y,m-1,d);const dow=(dt.getDay()+6)%7;return new Date(y,m-1,d-dow);}
 // 그 주의 라벨: "2026년 7월 3주차 · 7/14~7/20" (월 기준 주차는 해당 주 월요일의 달로 계산)
@@ -1247,9 +1255,9 @@ async function openArchive(){
     const keys=Object.keys(groups).sort().reverse();
     body.innerHTML=keys.map(k=>{
       const g=groups[k];
-      g.items.sort((a,b)=>a.date<b.date?1:-1);
+      g.items.sort((a,b)=>a.name<b.name?1:-1);   // 같은 주 안: 최신 날짜·최신 저장분 먼저
       return `<div class="arch-week">${weekLabel(g.mon)}</div>`+
-        g.items.map(it=>`<div class="arch-item"><div><span class="d">${it.date}</span><span class="sz">${fmtSize(it.size)}</span></div><a href="#" data-n="${it.name}">열기</a></div>`).join("");
+        g.items.map(it=>{const tm=fileTime(it.name);return `<div class="arch-item"><div><span class="d">${it.date}</span>${tm?`<span class="tm">${tm}</span>`:""}<span class="sz">${fmtSize(it.size)}</span></div><div class="arch-act"><a href="#" data-n="${it.name}">열기</a><button class="del" data-n="${it.name}">삭제</button></div></div>`;}).join("");
     }).join("");
     body.querySelectorAll("a[data-n]").forEach(a=>{
       a.addEventListener("click",async ev=>{
@@ -1260,6 +1268,17 @@ async function openArchive(){
           if(jj.url)window.open(jj.url,"_blank");else throw new Error("링크 없음");
         }catch(e){alert("열기 실패: "+e.message);}
         a.textContent="열기";
+      });
+    });
+    body.querySelectorAll("button.del[data-n]").forEach(b=>{
+      b.addEventListener("click",async()=>{
+        if(!confirm(b.dataset.n.replace(/\.pdf$/,"")+" 리포트를 삭제할까요?"))return;
+        b.disabled=true;b.textContent="삭제 중…";
+        try{
+          const r=await fetch("/api/reports?name="+encodeURIComponent(b.dataset.n),{method:"DELETE"});
+          if(!r.ok){const t=await r.text();throw new Error(t||r.status);}
+          openArchive();   // 목록 갱신
+        }catch(e){alert("삭제 실패: "+e.message);b.disabled=false;b.textContent="삭제";}
       });
     });
   }catch(e){body.innerHTML='<div class="arch-empty">목록을 불러오지 못했습니다.<br>'+e.message+'</div>';}
