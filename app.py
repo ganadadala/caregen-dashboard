@@ -572,6 +572,36 @@ def fetch_avg_volume(code: str, end_ymd: str, n: int = 20) -> int:
     return round(sum(vols) / len(vols)) if vols else 0
 
 
+def fetch_close_ndays_ago(code: str, end_ymd: str, n: int = 20) -> int:
+    """end_ymd(포함) 기준 n거래일 전 종가(원). 데이터 부족·실패 시 0."""
+    from datetime import datetime, timedelta
+    try:
+        end = datetime.strptime(end_ymd, "%Y%m%d")
+    except Exception:
+        return 0
+    start = end - timedelta(days=n * 2 + 20)  # 주말·공휴일 감안 넉넉히
+    try:
+        data = _get(
+            "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+            "FHKST03010100",
+            {
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": code,
+                "FID_INPUT_DATE_1": start.strftime("%Y%m%d"),
+                "FID_INPUT_DATE_2": end_ymd,
+                "FID_PERIOD_DIV_CODE": "D",
+                "FID_ORG_ADJ_PRC": "0",
+            },
+        )
+    except Exception:
+        return 0
+    rows = [r for r in (data.get("output2") or []) if r.get("stck_bsop_date")]
+    rows.sort(key=lambda r: r["stck_bsop_date"])
+    closes = [_to_int(r.get("stck_clpr")) for r in rows if _to_int(r.get("stck_clpr")) > 0]
+    # 마지막(=당일) 기준 n거래일 전 종가
+    return closes[-(n + 1)] if len(closes) > n else 0
+
+
 @app.get("/api/dashboard")
 def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     from datetime import datetime
@@ -669,6 +699,15 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     except Exception:
         pass
 
+    # 20거래일 전 종가 대비 등락(%) — 첫 줄 주가 코멘트용. 실패 시 None
+    price_chg20 = None
+    try:
+        _c20 = fetch_close_ndays_ago(code, _end_ymd, 20)
+        if _c20 > 0 and price > 0:
+            price_chg20 = round((price - _c20) / _c20 * 100, 1)
+    except Exception:
+        pass
+
     # 외국인 지분율 N거래일 대비(%p) — 외국인 순매매 누적 ÷ 추정 상장주식수
     # (KIS가 일자별 보유비율 이력을 안 줘서 순매매로 역산; 브라우저 무관하게 서버 계산)
     frgn_ratio_delta = None
@@ -698,6 +737,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "volume": volume,                                  # 거래량(주)
             "vol_avg20": vol_avg20,                            # 최근 20거래일 평균 거래량(없으면 null)
             "vol_vs_avg": vol_vs_avg,                          # 20일 평균 대비 %(없으면 null)
+            "price_chg20": price_chg20,                        # 20거래일 전 종가 대비 등락 %(없으면 null)
             "value": value,                                    # 거래대금(원)
             "price_date": price_date,                          # 실제 적용된 거래일(YYYYMMDD)
             "nxt": nxt_price,                                  # NXT 가격(없으면 null)

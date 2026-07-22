@@ -116,7 +116,7 @@
   .ov2{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);align-items:stretch;}
   .ov2>.ov2-cell{min-width:0;}
   .ov2>.ov2-cell+.ov2-cell{border-left:1px solid var(--line);}
-  .ov2 .kbul{border-bottom:0;}
+  .ov2 .kbul{border-bottom:0;padding-right:14px;}  /* 우측 여백 축소 → 텍스트 줄바꿈 최소화 */
   .ov2 .ov-kpi{border-bottom:0;justify-content:center;}
   .invpanel .inv-hd{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
   .price-main{display:flex;align-items:baseline;gap:10px;}
@@ -770,7 +770,12 @@ function autoTrend(p,iv,days){
   if(p.vol_vs_avg!=null){const s=p.vol_vs_avg>0?"+":"",w=p.vol_vs_avg>0?"증가":p.vol_vs_avg<0?"감소":"유사";
     b2=`거래량은 약 ${won(p.volume)}주로 최근 20일 평균 대비 ${s}${p.vol_vs_avg.toFixed(1)}% ${w}.`;}
   else b2=`거래량은 약 ${won(p.volume)}주.`;
-  el.innerHTML=`<li>${b1}</li><li>${b2}</li>`;
+  // 첫 줄: 주가 움직임 — 전일 대비 + 20거래일 전 대비
+  const rt=p.rate||0, rw=rt>0?"상승":rt<0?"하락":"보합";
+  let b0=`금일 당사는 전일 대비 ${rt>0?"+":""}${rt.toFixed(2)}% ${rw}한 ${won(p.current)}원으로 마감.`;
+  if(p.price_chg20!=null){const d=p.price_chg20, w2=d>0?"상승":d<0?"하락":"보합";
+    b0+=` 최근 20거래일 전 대비 ${d>0?"+":""}${d.toFixed(1)}% ${w2}.`;}
+  el.innerHTML=`<li>${b0}</li><li>${b1}</li><li>${b2}</li>`;
 }
 
 /* ── 시장 데이터: 지수·환율·top10 ── */
