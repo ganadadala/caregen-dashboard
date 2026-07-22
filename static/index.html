@@ -337,13 +337,16 @@
   .secbox p{font-size:12.5px;color:var(--ink2);line-height:1.7;margin:3px 0;}
   .edph:empty::before{content:attr(data-ph);color:var(--muted);font-style:italic;font-size:12.5px;pointer-events:none;}
   .hl-src{color:var(--muted);font-size:11px;flex:0 0 auto;}
-  #newsHeadlines a{color:var(--indigo);text-decoration:none;}
-  #newsHeadlines a:hover{text-decoration:underline;}
+  .nhl a{color:var(--indigo);text-decoration:none;}
+  .nhl a:hover{text-decoration:underline;}
   /* 헤드라인 한 줄 말줄임: 제목은 남는 폭에서 …, 매체명은 항상 표시 */
-  #newsHeadlines li{display:flex;align-items:baseline;gap:5px;}
-  #newsHeadlines .hl-title{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .bottom2{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);}
-  .bottom2 .secbox{min-height:150px;}
+  .nhl li{display:flex;align-items:baseline;gap:5px;}
+  .nhl .hl-title{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* 주요 뉴스 헤드라인 3분류(케어젠 / 제약·바이오 / 매크로) */
+  .newsgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  .nsub .nsub-hd{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--brand-ink);margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid var(--line);}
+  .nhl{min-height:120px;}
+  .flow .secbox{min-height:120px;}
   .workbox{min-height:210px;}
   /* 일일 업무 보고 3분류(IR / PR / 공시 및 주식사무) */
   .workgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
@@ -353,7 +356,7 @@
   .ws-list li{position:relative;padding-left:14px;margin:4px 0;}
   .ws-list li::before{content:"•";position:absolute;left:2px;color:var(--brand);}
   .ws-list li:only-child:empty::after{content:"수기 입력";font-style:italic;color:var(--muted);}
-  @media(max-width:760px){.bottom2{grid-template-columns:1fr;} .workgrid{grid-template-columns:1fr;}}
+  @media(max-width:760px){.workgrid{grid-template-columns:1fr;} .newsgrid{grid-template-columns:1fr;}}
 
   @media print{
     @page{size:A4;margin:8mm;}
@@ -545,15 +548,28 @@
     <div class="secbox edph" id="secTrend" data-k="secTrend" data-ph="'뉴스·요약 채우기' 시 자동 초안이 생성됩니다. (수기 편집 가능)" contenteditable="true"></div>
   </section>
 
-  <!-- 주요 뉴스 헤드라인 · 시장 주요 질의 사항 (2열) -->
-  <section class="bottom2">
-    <div class="col news">
-      <div class="blkhd"><span class="dot"></span><h2>주요 뉴스 헤드라인</h2></div>
-      <div class="secbox edph" id="newsHeadlines" data-k="newsHeadlines" data-ph="뉴스·요약 채우기 시 자동 표시됩니다." contenteditable="true"></div>
-    </div>
-    <div class="col inq">
-      <div class="blkhd inq"><span class="dot"></span><h2>시장 주요 질의 사항</h2></div>
-      <div class="secbox"><ul class="ws-list" data-k="qbody" contenteditable="true"><li></li></ul></div>
+  <!-- 시장 주요 질의 사항 (뉴스 ↔ 당사·섹터 동향 사이) -->
+  <section class="flow">
+    <div class="blkhd inq"><span class="dot"></span><h2>시장 주요 질의 사항</h2></div>
+    <div class="secbox"><ul class="ws-list" data-k="qbody" contenteditable="true"><li></li></ul></div>
+  </section>
+
+  <!-- 주요 뉴스 헤드라인 (케어젠 / 제약·바이오 / 매크로 3분류) -->
+  <section class="flow">
+    <div class="blkhd"><span class="dot"></span><h2>주요 뉴스 헤드라인</h2></div>
+    <div class="newsgrid">
+      <div class="nsub">
+        <div class="nsub-hd">케어젠</div>
+        <div class="secbox nhl edph" id="hlCaregen" data-k="hlCaregen" data-ph="뉴스·요약 채우기 시 자동 표시" contenteditable="true"></div>
+      </div>
+      <div class="nsub">
+        <div class="nsub-hd">제약·바이오</div>
+        <div class="secbox nhl edph" id="hlSector" data-k="hlSector" data-ph="뉴스·요약 채우기 시 자동 표시" contenteditable="true"></div>
+      </div>
+      <div class="nsub">
+        <div class="nsub-hd">매크로</div>
+        <div class="secbox nhl edph" id="hlMacro" data-k="hlMacro" data-ph="뉴스·요약 채우기 시 자동 표시" contenteditable="true"></div>
+      </div>
     </div>
   </section>
 
@@ -1006,17 +1022,20 @@ async function loadNews(force=false){
     if(d.summary&&d.summary.length){fillBullets("sumList",d.summary);}
     // 당사 및 섹터 시장 동향 (자동 초안)
     if(d.sec_trend&&d.sec_trend.length){fillBullets("secTrend",d.sec_trend);}
-    // 주요 뉴스 헤드라인 (원본 제목 링크 + 매체) — 한 줄 말줄임, hover 전체 제목
-    if(d.headlines&&d.headlines.length){
-      const el=$("newsHeadlines");
-      if(el)el.innerHTML="<ul>"+d.headlines.map(h=>{
+    // 주요 뉴스 헤드라인 3분류 (원본 제목 링크 + 매체) — 한 줄 말줄임, hover 전체 제목
+    const renderHl=(id,arr)=>{
+      const el=$(id);if(!el||!arr||!arr.length)return;
+      el.innerHTML="<ul>"+arr.map(h=>{
         const title=escH(h.title);
         const inner=h.link
           ?`<a class="hl-title" href="${escH(h.link)}" target="_blank" rel="noopener" title="${title}">${title}</a>`
           :`<span class="hl-title" title="${title}">${title}</span>`;
         return `<li>${inner}${h.source?`<span class="hl-src">(${escH(h.source)})</span>`:""}</li>`;
       }).join("")+"</ul>";
-    }
+    };
+    renderHl("hlCaregen",d.headlines_caregen);
+    renderHl("hlSector",d.headlines_sector);
+    renderHl("hlMacro",d.headlines_macro);
     if(d.window){const w=$("newsWindow");if(w)w.textContent=`뉴스 조회기간 ${d.window.start} ~ ${d.window.end} KST`;}
     saveAll();
     $("status").textContent="뉴스·핵심요약 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
@@ -1030,7 +1049,7 @@ $("loadBtn").addEventListener("click",load);
 $("newsBtn").addEventListener("click",()=>loadNews(false));
 $("newsBtn").addEventListener("contextmenu",(e)=>{e.preventDefault();loadNews(true);});
 // 헤드라인 링크: contenteditable 박스가 클릭을 편집용으로 가로채므로 직접 새 탭 열기
-(function(){const nh=$("newsHeadlines");if(nh)nh.addEventListener("click",(e)=>{const a=e.target.closest("a");if(a&&a.href){e.preventDefault();window.open(a.href,"_blank","noopener");}});})();
+(function(){["hlCaregen","hlSector","hlMacro"].forEach(id=>{const nh=$(id);if(nh)nh.addEventListener("click",(e)=>{const a=e.target.closest("a");if(a&&a.href){e.preventDefault();window.open(a.href,"_blank","noopener");}});});})();
 async function captureCanvas(){
   const el=document.querySelector(".page");
   // 기기와 무관하게 넓은 데스크톱 레이아웃(1160px)으로 캡처 → 종목명 잘림 방지,

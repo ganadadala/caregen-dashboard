@@ -1398,38 +1398,47 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     sector_lines = "\n".join(i["text"] for i in sector_hl) if sector_hl else "(없음)"
     company_lines = "\n".join(i["text"] for i in company_hl) if company_hl else "(없음)"
 
-    # 주요 뉴스 헤드라인(원본) — 경제 메인 매체 우선, 케어젠 > 섹터 > 매크로 순, 최대 5건
+    # 주요 뉴스 헤드라인 — 카테고리별(케어젠 / 제약·바이오 / 매크로) 각 최대 5건.
+    # 경제 메인 매체 우선, 스텁·중복 제거. 형식(제목·매체·링크)은 카테고리 무관 동일.
     def _title_of(item) -> str:
         return item["text"].split("\n")[0].replace("[제목]", "").strip()
 
-    _pool = company_hl + sector_hl + macro_hl
-    headlines = []
-    # 1차: 주요 경제매체만 / 2차: 나머지(양질) 매체로 5건 채움
-    for major_only in (True, False):
-        for it in _pool:
-            if len(headlines) >= 5:
+    def _select_headlines(pool, limit=5, exclude=None):
+        out, exclude = [], (exclude or [])
+        # 1차: 주요 경제매체만 / 2차: 나머지(양질) 매체로 limit건 채움
+        for major_only in (True, False):
+            for it in pool:
+                if len(out) >= limit:
+                    break
+                if _is_major_src(it.get("source", "")) != major_only:
+                    continue
+                title = _title_of(it)
+                if len(title) < 10:      # 'SIGNAL' 등 섹션·브랜드 스텁 제외
+                    continue
+                # '삼성생명(032830)' 등 종목명+코드만 있는 시세 스텁 제외
+                if re.match(r"^[가-힣A-Za-z0-9·&\.\s]+\(\d{5,6}\)\s*$", title):
+                    continue
+                # 공백 없는 단어 하나짜리 짧은 제목 제외(무슨 내용인지 짐작 불가)
+                if " " not in title and len(title) < 16:
+                    continue
+                # 동일 사안 중복 제외(섹션 내부 + 다른 섹션에 이미 뽑힌 것)
+                if any(_titles_similar(title, h["title"]) for h in out):
+                    continue
+                if any(_titles_similar(title, h["title"]) for h in exclude):
+                    continue
+                out.append({
+                    "title": title, "source": it.get("source", ""),
+                    "date": it.get("date", ""), "time": it.get("time", ""),
+                    "link": it.get("link", ""),
+                })
+            if len(out) >= limit:
                 break
-            if _is_major_src(it.get("source", "")) != major_only:
-                continue
-            title = _title_of(it)
-            if len(title) < 10:      # 'SIGNAL' 등 섹션·브랜드 스텁 제외
-                continue
-            # '삼성생명(032830)' 등 종목명+코드만 있는 시세 스텁 제외
-            if re.match(r"^[가-힣A-Za-z0-9·&\.\s]+\(\d{5,6}\)\s*$", title):
-                continue
-            # 공백 없는 단어 하나짜리 짧은 제목 제외(무슨 내용인지 짐작 불가)
-            if " " not in title and len(title) < 16:
-                continue
-            # 동일 사안 중복 제외(제목 유사도) — 매체만 다른 같은 기사 걸러냄
-            if any(_titles_similar(title, h["title"]) for h in headlines):
-                continue
-            headlines.append({
-                "title": title, "source": it.get("source", ""),
-                "date": it.get("date", ""), "time": it.get("time", ""),
-                "link": it.get("link", ""),
-            })
-        if len(headlines) >= 5:
-            break
+        return out
+
+    headlines_caregen = _select_headlines(company_hl, 5)
+    headlines_sector = _select_headlines(sector_hl, 5, exclude=headlines_caregen)
+    headlines_macro = _select_headlines(macro_hl, 5, exclude=headlines_caregen + headlines_sector)
+    headlines = headlines_caregen + headlines_sector + headlines_macro  # 하위호환
 
     # 프론트가 조회로 확보한 시황 수치(선택) — 핵심요약을 수치에 근거해 작성
     _ctx = []
@@ -1498,6 +1507,9 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
             result[key] = ["데이터 없음"]
 
     result["headlines"] = headlines
+    result["headlines_caregen"] = headlines_caregen
+    result["headlines_sector"] = headlines_sector
+    result["headlines_macro"] = headlines_macro
 
     from datetime import datetime, timezone, timedelta
     kst = timezone(timedelta(hours=9))
