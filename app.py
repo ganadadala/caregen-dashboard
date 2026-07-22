@@ -1324,6 +1324,37 @@ def _is_pricemove_only(title: str) -> bool:
     return has_move and not has_sub
 
 
+# 매크로 섹션 검색 키워드(그룹 OR) — 국내·해외 시장 이슈
+MACRO_QUERIES = [
+    "코스피 코스닥 마감 OR 코스피 외국인 기관 수급",
+    "원달러 환율 OR 기준금리 OR 국고채 금리",
+    "자본시장 정책 OR 제약 바이오 정책 OR 증시 업종별 수급",
+    "미국 증시 OR 나스닥 OR S&P500 다우",
+    "나스닥 바이오 OR 미국 헬스케어 업종 OR 바이오 랠리",
+    "미국 국채금리 OR 연준 FOMC OR 파월 금리",
+    "미국 CPI 물가 OR 고용지표 OR 미국 GDP",
+    "달러 인덱스 OR 국제유가 OR WTI 유가",
+    "지정학 리스크 OR 글로벌 위험자산 투자심리",
+]
+
+# 매크로 '핵심 원인·영향' 판단용 단어 — 시장 변동 원인/재료가 담긴 기사만 선별
+_MACRO_SUBSTANTIVE = (
+    "연준", "fomc", "파월", "금리", "국채", "cpi", "물가", "고용", "gdp", "환율",
+    "달러", "유가", "관세", "반도체", "실적", "정책", "수급", "외국인", "기관",
+    "부양", "긴축", "완화", "무역", "지정학", "전쟁", "경기", "침체", "훈풍",
+    "패닉", "매수", "매도", "우려", "기대", "여파", "영향", "전망", "분석", "때문",
+)
+
+
+def _is_bare_index_move(title: str) -> bool:
+    """원인·영향 설명 없이 지수 등락만 나열한 단순 시황 헤드라인이면 True."""
+    t = title.lower()
+    has_move = (any(w in title for w in _PRICEMOVE_WORDS)
+                or "마감" in title or "상승" in title or "하락" in title or "보합" in title)
+    has_cause = any(w in t for w in _MACRO_SUBSTANTIVE)
+    return has_move and not has_cause
+
+
 def _is_good_source(source: str) -> bool:
     sl = source.lower()
     return not any(kw in sl for kw in _BLOCKED_SOURCE_KW)
@@ -1435,12 +1466,8 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
                 break
         return result
 
-    # 매크로: 지수·거시·해외 3개 쿼리 (AND 조건)
-    macro_hl = _collect([
-        "코스피 코스닥",
-        "금리 환율 경기",
-        "미국증시 나스닥",
-    ])
+    # 매크로: 국내·해외 시장 이슈 (지수·수급·환율·금리·연준·지표·유가·지정학)
+    macro_hl = _collect(MACRO_QUERIES, per_query=5, cap=20)
 
     # 섹터: 국내외 제약·바이오 (임상·허가·딜·테마·자금·정책 + 주요 기업)
     sector_hl = _collect(SECTOR_QUERIES, per_query=5, cap=20)
@@ -1474,7 +1501,7 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     def _title_of(item) -> str:
         return item["text"].split("\n")[0].replace("[제목]", "").strip()
 
-    def _select_headlines(pool, limit=5, exclude=None, drop_pricemove=False):
+    def _select_headlines(pool, limit=5, exclude=None, drop_pricemove=False, drop_bare_index=False):
         out, exclude = [], (exclude or [])
         # 1차: 주요 경제매체만 / 2차: 나머지(양질) 매체로 limit건 채움
         for major_only in (True, False):
@@ -1495,6 +1522,9 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
                 # 단순 개별 종목 등락 기사 제외(케어젠·섹터 섹션)
                 if drop_pricemove and _is_pricemove_only(title):
                     continue
+                # 원인·영향 없는 단순 지수 등락 나열 제외(매크로 섹션)
+                if drop_bare_index and _is_bare_index_move(title):
+                    continue
                 # 동일 사안 중복 제외(섹션 내부 + 다른 섹션에 이미 뽑힌 것)
                 if any(_titles_similar(title, h["title"]) for h in out):
                     continue
@@ -1511,7 +1541,8 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
 
     headlines_caregen = _select_headlines(company_hl, 5, drop_pricemove=True)
     headlines_sector = _select_headlines(sector_hl, 5, exclude=headlines_caregen, drop_pricemove=True)
-    headlines_macro = _select_headlines(macro_hl, 5, exclude=headlines_caregen + headlines_sector)
+    headlines_macro = _select_headlines(macro_hl, 5, exclude=headlines_caregen + headlines_sector,
+                                        drop_bare_index=True)
     headlines = headlines_caregen + headlines_sector + headlines_macro  # 하위호환
 
     # 프론트가 조회로 확보한 시황 수치(선택) — 핵심요약을 수치에 근거해 작성
