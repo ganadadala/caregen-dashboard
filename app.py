@@ -1256,15 +1256,48 @@ def _news_window_start() -> "datetime":
 
     return datetime(cursor.year, cursor.month, cursor.day, 16, 0, 0, tzinfo=kst)
 
+
+def _news_window(date_str: str = ""):
+    """뉴스 조회 구간(KST) 반환: (조회일 전일 18:00, 조회일 18:00).
+    예) 조회일 7/22 → 7/21 18:00 ~ 7/22 18:00. date_str 미지정 시 오늘 기준."""
+    from datetime import datetime, timedelta, timezone
+    kst = timezone(timedelta(hours=9))
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else datetime.now(kst).date()
+    except Exception:
+        d = datetime.now(kst).date()
+    end = datetime(d.year, d.month, d.day, 18, 0, 0, tzinfo=kst)   # 조회일 18:00
+    start = end - timedelta(days=1)                                 # 전일 18:00
+    return start, end
+
+
+# 케어젠 섹션 검색 키워드(그룹 OR 쿼리) — 사명·영문명·파이프라인/제품명·사업 키워드
+CAREGEN_QUERIES = [
+    "케어젠 OR Caregen",
+    "케어젠 주가 OR 케어젠 공시 OR 케어젠 계약 OR 케어젠 수출",
+    "케어젠 건강기능식품 OR 케어젠 펩타이드",
+    "코글루타이드 OR Korglutide OR 디글루스테롤 OR Deglusterol OR 마이오키 OR Myoki",
+    "CG-P5 OR CG-Luxidase OR ProGsterol",
+    '"Caregen peptide" OR "Caregen clinical trial" OR "Caregen distribution" OR "Caregen partnership"',
+    "케어젠 FDA NDI OR Caregen NDI OR 케어젠 Novel Food",
+]
+# 케어젠 관련 판정용 키워드(사명·영문명·파이프라인/제품명) — 제목·본문에 하나라도 있으면 포함
+CAREGEN_KEYWORDS = [
+    "케어젠", "caregen", "코글루타이드", "korglutide", "디글루스테롤", "deglusterol",
+    "마이오키", "myoki", "cg-p5", "cg-luxidase", "progsterol",
+]
+
+
 def _is_good_source(source: str) -> bool:
     sl = source.lower()
     return not any(kw in sl for kw in _BLOCKED_SOURCE_KW)
 
 
-def fetch_gnews(query: str, max_items: int = 15, after_dt=None) -> list:
+def fetch_gnews(query: str, max_items: int = 15, after_dt=None, before_dt=None) -> list:
     """Google News RSS에서 헤드라인+스니펫 수집. 실패 시 빈 리스트 반환.
     각 항목: {"text": "[제목]...", "source": "매체명", "date": "YYYY-MM-DD", "pub_dt": datetime}
-    after_dt: timezone-aware datetime — 이 시각 이후 기사만 포함 (pubDate 파싱 실패 시 포함)
+    after_dt/before_dt: timezone-aware datetime — [after_dt, before_dt] 구간 기사만 포함
+    (pubDate 파싱 실패 시 포함)
     """
     from email.utils import parsedate_to_datetime
     from datetime import datetime, timezone, timedelta
@@ -1311,6 +1344,8 @@ def fetch_gnews(query: str, max_items: int = 15, after_dt=None) -> list:
             # 시간 범위 필터: pubDate 파싱 성공했을 때만 적용 (실패 시 포함)
             if after_dt and pub_dt and pub_dt < after_dt:
                 continue
+            if before_dt and pub_dt and pub_dt > before_dt:
+                continue
 
             link = (item.findtext("link") or "").strip()
 
@@ -1329,31 +1364,33 @@ def fetch_gnews(query: str, max_items: int = 15, after_dt=None) -> list:
 
 @app.get("/api/news")
 def news_summary(force: bool = False, px: str = "", rate: str = "",
-                 kospi: str = "", kosdaq: str = "", pharm: str = ""):
+                 kospi: str = "", kosdaq: str = "", pharm: str = "", date: str = ""):
     if not ANTHROPIC_KEY:
         raise HTTPException(
             status_code=500,
             detail="ANTHROPIC_API_KEY가 설정되지 않았습니다. Render 환경변수(또는 .env)에 추가하세요.",
         )
 
-    # 30분 캐시 — 단, 시황 수치(context)가 바뀌면 핵심요약 갱신 위해 재생성
-    _ctx_sig = f"{px}|{rate}|{kospi}|{kosdaq}|{pharm}"
+    # 30분 캐시 — 단, 시황 수치(context)나 조회일이 바뀌면 재생성
+    _ctx_sig = f"{px}|{rate}|{kospi}|{kosdaq}|{pharm}|{date}"
     if (not force and _news_cache["data"]
             and time.time() - _news_cache["ts"] < NEWS_CACHE_TTL
             and _news_cache.get("ctx") == _ctx_sig):
         return JSONResponse(_news_cache["data"])
 
-    # 뉴스 수집 시작 시각 (한국 영업일 기준: 가장 최근 영업일 오후 4시 KST)
-    win_start = _news_window_start()
+    # 뉴스 조회 구간: 조회일 전일 18:00 ~ 조회일 18:00 (KST)
+    win_start, win_end = _news_window(date)
     # Google News after: 파라미터용 날짜 문자열 (시작일 하루 전까지 허용해 경계값 보완)
     after_date = (win_start.date()).strftime("%Y-%m-%d")
 
     def _collect(queries: list, per_query: int = 5, cap: int = 15) -> list:
-        """여러 쿼리를 순서대로 수집, 제목 중복 제거 후 cap개까지 반환."""
+        """여러 쿼리를 순서대로 수집, 제목 중복 제거 후 cap개까지 반환.
+        조회 구간[win_start, win_end] 내 기사만 포함."""
         seen, result = set(), []
         for q in queries:
             full_q = f"{q} after:{after_date}"
-            for item in fetch_gnews(full_q, max_items=per_query, after_dt=win_start):
+            for item in fetch_gnews(full_q, max_items=per_query,
+                                    after_dt=win_start, before_dt=win_end):
                 title = item["text"].split("\n")[0]
                 if title not in seen:
                     seen.add(title)
@@ -1375,22 +1412,23 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
         "신약 의약품 허가",
     ])
 
-    # 케어젠: "케어젠"이 제목/본문에 실제 포함된 기사만 (느슨한 연관 기사 배제)
+    # 케어젠: 사명·영문명·파이프라인/제품명 키워드로 검색, 관련 키워드 포함 기사만
     def _is_caregen(item) -> bool:
-        return "케어젠" in item["text"]
+        t = item["text"].lower()
+        return any(kw in t for kw in CAREGEN_KEYWORDS)
 
-    company_hl = [it for it in _collect(["케어젠", "케어젠 214370"], per_query=10) if _is_caregen(it)]
-    if not company_hl:
+    company_hl = [it for it in _collect(CAREGEN_QUERIES, per_query=8, cap=20) if _is_caregen(it)]
+    if not company_hl:  # 구간 필터로 0건이면 구간 제한 없이 재시도(최신순)
         seen_cg: set = set()
-        for q in ["케어젠", "케어젠 214370"]:
-            for item in fetch_gnews(q, max_items=10):
+        for q in CAREGEN_QUERIES:
+            for item in fetch_gnews(q, max_items=8):
                 if not _is_caregen(item):
                     continue
                 title = item["text"].split("\n")[0]
                 if title not in seen_cg:
                     seen_cg.add(title)
                     company_hl.append(item)
-            if len(company_hl) >= 10:
+            if len(company_hl) >= 12:
                 break
 
     today_str = time.strftime("%Y-%m-%d")
@@ -1511,12 +1549,9 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     result["headlines_sector"] = headlines_sector
     result["headlines_macro"] = headlines_macro
 
-    from datetime import datetime, timezone, timedelta
-    kst = timezone(timedelta(hours=9))
-    now_kst = datetime.now(kst)
     result["window"] = {
         "start": win_start.strftime("%m/%d %H:%M"),
-        "end": now_kst.strftime("%m/%d %H:%M"),
+        "end": win_end.strftime("%m/%d %H:%M"),
     }
 
     _news_cache["ts"] = time.time()

@@ -1016,6 +1016,7 @@ async function loadNews(force=false){
     if(snap.kospi!=null)qs.set("kospi",snap.kospi);
     if(snap.kosdaq!=null)qs.set("kosdaq",snap.kosdaq);
     if(snap.pharm!=null)qs.set("pharm",snap.pharm);
+    if($("date").value)qs.set("date",$("date").value);
     btn.textContent="뉴스 로딩…";
     const r=await fetch("/api/news?"+qs.toString());
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
