@@ -1180,14 +1180,14 @@ def _naver_fx_html(url: str) -> str:
 
 
 def _naver_fx_parse(html: str) -> dict:
-    """일별 시세 표에서 각 행 첫 환율값(=매매기준율) 수집 → 최신값 + 전일대비."""
+    """일별 시세 표: 각 날짜(YYYY.MM.DD) 뒤 첫 환율값(=매매기준율) 수집(최신순).
+    최상단=오늘 매매기준율, 전일대비=윗행과의 차."""
     rates = []
-    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
-        if not re.search(r"\d{2,4}[.\-/]\d{2}[.\-/]?\d{0,2}", row):  # 날짜 있는 행
-            continue
-        m = re.search(r"([12],\d{3}\.\d{2})", row)                   # 첫 환율값 = 매매기준율
-        if m:
-            rates.append(float(m.group(1).replace(",", "")))
+    for dm in re.finditer(r"20\d{2}\.\d{2}\.\d{2}", html):        # 일별표 날짜 = 행 시작
+        seg = html[dm.end():dm.end() + 400]
+        rm = re.search(r"([12],\d{3}\.\d{2})", seg)               # 날짜 바로 뒤 값 = 매매기준율
+        if rm:
+            rates.append(float(rm.group(1).replace(",", "")))
     if not rates:
         return None
     diff = round(rates[0] - rates[1], 2) if len(rates) >= 2 else None
