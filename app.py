@@ -1926,6 +1926,29 @@ def fx_debug():
         out["jsp_do_refs"] = sorted(set(re.findall(r"[\w/]+\.do", h2)))[:20]
     except Exception as e:
         out["jsp_error"] = str(e)
+    # 페이지 JS를 읽어 실제 환율 표를 채우는 AJAX 호출(endpoint·파라미터·requestTarget) 추출
+    try:
+        rj = requests.get(
+            "https://image.kebhana.com/pbk/resource/js/foreign/rate/cms/wpfxd651_01i.js",
+            headers={"User-Agent": "Mozilla/5.0"}, timeout=8,
+        )
+        js = rj.text
+        out["js_status"] = rj.status_code
+        out["js_len"] = len(js)
+        snips = []
+        for kw in ("requestTarget", "inqKindCd", "pbldDvCd", "searchList", "search(",
+                   "ajaxForm", "url", "action"):
+            for mm in re.finditer(re.escape(kw), js):
+                s = max(0, mm.start() - 70)
+                snips.append(re.sub(r"\s+", " ", js[s:mm.start() + 90]))
+        # 중복 제거·상위 20개
+        seen, uniq = set(), []
+        for x in snips:
+            if x not in seen:
+                seen.add(x); uniq.append(x)
+        out["js_snippets"] = uniq[:20]
+    except Exception as e:
+        out["js_error"] = str(e)
     out["hana_parsed"] = _fetch_hana_usdkrw()
     out["naver_parsed"] = _fetch_naver_usdkrw()
     out["final_fetch_usdkrw"] = fetch_usdkrw()
