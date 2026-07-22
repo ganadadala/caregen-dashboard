@@ -518,20 +518,13 @@ def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
             "krx_rank": m["krx_rank"]}
 
 
-def _krx_all_rows(basDd: str = "") -> list:
-    """KRX 공식 OpenAPI로 유가증권+코스닥 전 종목 일별매매정보(시총 포함) 조회.
-    두 엔드포인트를 병렬 호출, 휴장/장중 미확정 시 최대 4일 거슬러 탐색. 실패 시 []."""
+def _krx_rows_for_date(d: str) -> list:
+    """단일 날짜(YYYYMMDD) 유가증권+코스닥 전 종목(시총 포함) 병렬 조회. 실패 시 []."""
     if not KRX_API_KEY:
         return []
-    from datetime import datetime, timedelta, timezone
     from concurrent.futures import ThreadPoolExecutor
-    kst = timezone(timedelta(hours=9))
-    try:
-        base = datetime.strptime(basDd, "%Y%m%d") if basDd else datetime.now(kst).replace(tzinfo=None)
-    except Exception:
-        base = datetime.now(kst).replace(tzinfo=None)
 
-    def _one(path, d):
+    def _one(path):
         try:
             r = requests.get(f"{KRX_BASE}/{path}", params={"basDd": d},
                              headers={"AUTH_KEY": KRX_API_KEY}, timeout=8)
@@ -542,49 +535,79 @@ def _krx_all_rows(basDd: str = "") -> list:
             pass
         return []
 
-    for back in range(0, 4):    # 오늘 포함 최대 4일 탐색
-        d = (base - timedelta(days=back)).strftime("%Y%m%d")
-        with ThreadPoolExecutor(max_workers=2) as ex:
-            a, b = list(ex.map(lambda p: _one(p, d), ("stk_bydd_trd", "ksq_bydd_trd")))
-        rows = (a or []) + (b or [])
-        if len(rows) > 100:      # 정상 응답(전 종목)
-            return rows
-    return []
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        a, b = list(ex.map(_one, ("stk_bydd_trd", "ksq_bydd_trd")))
+    return (a or []) + (b or [])
+
+
+def _krx_latest_rows(base_dt, days: int = 4):
+    """base_dt부터 거슬러 데이터 있는 최신 날짜의 rows + 그 날짜(YYYYMMDD) 반환."""
+    from datetime import timedelta
+    for back in range(days):
+        d = (base_dt - timedelta(days=back)).strftime("%Y%m%d")
+        rows = _krx_rows_for_date(d)
+        if len(rows) > 100:
+            return rows, d
+    return [], ""
+
+
+def _krx_all_rows(basDd: str = "") -> list:
+    """디버그/호환용 — 최신 가용일 전 종목 rows만 반환."""
+    from datetime import datetime, timedelta, timezone
+    kst = timezone(timedelta(hours=9))
+    try:
+        base = datetime.strptime(basDd, "%Y%m%d") if basDd else datetime.now(kst).replace(tzinfo=None)
+    except Exception:
+        base = datetime.now(kst).replace(tzinfo=None)
+    rows, _ = _krx_latest_rows(base)
+    return rows
+
+
+def _krx_rank_in(rows: list, target: str):
+    """전 종목 rows에서 시총 내림차순 정렬 후 target 절대순위."""
+    items = []
+    for r in rows:
+        cap = _krx_cap(r)
+        if cap > 0:
+            items.append((_krx_code(r).lstrip("0"), cap))
+    for i, x in enumerate(sorted(items, key=lambda t: t[1], reverse=True), 1):
+        if x[0] == target:
+            return i
+    return None
 
 
 _krx_rank_cache: dict = {}
 
 
 def fetch_krx_overall_rank(code: str, basDd: str = "") -> dict:
-    """케어젠의 KRX 전체(KOSPI+KOSDAQ 통합) 시총 순위 + 전일대비 증감. 5분 캐시.
-    (전 종목 시총 정렬 → 절대순위. 전일 시총=현재÷(1+등락률)로 재정렬해 증감 산출.)"""
+    """케어젠의 KRX 전체(KOSPI+KOSDAQ 통합) 시총 순위 + 전일대비. 30분 캐시.
+    당일·전 거래일 각각 실제 전 종목 시총으로 절대순위를 계산해 정확한 증감 산출."""
+    from datetime import datetime, timedelta, timezone
     target = code.lstrip("0")
     ck = f"{target}:{basDd}"
     ent = _krx_rank_cache.get(ck)
-    if ent and time.time() - ent[0] < 1800:   # 30분 캐시(순위는 완만히 변동)
+    if ent and time.time() - ent[0] < 1800:
         return ent[1]
     out = {"krx_rank": None, "krx_delta": None, "krx_rows": 0}
-    rows = _krx_all_rows(basDd)
+    kst = timezone(timedelta(hours=9))
+    try:
+        base = datetime.strptime(basDd, "%Y%m%d") if basDd else datetime.now(kst).replace(tzinfo=None)
+    except Exception:
+        base = datetime.now(kst).replace(tzinfo=None)
+
+    rows, dused = _krx_latest_rows(base)
     out["krx_rows"] = len(rows)
     if rows:
-        items = []
-        for r in rows:
-            cap = _krx_cap(r)
-            if cap <= 0:
-                continue
-            chg = _krx_chg_pct(r)
-            prev = round(cap / (1 + chg / 100)) if chg > -100 else cap
-            items.append((_krx_code(r).lstrip("0"), cap, prev))
-
-        def _pos(keyidx):
-            for i, x in enumerate(sorted(items, key=lambda t: t[keyidx], reverse=True), 1):
-                if x[0] == target:
-                    return i
-            return None
-        rk = _pos(1)
-        prevrk = _pos(2)
+        rk = _krx_rank_in(rows, target)
         out["krx_rank"] = rk
-        out["krx_delta"] = (prevrk - rk) if (rk and prevrk) else None
+        # 전 거래일: dused 하루 전부터 데이터 있는 날 탐색 → 실제 전일 순위와 비교
+        try:
+            prev_base = datetime.strptime(dused, "%Y%m%d") - timedelta(days=1)
+            prows, _ = _krx_latest_rows(prev_base)
+            prevrk = _krx_rank_in(prows, target) if prows else None
+            out["krx_delta"] = (prevrk - rk) if (rk and prevrk) else None
+        except Exception:
+            pass
         if rk:
             _krx_rank_cache[ck] = (time.time(), out)
     return out
