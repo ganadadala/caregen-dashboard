@@ -1163,9 +1163,9 @@ def _fetch_naver_frgn_ratio_series(code: str, pages: int = 3) -> list:
     return out
 
 
-def _fetch_hana_usdkrw() -> dict:
-    """하나은행 현재환율(외환>환율/외화예금 금리>현재환율)에서 USD 매매기준율 조회.
-    영업시간 중 수십 분 단위 갱신 → 실시간에 가까움. 실패 시 None."""
+def _hana_fx_html(pbld_dv_cd: str = "3", request_target: str = "searchContentDiv") -> str:
+    """하나은행 현재환율 데이터(.do) 요청 → EUC-KR 디코딩 HTML. 실패 시 ''.
+    오늘자 고시환율은 pbldDvCd='3'(과거일은 '0'), inqKindCd='1'(고시환율)."""
     from datetime import datetime, timedelta, timezone
     kst = timezone(timedelta(hours=9))
     today = datetime.now(kst).strftime("%Y%m%d")
@@ -1174,28 +1174,40 @@ def _fetch_hana_usdkrw() -> dict:
             "https://www.kebhana.com/cms/rate/wpfxd651_01i.do",
             data={
                 "ajax": "true", "curCd": "", "tmpInqStrDt": today,
-                "pbldDvCd": "", "pbldSqn": "", "inqStrDt": today,
-                "inqKindCd": "1", "requestTarget": "searchContentDiv",
+                "pbldDvCd": pbld_dv_cd, "pbldSqn": "", "inqStrDt": today,
+                "inqKindCd": "1", "requestTarget": request_target,
             },
             headers={"User-Agent": "Mozilla/5.0",
                      "Referer": "https://www.kebhana.com/cms/rate/index.do",
                      "X-Requested-With": "XMLHttpRequest"},
             timeout=8,
         )
-        if r.status_code != 200:
-            return None
-        html = r.content.decode("euc-kr", "ignore")           # 하나은행 페이지는 EUC-KR
-        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
-            if "미국" not in row and "USD" not in row:
-                continue
-            nums = [float(x.replace(",", "")) for x in re.findall(r"[\d,]+\.\d+", row)]
-            rates = sorted(n for n in nums if 500 < n < 5000)   # 환율대만(선택 드롭다운 행은 숫자 없어 스킵)
-            if rates:
-                mid = rates[len(rates) // 2]                    # 중앙값 ≈ 매매기준율
-                return {"rate": round(mid, 2), "diff": None}
-        return None
+        return r.content.decode("euc-kr", "ignore") if r.status_code == 200 else ""
     except Exception:
-        return None
+        return ""
+
+
+def _hana_parse_usd(html: str) -> dict:
+    """하나은행 환율 HTML에서 USD(미국) 행의 매매기준율(≈환율대 중앙값) 추출."""
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+        if "미국" not in row and "USD" not in row:
+            continue
+        nums = [float(x.replace(",", "")) for x in re.findall(r"[\d,]+\.\d+", row)]
+        rates = sorted(n for n in nums if 500 < n < 5000)
+        if rates:
+            return {"rate": round(rates[len(rates) // 2], 2), "diff": None}
+    return None
+
+
+def _fetch_hana_usdkrw() -> dict:
+    """하나은행 현재환율에서 USD 매매기준율. pbldDvCd='3' + requestTarget 조합 순차 시도."""
+    for pbld, tgt in (("3", "searchContentDiv"), ("3", "searchList"), ("3", "")):
+        html = _hana_fx_html(pbld, tgt)
+        if html:
+            got = _hana_parse_usd(html)
+            if got:
+                return got
+    return None
 
 
 def fetch_usdkrw() -> dict:
@@ -1884,32 +1896,19 @@ def fx_debug():
     kst = timezone(timedelta(hours=9))
     today = datetime.now(kst).strftime("%Y%m%d")
     out = {"today_kst": today}
-    try:
-        r = requests.post(
-            "https://www.kebhana.com/cms/rate/wpfxd651_01i.do",
-            data={"ajax": "true", "curCd": "", "tmpInqStrDt": today, "pbldDvCd": "",
-                  "pbldSqn": "", "inqStrDt": today, "inqKindCd": "1",
-                  "requestTarget": "searchContentDiv"},
-            headers={"User-Agent": "Mozilla/5.0",
-                     "Referer": "https://www.kebhana.com/cms/rate/index.do",
-                     "X-Requested-With": "XMLHttpRequest"},
-            timeout=8,
-        )
-        html = r.content.decode("euc-kr", "ignore")
-        out["hana_status"] = r.status_code
-        out["hana_len"] = len(html)
-        out["hana_is_json"] = html.lstrip()[:1] in ("{", "[")
-        out["hana_has_maemae"] = "매매기준율" in html
-        out["hana_tr_count"] = len(re.findall(r"<tr[^>]*>", html))
-        # 환율대(4자리.소수) 숫자가 처음 나오는 위치 주변 원문 발췌
+    # pbldDvCd/requestTarget 조합별로 매매기준율 표가 나오는지 진단
+    combos = {}
+    for pbld, tgt in (("3", "searchContentDiv"), ("3", "searchList"), ("3", ""),
+                      ("0", "searchContentDiv")):
+        html = _hana_fx_html(pbld, tgt)
+        info = {"len": len(html), "has_maemae": "매매기준율" in html,
+                "has_rate": bool(re.search(r"[12],\d{3}\.\d{2}", html)),
+                "parsed": _hana_parse_usd(html) if html else None}
         m = re.search(r"[12],\d{3}\.\d{2}", html)
         if m:
-            s = max(0, m.start() - 250)
-            out["hana_around_rate"] = re.sub(r"\s+", " ", html[s:m.start() + 250])
-        else:
-            out["hana_sample"] = re.sub(r"\s+", " ", html[:1200])
-    except Exception as e:
-        out["hana_error"] = str(e)
+            info["around_rate"] = re.sub(r"\s+", " ", html[max(0, m.start() - 200):m.start() + 200])
+        combos[f"pbld={pbld},tgt={tgt or 'none'}"] = info
+    out["hana_combos"] = combos
     # 사용자가 지목한 현재환율 표시 페이지에 데이터가 서버렌더로 들어있는지 확인
     try:
         r2 = requests.get(
