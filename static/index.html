@@ -977,7 +977,16 @@ async function load(){
         el.className=("meta "+(d>0?"up":d<0?"dn":"")).trim();
       }
     }
-    // KOSPI 통합 순위는 KIS 미제공(케어젠 ~140위 > 랭킹 상위30) → rk2 수기 입력 유지
+    // KRX 통합(KOSPI+KOSDAQ 전종목) 시총 순위 + 전일대비 — KRX OpenAPI(있을 때만 자동, 없으면 수기 유지)
+    if(p.krx_rank){
+      const el=document.querySelector('[data-k="rk2"]');
+      if(el){
+        const d=p.krx_delta;
+        const sym=(d==null)?"":(d>0?` (▲${d})`:d<0?` (▼${-d})`:" (-)");
+        el.textContent=`KOSPI 통합 시총 순위 ${p.krx_rank}위${sym}`;
+        el.className=("meta "+(d>0?"up":d<0?"dn":"")).trim();
+      }
+    }
     if(p.price_date&&p.price_date.length===8){const pd=p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8);$("closeBadge").textContent=pd+" 종가 기준";}
     else{$("closeBadge").textContent="";}
     const chip=$("chip");const sign=p.rate>0?"▲":p.rate<0?"▼":"―";

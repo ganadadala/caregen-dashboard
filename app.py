@@ -518,6 +518,71 @@ def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
             "krx_rank": m["krx_rank"]}
 
 
+def _krx_all_rows(basDd: str = "") -> list:
+    """KRX 공식 OpenAPI로 유가증권+코스닥 전 종목 일별매매정보(시총 포함) 조회.
+    basDd 미지정/휴장 시 최근 영업일까지 최대 7일 거슬러 탐색. 실패 시 []."""
+    if not KRX_API_KEY:
+        return []
+    from datetime import datetime, timedelta, timezone
+    kst = timezone(timedelta(hours=9))
+    try:
+        base = datetime.strptime(basDd, "%Y%m%d") if basDd else datetime.now(kst).replace(tzinfo=None)
+    except Exception:
+        base = datetime.now(kst).replace(tzinfo=None)
+    for back in range(0, 7):
+        d = (base - timedelta(days=back)).strftime("%Y%m%d")
+        rows = []
+        for path in ("stk_bydd_trd", "ksq_bydd_trd"):   # 유가증권 / 코스닥 전종목
+            try:
+                r = requests.get(f"{KRX_BASE}/{path}", params={"basDd": d},
+                                 headers={"AUTH_KEY": KRX_API_KEY}, timeout=12)
+                if r.status_code == 200:
+                    rows += (r.json().get("OutBlock_1") or r.json().get("output") or [])
+            except Exception:
+                pass
+        if len(rows) > 100:      # 정상 응답(전 종목)
+            return rows
+    return []
+
+
+_krx_rank_cache: dict = {}
+
+
+def fetch_krx_overall_rank(code: str, basDd: str = "") -> dict:
+    """케어젠의 KRX 전체(KOSPI+KOSDAQ 통합) 시총 순위 + 전일대비 증감. 5분 캐시.
+    (전 종목 시총 정렬 → 절대순위. 전일 시총=현재÷(1+등락률)로 재정렬해 증감 산출.)"""
+    target = code.lstrip("0")
+    ck = f"{target}:{basDd}"
+    ent = _krx_rank_cache.get(ck)
+    if ent and time.time() - ent[0] < 300:
+        return ent[1]
+    out = {"krx_rank": None, "krx_delta": None, "krx_rows": 0}
+    rows = _krx_all_rows(basDd)
+    out["krx_rows"] = len(rows)
+    if rows:
+        items = []
+        for r in rows:
+            cap = _krx_cap(r)
+            if cap <= 0:
+                continue
+            chg = _krx_chg_pct(r)
+            prev = round(cap / (1 + chg / 100)) if chg > -100 else cap
+            items.append((_krx_code(r).lstrip("0"), cap, prev))
+
+        def _pos(keyidx):
+            for i, x in enumerate(sorted(items, key=lambda t: t[keyidx], reverse=True), 1):
+                if x[0] == target:
+                    return i
+            return None
+        rk = _pos(1)
+        prevrk = _pos(2)
+        out["krx_rank"] = rk
+        out["krx_delta"] = (prevrk - rk) if (rk and prevrk) else None
+        if rk:
+            _krx_rank_cache[ck] = (time.time(), out)
+    return out
+
+
 def fetch_day_ohlc(code: str, end_ymd: str, div: str = "J") -> list:
     """선택 날짜(end_ymd, YYYYMMDD)까지의 일별 OHLC를 가져온다(날짜 오름차순).
     마지막 행 = 선택일(또는 그 이전 최근 거래일), 그 앞 행 = 전일.
@@ -694,6 +759,15 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     kosdaq_rank = _ranks.get("kosdaq_rank")
     kosdaq_delta = _ranks.get("kosdaq_delta")
     krx_rank = _ranks.get("krx_rank")
+    # KRX 통합(KOSPI+KOSDAQ 전종목) 시총 순위 + 전일대비 — KRX 공식 OpenAPI
+    krx_delta = None
+    try:
+        _kr = fetch_krx_overall_rank(code, basDd)
+        if _kr.get("krx_rank"):
+            krx_rank = _kr["krx_rank"]
+            krx_delta = _kr.get("krx_delta")
+    except Exception:
+        pass
 
     # 20거래일 통계(평균 거래량·평균 거래대금·20거래일 전 종가)를 한 번에 산출
     vol_avg20 = vol_vs_avg = None       # 거래량 20일 평균 대비(%)
@@ -776,6 +850,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위(없으면 null)
             "kosdaq_delta": kosdaq_delta,                       # 전 거래일 대비 순위 증감
             "krx_rank": krx_rank,                               # KRX 통합 시총 순위(없으면 null)
+            "krx_delta": krx_delta,                             # KRX 통합 순위 전일대비 증감(없으면 null)
         },
         "investor": {
             "foreign_qty": _to_int(investor.get("frgn_ntby_qty")),
@@ -1908,6 +1983,20 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     _news_cache["ctx"] = _ctx_sig
     return JSONResponse(result)
 
+
+
+@app.get("/api/krx-rank-debug")
+def krx_rank_debug(code: str = DEFAULT_CODE, date: str = ""):
+    """KRX 통합 순위 진단 — KRX OpenAPI 응답 여부(행수)·필드·계산결과."""
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    basDd = date.replace("-", "") if (date and date < today) else ""
+    rows = _krx_all_rows(basDd)
+    out = {"code": code, "krx_api_key_set": bool(KRX_API_KEY), "krx_rows": len(rows)}
+    if rows:
+        out["sample_row_keys"] = list(rows[0].keys())[:25]
+    out.update(fetch_krx_overall_rank(code, basDd))
+    return out
 
 
 @app.get("/api/health")
