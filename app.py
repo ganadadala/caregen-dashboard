@@ -711,20 +711,33 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     except Exception:
         pass
 
-    # 외국인 지분율 N거래일 대비(%p) — 외국인 순매매 누적 ÷ 추정 상장주식수
-    # (KIS가 일자별 보유비율 이력을 안 줘서 순매매로 역산; 브라우저 무관하게 서버 계산)
+    # 외국인 지분율 20거래일 대비(%p) —
+    # 1순위: 네이버 일자별 보유율에서 D-20 실측치와 현재값(KIS) 비교(정확).
+    # 폴백: 순매매 누적 ÷ 추정 상장주식수(KIS 일자별 보유율 미제공 시 추정).
     frgn_ratio_delta = None
     frgn_delta_days = 0
     try:
-        if not use_daily and price > 0 and inv_all:
-            mcap_eok = _to_int(quote.get("hts_avls"))     # 시가총액(억원)
-            shares = (mcap_eok * 1e8) / price if mcap_eok > 0 else 0  # 추정 상장주식수
-            if shares > 0:
-                net = sum(_to_int(r.get("foreign_qty")) for r in inv_all)  # N일 외국인 순매매 합
-                frgn_ratio_delta = round(net / shares * 100, 2)
-                frgn_delta_days = len(inv_all)
+        cur_r = _to_float(str(quote.get("hts_frgn_ehrt", "")).replace(",", ""))
+        series = _fetch_naver_frgn_ratio_series(code)      # 최신순 [(YYYYMMDD, ratio)]
+        if cur_r and series:
+            target = price_date or datetime.now().strftime("%Y%m%d")
+            base_i = next((i for i, (d, _) in enumerate(series) if d <= target), None)
+            if base_i is not None and base_i + 20 < len(series):
+                frgn_ratio_delta = round(cur_r - series[base_i + 20][1], 2)
+                frgn_delta_days = 20
     except Exception:
         pass
+    if frgn_ratio_delta is None:  # 폴백: 순매매 역산 추정
+        try:
+            if not use_daily and price > 0 and inv_all:
+                mcap_eok = _to_int(quote.get("hts_avls"))     # 시가총액(억원)
+                shares = (mcap_eok * 1e8) / price if mcap_eok > 0 else 0  # 추정 상장주식수
+                if shares > 0:
+                    net = sum(_to_int(r.get("foreign_qty")) for r in inv_all)  # N일 외국인 순매매 합
+                    frgn_ratio_delta = round(net / shares * 100, 2)
+                    frgn_delta_days = len(inv_all)
+        except Exception:
+            pass
 
     result = {
         "code": code,
@@ -1104,6 +1117,42 @@ def _fetch_naver_usdkrw() -> dict:
         return {"rate": round(last, 2), "diff": diff}
     except Exception:
         return None
+
+
+def _fetch_naver_frgn_ratio_series(code: str, pages: int = 3) -> list:
+    """네이버 종목 외국인 페이지에서 일자별 외국인 보유율(%) 리스트(최신순) 반환.
+    각 항목: (date 'YYYYMMDD', ratio float). 실패 시 []."""
+    out = []
+    try:
+        for p in range(1, pages + 1):
+            r = requests.get(
+                f"https://finance.naver.com/item/frgn.naver?code={code}&page={p}",
+                headers={"User-Agent": "Mozilla/5.0",
+                         "Referer": f"https://finance.naver.com/item/frgn.naver?code={code}"},
+                timeout=8,
+            )
+            if r.status_code != 200:
+                break
+            html = r.content.decode("euc-kr", "ignore")
+            got = 0
+            for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+                dm = re.search(r"(\d{4})\.(\d{2})\.(\d{2})", row)
+                if not dm:
+                    continue
+                pcts = re.findall(r"(-?[\d.]+)\s*%", row)   # 마지막 % = 외국인 보유율
+                if not pcts:
+                    continue
+                try:
+                    ratio = float(pcts[-1])
+                except ValueError:
+                    continue
+                out.append((dm.group(1) + dm.group(2) + dm.group(3), ratio))
+                got += 1
+            if got == 0 or len(out) >= 30:   # 30행이면 D-20 계산에 충분 → 조기 종료
+                break
+    except Exception:
+        return []
+    return out
 
 
 def fetch_usdkrw() -> dict:
