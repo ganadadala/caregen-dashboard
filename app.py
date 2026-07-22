@@ -1898,17 +1898,16 @@ def fx_debug():
         html = r.content.decode("euc-kr", "ignore")
         out["hana_status"] = r.status_code
         out["hana_len"] = len(html)
-        # 환율 숫자가 있는 USD 행(실제 시세 행) + 그 숫자들
-        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
-            if "미국" not in row and "USD" not in row:
-                continue
-            nums = [float(x.replace(",", "")) for x in re.findall(r"[\d,]+\.\d+", row)]
-            rates = [n for n in nums if 500 < n < 5000]
-            if rates:
-                out["hana_usd_row"] = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", row)).strip()[:500]
-                out["hana_usd_nums"] = nums
-                out["hana_usd_rates"] = sorted(rates)
-                break
+        out["hana_is_json"] = html.lstrip()[:1] in ("{", "[")
+        out["hana_has_maemae"] = "매매기준율" in html
+        out["hana_tr_count"] = len(re.findall(r"<tr[^>]*>", html))
+        # 환율대(4자리.소수) 숫자가 처음 나오는 위치 주변 원문 발췌
+        m = re.search(r"[12],\d{3}\.\d{2}", html)
+        if m:
+            s = max(0, m.start() - 250)
+            out["hana_around_rate"] = re.sub(r"\s+", " ", html[s:m.start() + 250])
+        else:
+            out["hana_sample"] = re.sub(r"\s+", " ", html[:1200])
     except Exception as e:
         out["hana_error"] = str(e)
     out["hana_parsed"] = _fetch_hana_usdkrw()
