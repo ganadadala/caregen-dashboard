@@ -287,7 +287,7 @@
   .ov-kpi .kpi-two .stat:last-child{border-right:0;}
   /* ov-kpi 3분할(거래량+거래대금+외국인지분율) — 반칸 폭이라 폰트·여백 축소 */
   .ov-kpi .kpi-three{display:grid;grid-template-columns:1fr 1fr 1fr;}
-  .ov-kpi .kpi-three .stat{border-right:1px solid var(--line);padding:12px 13px;min-width:0;}
+  .ov-kpi .kpi-three .stat{border-right:1px solid var(--line);border-bottom:0;padding:12px 13px;min-width:0;}
   .ov-kpi .kpi-three .stat:last-child{border-right:0;}
   .ov-kpi .kpi-three .stat .big{font-size:20px;white-space:nowrap;}
   .ov-kpi .kpi-three .stat .meta{font-size:10.5px;}
@@ -345,7 +345,15 @@
   .bottom2{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);}
   .bottom2 .secbox{min-height:150px;}
   .workbox{min-height:210px;}
-  @media(max-width:760px){.bottom2{grid-template-columns:1fr;}}
+  /* 일일 업무 보고 3분류(IR / PR / 공시 및 주식사무) */
+  .workgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  .wsub{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px 14px;min-height:150px;}
+  .wsub-hd{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--brand-ink);margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid var(--line);}
+  .ws-list{list-style:none;margin:0;padding:0;font-size:12.5px;color:var(--ink2);line-height:1.7;}
+  .ws-list li{position:relative;padding-left:14px;margin:4px 0;}
+  .ws-list li::before{content:"•";position:absolute;left:2px;color:var(--brand);}
+  .ws-list li:only-child:empty::after{content:"수기 입력";font-style:italic;color:var(--muted);}
+  @media(max-width:760px){.bottom2{grid-template-columns:1fr;} .workgrid{grid-template-columns:1fr;}}
 
   @media print{
     @page{size:A4;margin:8mm;}
@@ -475,7 +483,6 @@
           <div class="eyebrow">외국인 지분율</div>
           <div class="big"><span id="frgnRatio">—</span></div>
           <span class="meta" data-k="frgnChg" contenteditable="true">최근 거래일 대비 —</span>
-          <span class="sub2">'26.5월말 <span data-k="frgnPrev" contenteditable="true">3.92%</span></span>
         </div>
       </div>
     </div>
@@ -516,7 +523,20 @@
   <!-- 일일 업무 보고 -->
   <section class="work">
     <div class="blkhd"><span class="dot"></span><h2>일일 업무 보고</h2></div>
-    <div class="secbox workbox edph" data-k="workReport" data-ph="수기 입력" contenteditable="true"></div>
+    <div class="workgrid">
+      <div class="wsub">
+        <div class="wsub-hd">IR</div>
+        <ul class="ws-list" data-k="workIR" contenteditable="true"><li></li></ul>
+      </div>
+      <div class="wsub">
+        <div class="wsub-hd">PR</div>
+        <ul class="ws-list" data-k="workPR" contenteditable="true"><li></li></ul>
+      </div>
+      <div class="wsub">
+        <div class="wsub-hd">공시 및 주식사무</div>
+        <ul class="ws-list" data-k="workDisc" contenteditable="true"><li></li></ul>
+      </div>
+    </div>
   </section>
 
   <!-- 당사 및 섹터 시장 동향 -->
