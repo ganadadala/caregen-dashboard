@@ -1184,12 +1184,12 @@ def _fetch_hana_usdkrw() -> dict:
         )
         if r.status_code != 200:
             return None
-        html = r.text
+        html = r.content.decode("euc-kr", "ignore")           # 하나은행 페이지는 EUC-KR
         for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
             if "미국" not in row and "USD" not in row:
                 continue
             nums = [float(x.replace(",", "")) for x in re.findall(r"[\d,]+\.\d+", row)]
-            rates = sorted(n for n in nums if 500 < n < 5000)   # 환율대만
+            rates = sorted(n for n in nums if 500 < n < 5000)   # 환율대만(선택 드롭다운 행은 숫자 없어 스킵)
             if rates:
                 mid = rates[len(rates) // 2]                    # 중앙값 ≈ 매매기준율
                 return {"rate": round(mid, 2), "diff": None}
@@ -1895,14 +1895,20 @@ def fx_debug():
                      "X-Requested-With": "XMLHttpRequest"},
             timeout=8,
         )
+        html = r.content.decode("euc-kr", "ignore")
         out["hana_status"] = r.status_code
-        out["hana_len"] = len(r.text)
-        usd_row = ""
-        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", r.text, re.S):
-            if "미국" in row or "USD" in row:
-                usd_row = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", row)).strip()
+        out["hana_len"] = len(html)
+        # 환율 숫자가 있는 USD 행(실제 시세 행) + 그 숫자들
+        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+            if "미국" not in row and "USD" not in row:
+                continue
+            nums = [float(x.replace(",", "")) for x in re.findall(r"[\d,]+\.\d+", row)]
+            rates = [n for n in nums if 500 < n < 5000]
+            if rates:
+                out["hana_usd_row"] = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", row)).strip()[:500]
+                out["hana_usd_nums"] = nums
+                out["hana_usd_rates"] = sorted(rates)
                 break
-        out["hana_usd_row"] = usd_row[:500]
     except Exception as e:
         out["hana_error"] = str(e)
     out["hana_parsed"] = _fetch_hana_usdkrw()
