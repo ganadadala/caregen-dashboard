@@ -453,7 +453,7 @@
       <div class="ixrow"><span class="nm">KOSDAQ</span><span class="rhs"><span class="vv" id="ixKosdaqV">—</span><span class="rt flat" id="ixKosdaqR"></span></span></div>
       <div class="ixrow"><span class="nm">KOSPI</span><span class="rhs"><span class="vv" id="ixKospiV">—</span><span class="rt flat" id="ixKospiR"></span></span></div>
       <div class="ixrow"><span class="nm">KOSDAQ 제약</span><span class="rhs"><span class="vv" id="ixPharmV">—</span><span class="rt flat" id="ixPharmR"></span></span></div>
-      <div class="ixrow"><span class="nm">USD 환율</span><span class="rhs"><span class="vv" id="ixFxV" contenteditable="true">—</span><span class="rt flat" id="ixFxR"></span></span></div>
+      <div class="ixrow"><span class="nm">USD 환율</span><span class="rhs"><span class="vv" id="ixFxV">—</span><span class="rt flat" id="ixFxR"></span></span></div>
     </div>
   </header>
 
@@ -588,7 +588,8 @@ const won=(n)=>(n||n===0)?Number(n).toLocaleString("ko-KR"):"—";
 function keyName(){return "cg2:"+$("code").value+":"+$("date").value;}
 function eds(){return [...document.querySelectorAll("[data-k]")];}
 // frgnRatio는 KIS 현재값으로 매 조회 갱신 → localStorage 저장/복원 대상에서 제외(저장값이 최신값을 덮어쓰는 것 방지)
-function autos(){return ["closeKrx","closeNxt","mcap","usDow","usNas","usSp","ixFxV"].map(id=>$(id)).filter(Boolean);}
+// ixFxV(USD환율)는 매 조회 시 자동 갱신 → 저장/복원 제외(저장값이 최신값 덮어쓰기 방지)
+function autos(){return ["closeKrx","closeNxt","mcap","usDow","usNas","usSp"].map(id=>$(id)).filter(Boolean);}
 function saveAll(){const o={};eds().forEach(el=>o[el.dataset.k]=el.innerHTML);autos().forEach(el=>o["#"+el.id]=el.innerHTML);localStorage.setItem(keyName(),JSON.stringify(o));}
 function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;const o=JSON.parse(raw);eds().forEach(el=>{if(o[el.dataset.k]==null)return;
     // rk2(KOSPI 통합 순위): 구버전 'KRX 통합 …' 형식 저장값은 폐기하고 기본 문구 유지

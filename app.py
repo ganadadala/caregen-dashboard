@@ -1065,10 +1065,56 @@ def fetch_index_snapshot(code: str, days: int = 20, tail: int = 10) -> dict:
     return {"value": value, "rate": rate, "series": series[-tail:]}
 
 
+def _fetch_naver_usdkrw() -> dict:
+    """네이버 금융 시장지표에서 원·달러 매매기준율(고시환율) + 전일대비 조회.
+    응답 스키마 변동에 견고하게 여러 키를 시도. 실패 시 None."""
+    try:
+        r = requests.get(
+            "https://m.stock.naver.com/front-api/marketIndex/prices",
+            params={"category": "exchange", "reutersCode": "FX_USDKRW",
+                    "page": 1, "pageSize": 2},
+            headers={"User-Agent": "Mozilla/5.0",
+                     "Referer": "https://m.stock.naver.com/"},
+            timeout=8,
+        )
+        if r.status_code != 200:
+            return None
+        j = r.json()
+        rows = j.get("result")
+        if isinstance(rows, dict):
+            rows = rows.get("prices") or rows.get("list") or rows.get("datas")
+        if not rows:
+            return None
+
+        def _cp(row):
+            for k in ("closePrice", "nv", "close", "value"):
+                v = row.get(k)
+                if v not in (None, ""):
+                    return _to_float(str(v).replace(",", ""))
+            return 0.0
+
+        last = _cp(rows[0])
+        if not last:
+            return None
+        diff = None
+        if len(rows) >= 2:
+            prev = _cp(rows[1])
+            if prev:
+                diff = round(last - prev, 2)
+        return {"rate": round(last, 2), "diff": diff}
+    except Exception:
+        return None
+
+
 def fetch_usdkrw() -> dict:
-    """USD/KRW 환율 + 전일대비(원). KIS가 원달러 현물을 안 줘서 무료 FX 소스 사용(키 불필요).
-    frankfurter 기간조회로 rate+전일대비를 함께 구하고, 실패 시 현재값만 폴백."""
+    """USD/KRW 환율 + 전일대비(원). 1순위 네이버 매매기준율(고시환율),
+    실패 시 frankfurter(ECB) → open.er-api → exchangerate.host 순 폴백. 키 불필요."""
     from datetime import datetime, timedelta, timezone
+
+    # 0) 네이버 고시환율(매매기준율) — 한국 기준값 우선
+    naver = _fetch_naver_usdkrw()
+    if naver and naver.get("rate"):
+        return naver
 
     # 1) frankfurter 최근 10일 범위 → 최신값·직전 영업일값으로 전일대비 산출
     try:
