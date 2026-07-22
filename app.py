@@ -599,12 +599,14 @@ def fetch_daily_stats(code: str, end_ymd: str, n: int = 20) -> dict:
         return out
     rows = [r for r in (data.get("output2") or []) if r.get("stck_bsop_date")]
     rows.sort(key=lambda r: r["stck_bsop_date"])
-    vols = [_to_int(r.get("acml_vol")) for r in rows[-n:] if _to_int(r.get("acml_vol")) > 0]
-    vals = [_to_int(r.get("acml_tr_pbmn")) for r in rows[-n:] if _to_int(r.get("acml_tr_pbmn")) > 0]
-    closes = [_to_int(r.get("stck_clpr")) for r in rows if _to_int(r.get("stck_clpr")) > 0]
+    # 평균/기준은 '보고일 제외' 직전 n거래일로 산출 → 당일 값이 자기 기준에 희석되지 않음
+    prior = [r for r in rows if r["stck_bsop_date"] < end_ymd] or rows[:-1] or rows
+    vols = [_to_int(r.get("acml_vol")) for r in prior[-n:] if _to_int(r.get("acml_vol")) > 0]
+    vals = [_to_int(r.get("acml_tr_pbmn")) for r in prior[-n:] if _to_int(r.get("acml_tr_pbmn")) > 0]
+    pcloses = [_to_int(r.get("stck_clpr")) for r in prior if _to_int(r.get("stck_clpr")) > 0]
     out["avg_vol"] = round(sum(vols) / len(vols)) if vols else 0
     out["avg_value"] = round(sum(vals) / len(vals)) if vals else 0
-    out["close_nago"] = closes[-(n + 1)] if len(closes) > n else 0  # 당일 기준 n거래일 전 종가
+    out["close_nago"] = pcloses[-n] if len(pcloses) >= n else 0    # 보고일 기준 n거래일 전(D-n) 종가
     return out
 
 

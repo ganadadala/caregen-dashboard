@@ -478,12 +478,12 @@
         <div class="stat">
           <div class="eyebrow">거래량</div>
           <div class="big"><span id="volBig">—</span><span class="u"> 주</span></div>
-          <span class="meta" id="volAvg">최근 20일 평균 대비 —</span>
+          <span class="meta" id="volAvg">최근 20거래일 평균 대비 —</span>
         </div>
         <div class="stat">
           <div class="eyebrow">거래대금</div>
           <div class="big"><span id="valBig">—</span><span class="u"> 억원</span></div>
-          <span class="meta" id="valAvg">최근 20일 평균 대비 —</span>
+          <span class="meta" id="valAvg">최근 20거래일 평균 대비 —</span>
         </div>
         <div class="stat">
           <div class="eyebrow">외국인 지분율</div>
@@ -820,7 +820,7 @@ function autoTrend(p,iv,days){
   const b1=`최근 외국인 ${dir}${cont}. 외인 지분율 ${fr}${frClause}.`;
   let b2;
   if(p.vol_vs_avg!=null){const s=p.vol_vs_avg>0?"+":"",w=p.vol_vs_avg>0?"증가":p.vol_vs_avg<0?"감소":"유사";
-    b2=`거래량은 약 ${won(p.volume)}주로 최근 20일 평균 대비 ${s}${p.vol_vs_avg.toFixed(1)}% ${w}.`;}
+    b2=`거래량은 약 ${won(p.volume)}주로 최근 20거래일 평균 대비 ${s}${p.vol_vs_avg.toFixed(1)}% ${w}.`;}
   else b2=`거래량은 약 ${won(p.volume)}주.`;
   // 첫 줄: 주가 움직임 — 전일 대비 + 20거래일 전 대비
   const rt=p.rate||0, rw=rt>0?"상승":rt<0?"하락":"보합";
@@ -967,8 +967,8 @@ async function load(){
     const va=$("volAvg");
     if(va){
       if(p.vol_vs_avg!=null){const s=p.vol_vs_avg>0?"+":"";const cls=p.vol_vs_avg>0?"up":p.vol_vs_avg<0?"down":"";
-        va.innerHTML=`최근 20일 평균 대비 <span class="${cls}">${s}${p.vol_vs_avg.toFixed(1)}%</span>`;}
-      else va.textContent="최근 20일 평균 대비 —";
+        va.innerHTML=`최근 20거래일 평균 대비 <span class="${cls}">${s}${p.vol_vs_avg.toFixed(1)}%</span>`;}
+      else va.textContent="최근 20거래일 평균 대비 —";
     }
     // 거래대금 박스(억원)
     const eok=w=>(w||w===0)?Math.round(w/1e8).toLocaleString("ko-KR"):"—";
@@ -976,8 +976,8 @@ async function load(){
     const la=$("valAvg");
     if(la){
       if(p.value_vs_avg!=null){const s=p.value_vs_avg>0?"+":"";const cls=p.value_vs_avg>0?"up":p.value_vs_avg<0?"down":"";
-        la.innerHTML=`최근 20일 평균 대비 <span class="${cls}">${s}${p.value_vs_avg.toFixed(1)}%</span>`;}
-      else la.textContent="최근 20일 평균 대비 —";
+        la.innerHTML=`최근 20거래일 평균 대비 <span class="${cls}">${s}${p.value_vs_avg.toFixed(1)}%</span>`;}
+      else la.textContent="최근 20거래일 평균 대비 —";
     }
     autoTrend(p,iv,d.investor_days);
     renderInvTable(d.investor_days);
