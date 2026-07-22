@@ -1163,32 +1163,44 @@ def _fetch_naver_frgn_ratio_series(code: str, pages: int = 3) -> list:
     return out
 
 
-def _fetch_naver_exchange() -> dict:
-    """네이버 금융 환율 상세(일별 시세)에서 USD 매매기준율 + 전일대비.
-    일별표 각 행의 첫 환율값(=매매기준율), 최상단=최신. 실패 시 None."""
+_NAVER_FX_URLS = (
+    "https://finance.naver.com/marketindex/exchangeDailyQuote.naver?marketindexCd=FX_USDKRW",
+    "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW",
+)
+
+
+def _naver_fx_html(url: str) -> str:
     try:
-        r = requests.get(
-            "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_USDKRW",
-            headers={"User-Agent": "Mozilla/5.0",
-                     "Referer": "https://finance.naver.com/marketindex/"},
-            timeout=8,
-        )
-        if r.status_code != 200:
-            return None
-        html = r.content.decode("euc-kr", "ignore")
-        rates = []
-        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
-            if not re.search(r"\d{4}\.\d{2}\.\d{2}", row):   # 날짜 있는 일별표 행만
-                continue
-            m = re.search(r"([12],\d{3}\.\d{2})", row)        # 첫 환율값 = 매매기준율
-            if m:
-                rates.append(float(m.group(1).replace(",", "")))
-        if not rates:
-            return None
-        diff = round(rates[0] - rates[1], 2) if len(rates) >= 2 else None
-        return {"rate": round(rates[0], 2), "diff": diff}
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0",
+                                       "Referer": "https://finance.naver.com/marketindex/"},
+                         timeout=8)
+        return r.content.decode("euc-kr", "ignore") if r.status_code == 200 else ""
     except Exception:
+        return ""
+
+
+def _naver_fx_parse(html: str) -> dict:
+    """일별 시세 표에서 각 행 첫 환율값(=매매기준율) 수집 → 최신값 + 전일대비."""
+    rates = []
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+        if not re.search(r"\d{2,4}[.\-/]\d{2}[.\-/]?\d{0,2}", row):  # 날짜 있는 행
+            continue
+        m = re.search(r"([12],\d{3}\.\d{2})", row)                   # 첫 환율값 = 매매기준율
+        if m:
+            rates.append(float(m.group(1).replace(",", "")))
+    if not rates:
         return None
+    diff = round(rates[0] - rates[1], 2) if len(rates) >= 2 else None
+    return {"rate": round(rates[0], 2), "diff": diff}
+
+
+def _fetch_naver_exchange() -> dict:
+    """네이버 금융 환율(일별 시세)에서 USD 매매기준율 + 전일대비. 실패 시 None."""
+    for url in _NAVER_FX_URLS:
+        got = _naver_fx_parse(_naver_fx_html(url))
+        if got and got.get("rate"):
+            return got
+    return None
 
 
 def _hana_fx_html(pbld_dv_cd: str = "3", request_target: str = "searchContentDiv") -> str:
@@ -1981,6 +1993,20 @@ def fx_debug():
         out["js_snippets"] = uniq[:20]
     except Exception as e:
         out["js_error"] = str(e)
+    # 네이버 환율 페이지 URL별 구조 진단
+    nvx = {}
+    for url in _NAVER_FX_URLS:
+        html = _naver_fx_html(url)
+        info = {"len": len(html),
+                "rate_hits": re.findall(r"[12],\d{3}\.\d{2}", html)[:6],
+                "parsed": _naver_fx_parse(html) if html else None}
+        m = re.search(r"[12],\d{3}\.\d{2}", html)
+        if m:
+            info["around"] = re.sub(r"\s+", " ", html[max(0, m.start() - 180):m.start() + 180])
+        else:
+            info["sample"] = re.sub(r"\s+", " ", html[:600])
+        nvx[url.split("/")[-1].split("?")[0]] = info
+    out["naver_fx_urls"] = nvx
     out["naver_exchange_parsed"] = _fetch_naver_exchange()
     out["hana_parsed"] = _fetch_hana_usdkrw()
     out["naver_parsed"] = _fetch_naver_usdkrw()
