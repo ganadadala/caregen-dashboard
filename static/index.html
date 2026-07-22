@@ -305,10 +305,12 @@
   .m5box .mchart{position:relative;width:100%;min-width:0;height:132px;overflow:hidden;}
   .m5box .mnote{font-size:9px;color:var(--muted);text-align:right;margin-top:3px;}
   .toptbl{width:100%;border-collapse:collapse;font-family:"Pretendard",system-ui,sans-serif;font-size:10.5px;table-layout:fixed;}
-  .toptbl td{padding:1px 2px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .toptbl td.rk{color:var(--muted);width:15px;}
+  .toptbl td,.toptbl th{padding:1px 2px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .toptbl th{font-size:8px;font-weight:700;color:var(--muted);letter-spacing:-.02em;border-bottom:1px solid var(--ink2);text-align:right;}
+  .toptbl th.rk,.toptbl th.nm{text-align:left;}
+  .toptbl td.rk,.toptbl th.rk{color:var(--muted);width:22px;}
   .toptbl td.nm{text-align:left;font-family:"Pretendard",sans-serif;color:var(--ink);overflow:hidden;text-overflow:ellipsis;}
-  .toptbl td.pr{width:50px;} .toptbl td.ch{width:42px;} .toptbl td.cap{width:46px;}
+  .toptbl td.pr,.toptbl th.pr{width:44px;} .toptbl td.ch,.toptbl th.ch{width:38px;} .toptbl td.cap,.toptbl th.cap{width:36px;}
   .toptbl td.pr{text-align:right;color:var(--ink2);}
   .toptbl td.ch{text-align:right;}
   .toptbl td.cap{text-align:right;color:var(--ink);font-weight:600;}
@@ -869,23 +871,24 @@ function hdrIdx(vId,rId,snap){
     if(r==null){rt.textContent="";rt.className="rt flat";}
     else{const a=r>0?"▲":r<0?"▼":"–";rt.textContent=`(${a}${Math.abs(r).toFixed(2)}%)`;rt.className="rt "+(r>0?"up":r<0?"down":"flat");}}
 }
-// 주가를 만원 단위·소수 1자리로 표기 (274,500원 → 27.5만원, 둘째 자리 반올림)
-function manwon(n){return (n||n===0)?(Math.round(n/1000)/10).toFixed(1)+"만원":"—";}
-// 시가총액(억원)을 조 단위·소수 1자리로 표기 (35,300억 → 3.5조, 둘째 자리 반올림)
-function jocap(eok){return (eok||eok===0)?(Math.round(eok/1000)/10).toFixed(1)+"조":"—";}
+// 단위는 머리글로 이동 → 셀엔 숫자만(만원·조·% 생략, 소수 1자리·둘째자리 반올림)
+function manwon(n){return (n||n===0)?(Math.round(n/1000)/10).toFixed(1):"—";}
+function jocap(eok){return (eok||eok===0)?(Math.round(eok/1000)/10).toFixed(1):"—";}
+const TOP_HEAD='<thead><tr><th class="rk">순위</th><th class="nm">종목</th>'+
+  '<th class="pr">주가(만원)</th><th class="ch">전일비(%)</th><th class="cap">시총(조)</th></tr></thead>';
 function renderTop(tblId,items){
   const el=document.getElementById(tblId);if(!el)return;
-  if(!items||!items.length){el.innerHTML='<tbody><tr><td class="ph-note">데이터 없음</td></tr></tbody>';return;}
+  if(!items||!items.length){el.innerHTML=TOP_HEAD+'<tbody><tr><td class="ph-note" colspan="5">데이터 없음</td></tr></tbody>';return;}
   let h='<tbody>';
   items.forEach((it,i)=>{
     const c=it.chg>0?"up":it.chg<0?"down":"flat",s=it.chg>0?"+":"";
     h+=`<tr class="${it.self?"self":""}"><td class="rk">${i+1}</td>`+
        `<td class="nm" title="${escH(it.name)}">${escH(it.name)}</td>`+
        `<td class="pr">${manwon(it.close)}</td>`+
-       `<td class="ch ${c}">${s}${(it.chg||0).toFixed(2)}%</td>`+
+       `<td class="ch ${c}">${s}${(it.chg||0).toFixed(2)}</td>`+
        `<td class="cap">${jocap(it.cap)}</td></tr>`;
   });
-  el.innerHTML=h+'</tbody>';
+  el.innerHTML=TOP_HEAD+h+'</tbody>';
 }
 // 조회로 확보한 시황 스냅샷 — 핵심요약 생성 시 뉴스 API로 전달
 let snap={px:null,rate:null,kospi:null,kosdaq:null,pharm:null,date:""};
