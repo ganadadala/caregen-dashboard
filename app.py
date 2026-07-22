@@ -795,6 +795,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     frgn_ratio_delta = None
     frgn_delta_days = 0
     frgn_src = "kis"
+    frgn_ratio_date = ""                           # 보유율 기준일(YYYYMMDD)
     try:
         series = _fetch_naver_frgn_ratio_series(code)      # 최신순 [(YYYYMMDD, ratio)]
         if series:
@@ -802,6 +803,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             base_i = next((i for i, (d, _) in enumerate(series) if d <= target), 0)
             cur_r = series[base_i][1]
             frgn_ratio = f"{cur_r:.2f}"                     # 네이버 실측 보유율(매일 갱신)
+            frgn_ratio_date = series[base_i][0]             # 그 값의 기준일
             frgn_src = "naver"
             if base_i + 20 < len(series):
                 frgn_ratio_delta = round(cur_r - series[base_i + 20][1], 2)
@@ -847,6 +849,7 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "foreign_ratio_delta": frgn_ratio_delta,           # 외인 지분율 N거래일 대비(%p)
             "foreign_delta_days": frgn_delta_days,             # 위 계산에 쓰인 거래일 수
             "foreign_ratio_src": frgn_src,                     # 값 출처(naver/kis) — 진단용
+            "foreign_ratio_date": frgn_ratio_date,             # 보유율 기준일(YYYYMMDD)
             "kosdaq_rank": kosdaq_rank,                         # KOSDAQ 시총 순위(없으면 null)
             "kosdaq_delta": kosdaq_delta,                       # 전 거래일 대비 순위 증감
             "krx_rank": krx_rank,                               # KRX 통합 시총 순위(없으면 null)

@@ -297,6 +297,8 @@
   .ov-kpi .kpi-three .stat:last-child{border-right:0;}
   .ov-kpi .kpi-three .stat .big{font-size:20px;white-space:nowrap;}
   .ov-kpi .kpi-three .stat .meta{font-size:10.5px;}
+  .ov-kpi .frgn-stat{position:relative;}
+  .ov-kpi .frgn-basis{position:absolute;right:10px;bottom:6px;font-size:9px;color:var(--muted);}
 
   /* 5분할 시장·섹터 */
   .market5{padding:18px 28px;border-bottom:1px solid var(--line);}
@@ -496,10 +498,11 @@
           <div class="big"><span id="valBig">—</span><span class="u"> 억원</span></div>
           <span class="meta" id="valAvg">최근 20거래일 평균 대비 —</span>
         </div>
-        <div class="stat">
+        <div class="stat frgn-stat">
           <div class="eyebrow">외국인 지분율</div>
           <div class="big"><span id="frgnRatio">—</span></div>
           <span class="meta" id="frgnChg">최근 20거래일 전 대비 —</span>
+          <span class="frgn-basis" id="frgnBasis"></span>
         </div>
       </div>
     </div>
@@ -964,6 +967,8 @@ async function load(){
     })();
     const t=capKor(p.market_cap);if(t)$("mcap").textContent=t;
     if(p.foreign_ratio)$("frgnRatio").textContent=p.foreign_ratio+"%";
+    (function(){const b=$("frgnBasis"),fd=p.foreign_ratio_date;
+      b&&(b.textContent=(fd&&fd.length===8)?`(${fd.slice(4,6)}/${fd.slice(6,8)} 기준)`:"");})();
     // 외국인 지분율 증감(%p) — 서버 순매매 역산(브라우저 무관). 수기 보정 가능
     (function(){
       const el=$("frgnChg");if(!el)return;
