@@ -285,6 +285,12 @@
   .ov-kpi .kpi-two{display:grid;grid-template-columns:1fr 1fr;}
   .ov-kpi .kpi-two .stat{border-right:1px solid var(--line);}
   .ov-kpi .kpi-two .stat:last-child{border-right:0;}
+  /* ov-kpi 3분할(거래량+거래대금+외국인지분율) — 반칸 폭이라 폰트·여백 축소 */
+  .ov-kpi .kpi-three{display:grid;grid-template-columns:1fr 1fr 1fr;}
+  .ov-kpi .kpi-three .stat{border-right:1px solid var(--line);padding:12px 13px;min-width:0;}
+  .ov-kpi .kpi-three .stat:last-child{border-right:0;}
+  .ov-kpi .kpi-three .stat .big{font-size:20px;white-space:nowrap;}
+  .ov-kpi .kpi-three .stat .meta{font-size:10.5px;}
 
   /* 5분할 시장·섹터 */
   .market5{padding:18px 28px;border-bottom:1px solid var(--line);}
@@ -454,11 +460,16 @@
       </ul>
     </div>
     <div class="ov2-cell ov-kpi">
-      <div class="hero-stats kpi-two">
+      <div class="hero-stats kpi-three">
         <div class="stat">
           <div class="eyebrow">거래량</div>
           <div class="big"><span id="volBig">—</span><span class="u"> 주</span></div>
           <span class="meta" id="volAvg">최근 20일 평균 대비 —</span>
+        </div>
+        <div class="stat">
+          <div class="eyebrow">거래대금</div>
+          <div class="big"><span id="valBig">—</span><span class="u"> 억원</span></div>
+          <span class="meta" id="valAvg">최근 20일 평균 대비 —</span>
         </div>
         <div class="stat">
           <div class="eyebrow">외국인 지분율</div>
@@ -775,7 +786,8 @@ function autoTrend(p,iv,days){
   let b0=`금일 당사는 전일 대비 ${rt>0?"+":""}${rt.toFixed(2)}% ${rw}한 ${won(p.current)}원으로 마감.`;
   if(p.price_chg20!=null){const d=p.price_chg20, w2=d>0?"상승":d<0?"하락":"보합";
     b0+=` 최근 20거래일 전 대비 ${d>0?"+":""}${d.toFixed(1)}% ${w2}.`;}
-  el.innerHTML=`<li>${b0}</li><li>${b1}</li><li>${b2}</li>`;
+  // 순서: 주가(b0) → 거래량(b2) → 외국인 지분율(b1)
+  el.innerHTML=`<li>${b0}</li><li>${b2}</li><li>${b1}</li>`;
 }
 
 /* ── 시장 데이터: 지수·환율·top10 ── */
@@ -914,6 +926,15 @@ async function load(){
       if(p.vol_vs_avg!=null){const s=p.vol_vs_avg>0?"+":"";const cls=p.vol_vs_avg>0?"up":p.vol_vs_avg<0?"down":"";
         va.innerHTML=`최근 20일 평균 대비 <span class="${cls}">${s}${p.vol_vs_avg.toFixed(1)}%</span>`;}
       else va.textContent="최근 20일 평균 대비 —";
+    }
+    // 거래대금 박스(억원)
+    const eok=w=>(w||w===0)?Math.round(w/1e8).toLocaleString("ko-KR"):"—";
+    const lb=$("valBig");if(lb)lb.textContent=eok(p.value);
+    const la=$("valAvg");
+    if(la){
+      if(p.value_vs_avg!=null){const s=p.value_vs_avg>0?"+":"";const cls=p.value_vs_avg>0?"up":p.value_vs_avg<0?"down":"";
+        la.innerHTML=`최근 20일 평균 대비 <span class="${cls}">${s}${p.value_vs_avg.toFixed(1)}%</span>`;}
+      else la.textContent="최근 20일 평균 대비 —";
     }
     autoTrend(p,iv,d.investor_days);
     renderInvTable(d.investor_days);

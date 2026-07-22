@@ -572,13 +572,15 @@ def fetch_avg_volume(code: str, end_ymd: str, n: int = 20) -> int:
     return round(sum(vols) / len(vols)) if vols else 0
 
 
-def fetch_close_ndays_ago(code: str, end_ymd: str, n: int = 20) -> int:
-    """end_ymd(포함) 기준 n거래일 전 종가(원). 데이터 부족·실패 시 0."""
+def fetch_daily_stats(code: str, end_ymd: str, n: int = 20) -> dict:
+    """end_ymd(포함)까지 일봉으로 최근 n거래일 평균 거래량·평균 거래대금,
+    n거래일 전 종가를 한 번의 호출로 산출. 실패 시 0값."""
     from datetime import datetime, timedelta
+    out = {"avg_vol": 0, "avg_value": 0, "close_nago": 0}
     try:
         end = datetime.strptime(end_ymd, "%Y%m%d")
     except Exception:
-        return 0
+        return out
     start = end - timedelta(days=n * 2 + 20)  # 주말·공휴일 감안 넉넉히
     try:
         data = _get(
@@ -594,12 +596,16 @@ def fetch_close_ndays_ago(code: str, end_ymd: str, n: int = 20) -> int:
             },
         )
     except Exception:
-        return 0
+        return out
     rows = [r for r in (data.get("output2") or []) if r.get("stck_bsop_date")]
     rows.sort(key=lambda r: r["stck_bsop_date"])
+    vols = [_to_int(r.get("acml_vol")) for r in rows[-n:] if _to_int(r.get("acml_vol")) > 0]
+    vals = [_to_int(r.get("acml_tr_pbmn")) for r in rows[-n:] if _to_int(r.get("acml_tr_pbmn")) > 0]
     closes = [_to_int(r.get("stck_clpr")) for r in rows if _to_int(r.get("stck_clpr")) > 0]
-    # 마지막(=당일) 기준 n거래일 전 종가
-    return closes[-(n + 1)] if len(closes) > n else 0
+    out["avg_vol"] = round(sum(vols) / len(vols)) if vols else 0
+    out["avg_value"] = round(sum(vals) / len(vals)) if vals else 0
+    out["close_nago"] = closes[-(n + 1)] if len(closes) > n else 0  # 당일 기준 n거래일 전 종가
+    return out
 
 
 @app.get("/api/dashboard")
@@ -687,24 +693,21 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
     kosdaq_delta = _ranks.get("kosdaq_delta")
     krx_rank = _ranks.get("krx_rank")
 
-    # 거래량 20일 평균 대비(%) — 실패 시 None
-    vol_avg20 = None
-    vol_vs_avg = None
+    # 20거래일 통계(평균 거래량·평균 거래대금·20거래일 전 종가)를 한 번에 산출
+    vol_avg20 = vol_vs_avg = None       # 거래량 20일 평균 대비(%)
+    val_avg20 = val_vs_avg = None       # 거래대금 20일 평균 대비(%)
+    price_chg20 = None                  # 20거래일 전 종가 대비 등락(%)
     try:
         _end_ymd = date.replace("-", "") if use_daily else datetime.now().strftime("%Y%m%d")
-        _avg = fetch_avg_volume(code, _end_ymd, 20)
-        if _avg > 0:
-            vol_avg20 = _avg
-            vol_vs_avg = round((volume - _avg) / _avg * 100, 1)
-    except Exception:
-        pass
-
-    # 20거래일 전 종가 대비 등락(%) — 첫 줄 주가 코멘트용. 실패 시 None
-    price_chg20 = None
-    try:
-        _c20 = fetch_close_ndays_ago(code, _end_ymd, 20)
-        if _c20 > 0 and price > 0:
-            price_chg20 = round((price - _c20) / _c20 * 100, 1)
+        _st = fetch_daily_stats(code, _end_ymd, 20)
+        if _st["avg_vol"] > 0:
+            vol_avg20 = _st["avg_vol"]
+            vol_vs_avg = round((volume - _st["avg_vol"]) / _st["avg_vol"] * 100, 1)
+        if _st["avg_value"] > 0 and value > 0:
+            val_avg20 = _st["avg_value"]
+            val_vs_avg = round((value - _st["avg_value"]) / _st["avg_value"] * 100, 1)
+        if _st["close_nago"] > 0 and price > 0:
+            price_chg20 = round((price - _st["close_nago"]) / _st["close_nago"] * 100, 1)
     except Exception:
         pass
 
@@ -739,6 +742,8 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
             "vol_vs_avg": vol_vs_avg,                          # 20일 평균 대비 %(없으면 null)
             "price_chg20": price_chg20,                        # 20거래일 전 종가 대비 등락 %(없으면 null)
             "value": value,                                    # 거래대금(원)
+            "value_avg20": val_avg20,                          # 최근 20거래일 평균 거래대금(없으면 null)
+            "value_vs_avg": val_vs_avg,                        # 거래대금 20일 평균 대비 %(없으면 null)
             "price_date": price_date,                          # 실제 적용된 거래일(YYYYMMDD)
             "nxt": nxt_price,                                  # NXT 가격(없으면 null)
             "market_cap": _to_int(quote.get("hts_avls")),      # 시가총액(억원, 현재값)
