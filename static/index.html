@@ -295,7 +295,7 @@
   /* 5분할 시장·섹터 */
   .market5{padding:18px 28px;border-bottom:1px solid var(--line);}
   /* 지수 차트 2칸은 좁게, 시총 상위10 표 3칸은 넓게 → 종목명이 잘리지 않도록 */
-  .market5 .m5grid{display:grid;grid-template-columns:0.78fr 0.78fr 1.28fr 1.28fr 1.28fr;gap:12px;align-items:stretch;}
+  .market5 .m5grid{display:grid;grid-template-columns:0.68fr 0.68fr 1.42fr 1.42fr 1.42fr;gap:12px;align-items:stretch;}
   /* min-width:0 필수 — 없으면 Chart.js 캔버스가 grid 컬럼을 밀어내 폭 불균형·박스 밀림 */
   .m5box{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--brand);padding:10px 11px;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
   .m5box .mt{font-size:10.5px;font-weight:800;color:var(--brand-ink);margin-bottom:6px;letter-spacing:.01em;line-height:1.25;min-height:26px;}
@@ -308,9 +308,10 @@
   .toptbl td{padding:1px 2px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .toptbl td.rk{color:var(--muted);width:15px;}
   .toptbl td.nm{text-align:left;font-family:"Pretendard",sans-serif;color:var(--ink);overflow:hidden;text-overflow:ellipsis;}
-  .toptbl td.pr{width:56px;} .toptbl td.ch{width:44px;}
+  .toptbl td.pr{width:50px;} .toptbl td.ch{width:42px;} .toptbl td.cap{width:46px;}
   .toptbl td.pr{text-align:right;color:var(--ink2);}
   .toptbl td.ch{text-align:right;}
+  .toptbl td.cap{text-align:right;color:var(--ink);font-weight:600;}
   .toptbl td.ch.up{color:var(--up);} .toptbl td.ch.down{color:var(--down);} .toptbl td.ch.flat{color:var(--muted);}
   .toptbl tr.self td{background:var(--brand-soft);font-weight:700;}
   .m5box .ph-note{font-size:10.5px;color:var(--muted);font-style:italic;margin:auto 0;text-align:center;line-height:1.55;}
@@ -870,6 +871,8 @@ function hdrIdx(vId,rId,snap){
 }
 // 주가를 만원 단위·소수 1자리로 표기 (274,500원 → 27.5만원, 둘째 자리 반올림)
 function manwon(n){return (n||n===0)?(Math.round(n/1000)/10).toFixed(1)+"만원":"—";}
+// 시가총액(억원)을 조 단위·소수 1자리로 표기 (35,300억 → 3.5조, 둘째 자리 반올림)
+function jocap(eok){return (eok||eok===0)?(Math.round(eok/1000)/10).toFixed(1)+"조":"—";}
 function renderTop(tblId,items){
   const el=document.getElementById(tblId);if(!el)return;
   if(!items||!items.length){el.innerHTML='<tbody><tr><td class="ph-note">데이터 없음</td></tr></tbody>';return;}
@@ -879,7 +882,8 @@ function renderTop(tblId,items){
     h+=`<tr class="${it.self?"self":""}"><td class="rk">${i+1}</td>`+
        `<td class="nm" title="${escH(it.name)}">${escH(it.name)}</td>`+
        `<td class="pr">${manwon(it.close)}</td>`+
-       `<td class="ch ${c}">${s}${(it.chg||0).toFixed(2)}%</td></tr>`;
+       `<td class="ch ${c}">${s}${(it.chg||0).toFixed(2)}%</td>`+
+       `<td class="cap">${jocap(it.cap)}</td></tr>`;
   });
   el.innerHTML=h+'</tbody>';
 }
