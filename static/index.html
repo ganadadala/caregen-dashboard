@@ -152,7 +152,7 @@
   .chart-info .crow span{display:inline-block;}
   .chart-info .lbl{color:var(--muted);}
   /* 차트 좌상단 범례(코스닥 제약지수) 오버레이 */
-  .chartbox .chart-legend{position:absolute;top:6px;left:8px;z-index:4;align-items:center;gap:5px;
+  .chartbox .chart-legend{position:absolute;top:6px;left:48px;z-index:4;align-items:center;gap:5px;
     font-size:10px;color:var(--ink2);background:rgba(255,255,255,.82);padding:1px 7px 1px 5px;border-radius:5px;pointer-events:none;}
   .chartbox .chart-legend i{display:inline-block;width:16px;height:0;border-top:2px dashed #8b5cf6;vertical-align:middle;}
   .legend{display:flex;gap:18px;margin-top:10px;font-size:11px;color:var(--muted);}
@@ -682,6 +682,9 @@ function drawCandleChart(ohlc){
       const lastBar=meta&&meta.data&&meta.data[ohlc.length-1];
       const cx=lastBar?lastBar.x:chart.chartArea.right;
       showChartInfo(ohlc[ohlc.length-1],cx,chart.chartArea);
+      // 범례를 플롯 영역(chartArea) 안쪽에 배치 → 좌측 Y축 라벨을 가리지 않음
+      const leg=document.getElementById("pharmLegend");
+      if(leg&&chart.chartArea){leg.style.left=(chart.chartArea.left+6)+"px";leg.style.top=(chart.chartArea.top+3)+"px";}
     },0);
   }
 }
