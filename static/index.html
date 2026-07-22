@@ -595,6 +595,7 @@ function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;c
     let v=o[el.dataset.k];
     // 공백·<br>만 남은 저장값은 빈칸으로 정규화 → 이탤릭 플레이스홀더(:empty::before) 복원
     if(el.classList.contains("edph")&&!String(v).replace(/<br\s*\/?>|&nbsp;| |\s/gi,""))v="";
+    if(el.classList.contains("ws-list")){const bare=String(v).replace(/<[^>]*>|&nbsp;|\s/gi,"");if(!bare)v="<li></li>";else if(!/<li/i.test(String(v)))v="<li>"+v+"</li>";}
     el.innerHTML=v;});autos().forEach(el=>{if(o["#"+el.id]!=null)el.innerHTML=o["#"+el.id];});const _q=document.getElementById("ksqVal");if(_q)updateKsqColor(_q);}
 function updateKsqColor(el){const t=(el.textContent||"").trim();el.style.color=t.startsWith("-")?"var(--down)":t.startsWith("+")||parseFloat(t)>0?"var(--up)":"";}
 document.addEventListener("input",(e)=>{if(e.target.closest("[contenteditable]"))saveAll();});
