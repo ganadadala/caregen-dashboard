@@ -302,10 +302,11 @@
   .ov-kpi .kpi-three .stat .meta{font-size:10.5px;}
   .ov-kpi .frgn-basis{font-size:9px;font-weight:400;color:var(--muted);margin-left:5px;white-space:nowrap;}
 
-  /* 시장·섹터 2행: (지수차트 2) / (Top10 표 3) */
+  /* 시장·섹터 1행 4열: [지수차트 2 세로] [코스피 Top10] [코스닥 Top10] [제약·바이오 Top10] */
   .market5{padding:18px 28px;border-bottom:1px solid var(--line);}
-  .market5 .m5idxrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
-  .market5 .m5toprow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:stretch;}
+  .market5 .m5grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:stretch;}
+  .market5 .m5col-idx{display:flex;flex-direction:column;gap:12px;min-width:0;}
+  .market5 .m5col-idx .m5box{flex:1 1 0;min-height:0;}
   /* min-width:0 필수 — 없으면 Chart.js 캔버스가 grid 컬럼을 밀어내 폭 불균형·박스 밀림 */
   .m5box{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--brand);padding:10px 11px;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
   .m5box .mt{font-size:10.5px;font-weight:800;color:var(--brand-ink);margin-bottom:6px;letter-spacing:.01em;line-height:1.25;min-height:26px;}
@@ -319,7 +320,7 @@
   .m5idx .mhead .mt{margin:0;min-height:0;white-space:nowrap;font-size:12px;}
   .m5idx .mhead .idxline{margin:0;white-space:nowrap;font-size:11px;overflow:hidden;text-overflow:ellipsis;}
   .m5idx .mhead .mnote{margin:0 0 0 auto;white-space:nowrap;text-align:right;flex:0 0 auto;}
-  .m5idx .mchart{height:96px;}
+  .m5idx .mchart{flex:1 1 0;min-height:96px;height:auto;}
   .toptbl{width:100%;border-collapse:collapse;font-family:"Pretendard",system-ui,sans-serif;font-size:10.5px;table-layout:fixed;}
   .toptbl td,.toptbl th{padding:1px 2px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .toptbl th{font-size:8px;font-weight:700;color:var(--muted);letter-spacing:-.02em;border-bottom:1px solid var(--ink2);text-align:right;}
@@ -333,7 +334,7 @@
   .toptbl td.ch.up{color:var(--up);} .toptbl td.ch.down{color:var(--down);} .toptbl td.ch.flat{color:var(--muted);}
   .toptbl tr.self td{background:var(--brand-soft);font-weight:700;}
   .m5box .ph-note{font-size:10.5px;color:var(--muted);font-style:italic;margin:auto 0;text-align:center;line-height:1.55;}
-  @media(max-width:760px){.market5 .m5idxrow{grid-template-columns:1fr;} .market5 .m5toprow{grid-template-columns:1fr;}}
+  @media(max-width:760px){.market5 .m5grid4{grid-template-columns:1fr;}}
 
   /* 시장 주요 질의 사항 */
   .qbox{padding:18px 28px;border-bottom:1px solid var(--line);}
@@ -535,21 +536,20 @@
       <span style="width:8px;height:8px;border-radius:50%;background:var(--brand);display:inline-block;"></span>
       <h2 style="font-size:14px;font-weight:800;color:var(--ink);">금일 전체 시장 및 섹터 주요 종목 주가 동향</h2>
     </div>
-    <!-- 1행: 지수 미니차트 2개(넓고 납작하게, 헤더 한 줄) -->
-    <div class="m5idxrow">
-      <div class="m5box m5idx">
-        <div class="mhead"><span class="mt">코스닥 지수</span><span class="idxline" id="m5KosdaqLine">—</span><span class="mnote">최근 10일 차트</span></div>
-        <div class="mchart"><canvas id="m5KosdaqChart"></canvas></div>
+    <!-- 1행 4열: [지수차트 2개 세로] [코스피 Top10] [코스닥 Top10] [제약·바이오 Top10] -->
+    <div class="m5grid4">
+      <div class="m5col-idx">
+        <div class="m5box m5idx">
+          <div class="mhead"><span class="mt">코스닥 지수</span><span class="idxline" id="m5KosdaqLine">—</span><span class="mnote">최근 10일 차트</span></div>
+          <div class="mchart"><canvas id="m5KosdaqChart"></canvas></div>
+        </div>
+        <div class="m5box m5idx">
+          <div class="mhead"><span class="mt">코스피 지수</span><span class="idxline" id="m5KospiLine">—</span><span class="mnote">최근 10일 차트</span></div>
+          <div class="mchart"><canvas id="m5KospiChart"></canvas></div>
+        </div>
       </div>
-      <div class="m5box m5idx">
-        <div class="mhead"><span class="mt">코스피 지수</span><span class="idxline" id="m5KospiLine">—</span><span class="mnote">최근 10일 차트</span></div>
-        <div class="mchart"><canvas id="m5KospiChart"></canvas></div>
-      </div>
-    </div>
-    <!-- 2행: 시총 Top10 3개 -->
-    <div class="m5toprow">
-      <div class="m5box"><div class="mt">코스닥 시총 Top 10</div><table class="toptbl" id="topKosdaq"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
       <div class="m5box"><div class="mt">코스피 시총 Top 10</div><table class="toptbl" id="topKospi"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
+      <div class="m5box"><div class="mt">코스닥 시총 Top 10</div><table class="toptbl" id="topKosdaq"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
       <div class="m5box"><div class="mt">코스닥 제약, 바이오 시총 Top 10</div><table class="toptbl" id="topPharma"><tbody><tr><td class="ph-note">조회 시 표시</td></tr></tbody></table></div>
     </div>
   </section>
