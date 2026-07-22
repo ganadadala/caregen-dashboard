@@ -988,16 +988,8 @@ async function load(){
         el.className=("meta "+(d>0?"up":d<0?"dn":"")).trim();
       }
     }
-    // KRX 통합(KOSPI+KOSDAQ 전종목) 시총 순위 + 전일대비 — KRX OpenAPI(있을 때만 자동, 없으면 수기 유지)
-    if(p.krx_rank){
-      const el=document.querySelector('[data-k="rk2"]');
-      if(el){
-        const d=p.krx_delta;
-        const sym=(d==null)?"":(d>0?` (▲${d})`:d<0?` (▼${-d})`:" (-)");
-        el.textContent=`KOSPI 통합 시총 순위 ${p.krx_rank}위${sym}`;
-        el.className=("meta "+(d>0?"up":d<0?"dn":"")).trim();
-      }
-    }
+    // KRX 통합 순위는 무거워 대시보드를 막으므로 별도 엔드포인트로 비동기 로드(메인 조회 지연 방지)
+    loadKrxRank();
     if(p.price_date&&p.price_date.length===8){const pd=p.price_date.slice(4,6)+"/"+p.price_date.slice(6,8);$("closeBadge").textContent=pd+" 종가 기준";}
     else{$("closeBadge").textContent="";}
     const chip=$("chip");const sign=p.rate>0?"▲":p.rate<0?"▼":"―";
@@ -1039,6 +1031,18 @@ async function load(){
     saveAll();
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;$("status").textContent="오류";}
   finally{btn.disabled=false;btn.textContent="조회";}
+}
+// KRX 통합 시총 순위(rk2) — 무거운 전종목 조회라 조회 후 비동기로 채움(값 오면 갱신)
+function loadKrxRank(){
+  const el=document.querySelector('[data-k="rk2"]');if(!el)return;
+  fetch("/api/krx-rank?code="+encodeURIComponent($("code").value)+"&date="+encodeURIComponent($("date").value))
+    .then(r=>r.ok?r.json():null).then(d=>{
+      if(!d||!d.krx_rank)return;
+      const dd=d.krx_delta;
+      const sym=(dd==null)?"":(dd>0?` (▲${dd})`:dd<0?` (▼${-dd})`:" (-)");
+      el.textContent=`KOSPI 통합 시총 순위 ${d.krx_rank}위${sym}`;
+      el.className=("meta "+(dd>0?"up":dd<0?"dn":"")).trim();
+    }).catch(()=>{});
 }
 function syncDate(){$("rptDate").textContent=$("date").value;restoreAll();}
 

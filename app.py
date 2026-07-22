@@ -520,26 +520,33 @@ def fetch_krx_ranks(code: str, basDd: str = "") -> dict:
 
 def _krx_all_rows(basDd: str = "") -> list:
     """KRX 공식 OpenAPI로 유가증권+코스닥 전 종목 일별매매정보(시총 포함) 조회.
-    basDd 미지정/휴장 시 최근 영업일까지 최대 7일 거슬러 탐색. 실패 시 []."""
+    두 엔드포인트를 병렬 호출, 휴장/장중 미확정 시 최대 4일 거슬러 탐색. 실패 시 []."""
     if not KRX_API_KEY:
         return []
     from datetime import datetime, timedelta, timezone
+    from concurrent.futures import ThreadPoolExecutor
     kst = timezone(timedelta(hours=9))
     try:
         base = datetime.strptime(basDd, "%Y%m%d") if basDd else datetime.now(kst).replace(tzinfo=None)
     except Exception:
         base = datetime.now(kst).replace(tzinfo=None)
-    for back in range(0, 7):
+
+    def _one(path, d):
+        try:
+            r = requests.get(f"{KRX_BASE}/{path}", params={"basDd": d},
+                             headers={"AUTH_KEY": KRX_API_KEY}, timeout=8)
+            if r.status_code == 200:
+                j = r.json()
+                return j.get("OutBlock_1") or j.get("output") or []
+        except Exception:
+            pass
+        return []
+
+    for back in range(0, 4):    # 오늘 포함 최대 4일 탐색
         d = (base - timedelta(days=back)).strftime("%Y%m%d")
-        rows = []
-        for path in ("stk_bydd_trd", "ksq_bydd_trd"):   # 유가증권 / 코스닥 전종목
-            try:
-                r = requests.get(f"{KRX_BASE}/{path}", params={"basDd": d},
-                                 headers={"AUTH_KEY": KRX_API_KEY}, timeout=12)
-                if r.status_code == 200:
-                    rows += (r.json().get("OutBlock_1") or r.json().get("output") or [])
-            except Exception:
-                pass
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            a, b = list(ex.map(lambda p: _one(p, d), ("stk_bydd_trd", "ksq_bydd_trd")))
+        rows = (a or []) + (b or [])
         if len(rows) > 100:      # 정상 응답(전 종목)
             return rows
     return []
@@ -554,7 +561,7 @@ def fetch_krx_overall_rank(code: str, basDd: str = "") -> dict:
     target = code.lstrip("0")
     ck = f"{target}:{basDd}"
     ent = _krx_rank_cache.get(ck)
-    if ent and time.time() - ent[0] < 300:
+    if ent and time.time() - ent[0] < 1800:   # 30분 캐시(순위는 완만히 변동)
         return ent[1]
     out = {"krx_rank": None, "krx_delta": None, "krx_rows": 0}
     rows = _krx_all_rows(basDd)
@@ -758,16 +765,9 @@ def dashboard(code: str = DEFAULT_CODE, date: str = ""):
         pass
     kosdaq_rank = _ranks.get("kosdaq_rank")
     kosdaq_delta = _ranks.get("kosdaq_delta")
-    krx_rank = _ranks.get("krx_rank")
-    # KRX 통합(KOSPI+KOSDAQ 전종목) 시총 순위 + 전일대비 — KRX 공식 OpenAPI
+    # KRX 통합 순위는 전종목 조회라 무거워 대시보드를 막음 → 별도 /api/krx-rank로 비동기 로드
+    krx_rank = None
     krx_delta = None
-    try:
-        _kr = fetch_krx_overall_rank(code, basDd)
-        if _kr.get("krx_rank"):
-            krx_rank = _kr["krx_rank"]
-            krx_delta = _kr.get("krx_delta")
-    except Exception:
-        pass
 
     # 20거래일 통계(평균 거래량·평균 거래대금·20거래일 전 종가)를 한 번에 산출
     vol_avg20 = vol_vs_avg = None       # 거래량 20일 평균 대비(%)
@@ -1986,6 +1986,19 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     _news_cache["ctx"] = _ctx_sig
     return JSONResponse(result)
 
+
+
+@app.get("/api/krx-rank")
+def krx_rank(code: str = DEFAULT_CODE, date: str = ""):
+    """케어젠 KRX 통합(KOSPI+KOSDAQ 전종목) 시총 순위 + 전일대비. 무거워서 별도 비동기 조회."""
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    basDd = date.replace("-", "") if (date and date < today) else ""
+    try:
+        r = fetch_krx_overall_rank(code, basDd)
+        return {"krx_rank": r.get("krx_rank"), "krx_delta": r.get("krx_delta")}
+    except Exception:
+        return {"krx_rank": None, "krx_delta": None}
 
 
 @app.get("/api/krx-rank-debug")
