@@ -1058,18 +1058,33 @@ $("newsBtn").addEventListener("click",()=>loadNews(false));
 $("newsBtn").addEventListener("contextmenu",(e)=>{e.preventDefault();loadNews(true);});
 // 헤드라인 링크: contenteditable 박스가 클릭을 편집용으로 가로채므로 직접 새 탭 열기
 (function(){["hlCaregen","hlSector","hlMacro"].forEach(id=>{const nh=$(id);if(nh)nh.addEventListener("click",(e)=>{const a=e.target.closest("a");if(a&&a.href){e.preventDefault();window.open(a.href,"_blank","noopener");}});});})();
-async function captureCanvas(){
-  const el=document.querySelector(".page");
-  // 기기와 무관하게 넓은 데스크톱 레이아웃(1160px)으로 캡처 → 종목명 잘림 방지,
-  // 전체 내용이 이미지 1장(=PDF 1페이지)에 온전히 담김
-  const scale=window.innerWidth<760?1.5:2;
-  return html2canvas(el,{scale,useCORS:true,logging:false,backgroundColor:"#F4F7F5",windowWidth:1200});
+// 리포트 캡처 + 뉴스 링크 좌표(페이지 대비 비율) 수집.
+// 데스크톱: 폭 1160 강제 + windowWidth 1200(넓은 레이아웃) / 모바일: 현재 레이아웃.
+// 캡처 레이아웃과 좌표 측정 레이아웃을 일치시켜 PDF 링크가 정확히 얹히도록 함.
+async function captureReport(){
+  const page=document.querySelector(".page");
+  const isMobile=window.innerWidth<760;
+  const scale=isMobile?1.5:2;
+  const prevW=page.style.width, prevMW=page.style.maxWidth;
+  if(!isMobile){page.style.width="1160px";page.style.maxWidth="1160px";void page.offsetHeight;}
+  const pr=page.getBoundingClientRect();
+  const links=[...page.querySelectorAll('.nhl a[href]')].map(a=>{
+    const r=a.getBoundingClientRect();
+    return {url:a.href,
+      x:(r.left-pr.left)/pr.width, y:(r.top-pr.top)/pr.height,
+      w:r.width/pr.width, h:r.height/pr.height};
+  }).filter(l=>l.w>0&&l.h>0&&l.x>=0&&l.y>=0);
+  const opts={scale,useCORS:true,logging:false,backgroundColor:"#F4F7F5"};
+  if(!isMobile)opts.windowWidth=1200;
+  const canvas=await html2canvas(page,opts);
+  if(!isMobile){page.style.width=prevW;page.style.maxWidth=prevMW;}
+  return {canvas,links,cssW:pr.width,cssH:pr.height};
 }
 $("printBtn").addEventListener("click",async function(){
   const btn=$("printBtn");
   btn.disabled=true;btn.textContent="생성 중…";
   try{
-    const canvas=await captureCanvas();
+    const {canvas}=await captureReport();
     const img=canvas.toDataURL("image/jpeg",0.95);
     const win=window.open("","_blank");
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>케어젠 IR Stock Daily</title><style>*{margin:0;padding:0;}body{background:#fff;}img{display:block;width:100%;}</style></head><body><img src="${img}"/><script>window.onload=function(){window.print();};<\/script></body></html>`);
@@ -1081,13 +1096,14 @@ $("pdfBtn").addEventListener("click",async function(){
   const btn=$("pdfBtn");
   btn.disabled=true;btn.textContent="생성 중…";
   try{
-    const canvas=await captureCanvas();
+    const {canvas,links,cssW,cssH}=await captureReport();
     const {jsPDF}=window.jspdf;
     const pxToMm=px=>px*25.4/96;
-    const w=pxToMm(canvas.width/2);
-    const h=pxToMm(canvas.height/2);
+    const w=pxToMm(cssW), h=pxToMm(cssH);
     const pdf=new jsPDF({orientation:w>h?"l":"p",unit:"mm",format:[w,h]});
     pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,w,h);
+    // 뉴스 헤드라인 위치에 클릭 가능한 링크 영역 덧씌우기(PDF에서 살아있게)
+    links.forEach(l=>{try{pdf.link(l.x*w,l.y*h,l.w*w,l.h*h,{url:l.url});}catch(e){}});
     const date=$("rptDate")?.textContent||new Date().toISOString().slice(0,10);
     pdf.save(`케어젠_IR_Stock_Daily_${date}.pdf`);
   }catch(e){alert("PDF 생성 오류: "+e.message);}
@@ -1098,7 +1114,7 @@ $("pngBtn").addEventListener("click",async function(){
   btn.disabled=true;btn.textContent="생성 중…";
   try{
     // 전체 페이지를 이미지 1장으로 캡처 → PNG 한 장에 모든 내용이 담김
-    const canvas=await captureCanvas();
+    const {canvas}=await captureReport();
     const date=$("rptDate")?.textContent||new Date().toISOString().slice(0,10);
     const a=document.createElement("a");
     a.href=canvas.toDataURL("image/png");
