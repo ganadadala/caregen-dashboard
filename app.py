@@ -588,7 +588,8 @@ def fetch_krx_overall_rank(code: str, basDd: str = "") -> dict:
     ent = _krx_rank_cache.get(ck)
     if ent and time.time() - ent[0] < 1800:
         return ent[1]
-    out = {"krx_rank": None, "krx_delta": None, "krx_rows": 0}
+    out = {"krx_rank": None, "krx_delta": None, "krx_rows": 0,
+           "krx_date": "", "krx_prev_date": "", "krx_prev_rank": None, "krx_prev_rows": 0}
     kst = timezone(timedelta(hours=9))
     try:
         base = datetime.strptime(basDd, "%Y%m%d") if basDd else datetime.now(kst).replace(tzinfo=None)
@@ -597,14 +598,18 @@ def fetch_krx_overall_rank(code: str, basDd: str = "") -> dict:
 
     rows, dused = _krx_latest_rows(base)
     out["krx_rows"] = len(rows)
+    out["krx_date"] = dused
     if rows:
         rk = _krx_rank_in(rows, target)
         out["krx_rank"] = rk
         # 전 거래일: dused 하루 전부터 데이터 있는 날 탐색 → 실제 전일 순위와 비교
         try:
             prev_base = datetime.strptime(dused, "%Y%m%d") - timedelta(days=1)
-            prows, _ = _krx_latest_rows(prev_base)
+            prows, pdused = _krx_latest_rows(prev_base)
+            out["krx_prev_date"] = pdused
+            out["krx_prev_rows"] = len(prows)
             prevrk = _krx_rank_in(prows, target) if prows else None
+            out["krx_prev_rank"] = prevrk
             out["krx_delta"] = (prevrk - rk) if (rk and prevrk) else None
         except Exception:
             pass
@@ -2030,10 +2035,14 @@ def krx_rank_debug(code: str = DEFAULT_CODE, date: str = ""):
     from datetime import datetime
     today = datetime.now().strftime("%Y-%m-%d")
     basDd = date.replace("-", "") if (date and date < today) else ""
+    _krx_rank_cache.pop(f"{code.lstrip('0')}:{basDd}", None)   # 캐시 우회 → 신선 재계산
     rows = _krx_all_rows(basDd)
     out = {"code": code, "krx_api_key_set": bool(KRX_API_KEY), "krx_rows": len(rows)}
     if rows:
         out["sample_row_keys"] = list(rows[0].keys())[:25]
+        cg = next((r for r in rows if _krx_code(r).lstrip("0") == code.lstrip("0")), None)
+        if cg:
+            out["caregen_cap"] = _krx_cap(cg)
     out.update(fetch_krx_overall_rank(code, basDd))
     return out
 
