@@ -87,6 +87,7 @@
   .hbrand-text .brand-date .d{font-family:"Pretendard",system-ui,sans-serif;font-weight:600;font-size:13px;color:#fff;white-space:nowrap;}
   .hbrand-text .brand-date .badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:rgba(255,255,255,.9);background:rgba(255,255,255,.15);padding:3px 9px;border-radius:20px;border:1px solid rgba(255,255,255,.2);white-space:nowrap;}
   .hbrand-text .brand-date .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#7FFFC4;}
+  .hbrand-text .brand-upd{font-size:10px;color:rgba(255,255,255,.6);margin-top:3px;white-space:nowrap;}
 
   /* 헤더 우측 주가 블록 */
   .hprice{padding:14px 13px;border-right:1px solid rgba(255,255,255,.18);flex-shrink:0;}
@@ -443,6 +444,7 @@
         <div class="brand-lg">CAREGEN</div>
         <div class="brand-title">IR Stock Daily</div>
         <div class="brand-date"><span class="d" id="rptDate">2026-06-20</span><span class="badge" id="closeBadge">장 마감 기준</span></div>
+        <div class="brand-upd" id="brandUpd"></div>
       </div>
     </div>
     <div class="hprice">
@@ -1027,6 +1029,7 @@ async function load(){
     // Render에서 자동조회 불가 → IR 카드에서 수기입력으로 운영
 
     $("status").textContent="갱신 완료 · "+new Date().toLocaleTimeString("ko-KR");
+    (function(){const u=$("brandUpd");if(u)u.textContent="갱신 "+new Date().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});})();
     saveAll();
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;$("status").textContent="오류";}
   finally{btn.disabled=false;btn.textContent="조회";}
