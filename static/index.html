@@ -31,7 +31,7 @@
   .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--brand);}
 
   /* 컨트롤 바 */
-  .toolbar{max-width:900px;margin:0 auto 16px;display:flex;gap:8px;align-items:center;}
+  .toolbar{max-width:1160px;margin:0 auto 16px;display:flex;gap:8px;align-items:center;}
   .toolbar input{font-family:"Pretendard",system-ui,sans-serif;font-size:13px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fff;color:var(--ink);}
   .toolbar .code{width:92px;}
   .toolbar button{font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--line);border-radius:9px;padding:9px 16px;background:#fff;color:var(--ink);transition:.15s;}
@@ -42,12 +42,12 @@
   .toolbar .sp{margin-left:auto;font-size:12px;color:var(--muted);}
   .statuswrap{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;}
   .toolbar-sub{margin-top:2px;text-align:right;font-size:11px;color:var(--muted);min-height:14px;}
-  .err{max-width:900px;margin:10px auto 0;padding:11px 15px;border-radius:10px;background:var(--up-soft);color:#9b211a;font-size:13px;border:1px solid #f3c9c5;}
+  .err{max-width:1160px;margin:10px auto 0;padding:11px 15px;border-radius:10px;background:var(--up-soft);color:#9b211a;font-size:13px;border:1px solid #f3c9c5;}
 
   /* 페이지 */
   /* overflow:hidden 제거 — box-shadow+둥근모서리+클리핑 조합이 카드를 GPU 합성
      레이어로 승격시켜 헤더 글자가 흐려지던 원인. 대신 헤더 상단·푸터 하단을 직접 둥글림 */
-  .page{max-width:900px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(14,31,24,.07);display:flex;flex-direction:column;}
+  .page{max-width:1160px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(14,31,24,.07);display:flex;flex-direction:column;}
   /* PDF 배치 순서: 업무보고를 맨 아래로 (마크업 이동 없이 flex order) */
   .page>.work{order:8;} .page>.pg-footer{order:9;}
   .pad{padding:26px 28px;}
@@ -288,7 +288,8 @@
 
   /* 5분할 시장·섹터 */
   .market5{padding:18px 28px;border-bottom:1px solid var(--line);}
-  .market5 .m5grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:stretch;}
+  /* 지수 차트 2칸은 좁게, 시총 상위10 표 3칸은 넓게 → 종목명이 잘리지 않도록 */
+  .market5 .m5grid{display:grid;grid-template-columns:0.78fr 0.78fr 1.28fr 1.28fr 1.28fr;gap:12px;align-items:stretch;}
   /* min-width:0 필수 — 없으면 Chart.js 캔버스가 grid 컬럼을 밀어내 폭 불균형·박스 밀림 */
   .m5box{background:var(--raise);border:1px solid var(--line);border-radius:10px;border-top:3px solid var(--brand);padding:10px 11px;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
   .m5box .mt{font-size:10.5px;font-weight:800;color:var(--brand-ink);margin-bottom:6px;letter-spacing:.01em;line-height:1.25;min-height:26px;}
@@ -296,11 +297,11 @@
   .m5box .idxline .rt.up{color:var(--up);} .m5box .idxline .rt.down{color:var(--down);}
   /* 고정 높이 + min-width:0 + overflow:hidden — Chart.js 캔버스 컨테인 */
   .m5box .mchart{position:relative;width:100%;min-width:0;height:132px;overflow:hidden;}
-  .toptbl{width:100%;border-collapse:collapse;font-family:"Pretendard",system-ui,sans-serif;font-size:9px;table-layout:fixed;}
-  .toptbl td{padding:1px 1px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .toptbl td.rk{color:var(--muted);width:13px;}
+  .toptbl{width:100%;border-collapse:collapse;font-family:"Pretendard",system-ui,sans-serif;font-size:10.5px;table-layout:fixed;}
+  .toptbl td{padding:1px 2px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .toptbl td.rk{color:var(--muted);width:15px;}
   .toptbl td.nm{text-align:left;font-family:"Pretendard",sans-serif;color:var(--ink);overflow:hidden;text-overflow:ellipsis;}
-  .toptbl td.pr{width:42px;} .toptbl td.ch{width:38px;}
+  .toptbl td.pr{width:48px;} .toptbl td.ch{width:46px;}
   .toptbl td.pr{text-align:right;color:var(--ink2);}
   .toptbl td.ch{text-align:right;}
   .toptbl td.ch.up{color:var(--up);} .toptbl td.ch.down{color:var(--down);} .toptbl td.ch.flat{color:var(--muted);}
