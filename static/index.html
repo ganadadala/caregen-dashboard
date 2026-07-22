@@ -348,6 +348,7 @@
   .newsgrid>.nsub{min-width:0;}            /* 긴 제목이 칸을 밀어내 보고서 폭 초과하는 것 방지 */
   .nsub .nsub-hd{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--brand-ink);margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid var(--line);}
   .nhl{min-height:120px;min-width:0;overflow:hidden;}
+  .news-win{text-align:right;font-size:9.5px;color:var(--muted);margin-top:7px;}
   .nhl ul,.nhl li{min-width:0;max-width:100%;}
   .flow .secbox{min-height:120px;}
   .workbox{min-height:210px;}
@@ -574,6 +575,7 @@
         <div class="secbox nhl edph" id="hlMacro" data-k="hlMacro" data-ph="뉴스·요약 채우기 시 자동 표시" contenteditable="true"></div>
       </div>
     </div>
+    <div class="news-win" id="newsWin2"></div>
   </section>
 
   <div class="pg-footer"><strong>CAREGEN</strong> · ㈜케어젠 · KOSDAQ 214370 · IR Stock Daily · 본 자료는 내부 업무용입니다.</div>
@@ -1044,7 +1046,9 @@ async function loadNews(force=false){
     renderHl("hlCaregen",d.headlines_caregen);
     renderHl("hlSector",d.headlines_sector);
     renderHl("hlMacro",d.headlines_macro);
-    if(d.window){const w=$("newsWindow");if(w)w.textContent=`뉴스 조회기간 ${d.window.start} ~ ${d.window.end} KST`;}
+    if(d.window){const t=`뉴스 조회기간 ${d.window.start} ~ ${d.window.end} KST`;
+      const w=$("newsWindow");if(w)w.textContent=t;
+      const w2=$("newsWin2");if(w2)w2.textContent=t;}
     saveAll();
     $("status").textContent="뉴스·핵심요약 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
