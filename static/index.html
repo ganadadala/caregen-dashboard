@@ -39,6 +39,23 @@
   .toolbar button.primary{background:var(--brand);color:#fff;border-color:var(--brand);}
   .toolbar button.primary:hover{background:var(--brand-ink);}
   .toolbar button:disabled{opacity:.55;}
+  .toolbar button.save{background:#1f6f3a;color:#fff;border-color:#1f6f3a;}
+  .toolbar button.save:hover{background:#175730;border-color:#175730;}
+  /* 저장함 모달 */
+  .arch-back{position:fixed;inset:0;background:rgba(15,25,20,.55);display:none;align-items:flex-start;justify-content:center;z-index:9999;padding:60px 16px;}
+  .arch-back.on{display:flex;}
+  .arch{background:#fff;border-radius:14px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+  .arch-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);}
+  .arch-hd h3{font-size:15px;font-weight:800;color:var(--ink);}
+  .arch-hd button{border:none;background:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px;}
+  .arch-body{overflow-y:auto;padding:8px 0;}
+  .arch-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 20px;border-bottom:1px solid var(--line);font-size:13px;}
+  .arch-item:last-child{border-bottom:none;}
+  .arch-item .d{font-weight:700;color:var(--ink);font-family:"Pretendard",system-ui,sans-serif;}
+  .arch-item .sz{font-size:11px;color:var(--muted);margin-left:8px;}
+  .arch-item a{font-size:12px;font-weight:700;color:var(--brand);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 12px;white-space:nowrap;}
+  .arch-item a:hover{border-color:var(--brand);}
+  .arch-empty{padding:28px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;}
   .toolbar .sp{margin-left:auto;font-size:12px;color:var(--muted);}
   .statuswrap{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;}
   .toolbar-sub{margin-top:2px;text-align:right;font-size:11px;color:var(--muted);min-height:14px;}
@@ -439,12 +456,22 @@
   <button id="printBtn">인쇄</button>
   <button id="pdfBtn">PDF 저장</button>
   <button id="pngBtn">PNG 저장</button>
+  <button id="saveBtn" class="save" title="현재 리포트를 PDF로 저장함(클라우드)에 보관">리포트 저장</button>
+  <button id="archiveBtn" title="저장된 리포트 목록 보기">저장함</button>
   <div class="statuswrap">
     <span class="sp" id="status">조회 시 주가·시총·차트가 자동 반영됩니다.</span>
     <span class="toolbar-sub" id="newsWindow"></span>
   </div>
 </div>
 <div id="error"></div>
+
+<!-- 저장함(리포트 아카이브) 모달 -->
+<div class="arch-back" id="archBack">
+  <div class="arch">
+    <div class="arch-hd"><h3>저장된 리포트</h3><button id="archClose" title="닫기">×</button></div>
+    <div class="arch-body" id="archBody"><div class="arch-empty">불러오는 중…</div></div>
+  </div>
+</div>
 
 <div class="page">
 
@@ -1158,23 +1185,74 @@ $("printBtn").addEventListener("click",async function(){
   }catch(e){alert("인쇄 오류: "+e.message);}
   finally{btn.disabled=false;btn.textContent="인쇄";}
 });
+// 리포트 PDF 생성 (다운로드·저장함 공용). {pdf, date} 반환.
+async function buildReportPdf(){
+  const {canvas,links,cssW,cssH}=await captureReport();
+  const {jsPDF}=window.jspdf;
+  const pxToMm=px=>px*25.4/96;
+  const w=pxToMm(cssW), h=pxToMm(cssH);
+  const pdf=new jsPDF({orientation:w>h?"l":"p",unit:"mm",format:[w,h]});
+  pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,w,h);
+  // 뉴스 헤드라인 위치에 클릭 가능한 링크 영역 덧씌우기(PDF에서 살아있게)
+  links.forEach(l=>{try{pdf.link(l.x*w,l.y*h,l.w*w,l.h*h,{url:l.url});}catch(e){}});
+  const date=$("rptDate")?.textContent||new Date().toISOString().slice(0,10);
+  return {pdf,date};
+}
 $("pdfBtn").addEventListener("click",async function(){
   const btn=$("pdfBtn");
   btn.disabled=true;btn.textContent="생성 중…";
   try{
-    const {canvas,links,cssW,cssH}=await captureReport();
-    const {jsPDF}=window.jspdf;
-    const pxToMm=px=>px*25.4/96;
-    const w=pxToMm(cssW), h=pxToMm(cssH);
-    const pdf=new jsPDF({orientation:w>h?"l":"p",unit:"mm",format:[w,h]});
-    pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,w,h);
-    // 뉴스 헤드라인 위치에 클릭 가능한 링크 영역 덧씌우기(PDF에서 살아있게)
-    links.forEach(l=>{try{pdf.link(l.x*w,l.y*h,l.w*w,l.h*h,{url:l.url});}catch(e){}});
-    const date=$("rptDate")?.textContent||new Date().toISOString().slice(0,10);
+    const {pdf,date}=await buildReportPdf();
     pdf.save(`케어젠_IR_Stock_Daily_${date}.pdf`);
   }catch(e){alert("PDF 생성 오류: "+e.message);}
   finally{btn.disabled=false;btn.textContent="PDF 저장";}
 });
+// 저장함(클라우드)에 현재 리포트 PDF 업로드
+$("saveBtn").addEventListener("click",async function(){
+  const btn=$("saveBtn");
+  btn.disabled=true;btn.textContent="저장 중…";
+  try{
+    const {pdf,date}=await buildReportPdf();
+    const blob=pdf.output("blob");
+    const fd=new FormData();
+    fd.append("date",date);
+    fd.append("file",blob,`${date}.pdf`);
+    const res=await fetch("/api/reports",{method:"POST",body:fd});
+    if(!res.ok){const t=await res.text();throw new Error(t||res.status);}
+    btn.textContent="저장됨 ✓";
+    setTimeout(()=>{btn.textContent="리포트 저장";},1600);
+  }catch(e){alert("저장 실패: "+e.message);btn.textContent="리포트 저장";}
+  finally{btn.disabled=false;}
+});
+// 저장함 목록 모달
+function fmtSize(n){if(!n&&n!==0)return"";if(n<1024)return n+"B";if(n<1048576)return(n/1024).toFixed(0)+"KB";return(n/1048576).toFixed(1)+"MB";}
+async function openArchive(){
+  $("archBack").classList.add("on");
+  const body=$("archBody");
+  body.innerHTML='<div class="arch-empty">불러오는 중…</div>';
+  try{
+    const res=await fetch("/api/reports");
+    const j=await res.json();
+    if(!j.configured){body.innerHTML='<div class="arch-empty">저장소가 아직 설정되지 않았습니다.<br>Render 환경변수(SUPABASE_URL·SUPABASE_SERVICE_KEY)를 확인하세요.</div>';return;}
+    const items=j.items||[];
+    if(!items.length){body.innerHTML='<div class="arch-empty">저장된 리포트가 없습니다.<br>‘리포트 저장’을 눌러 보관해 보세요.</div>';return;}
+    body.innerHTML=items.map(it=>`<div class="arch-item"><div><span class="d">${it.date}</span><span class="sz">${fmtSize(it.size)}</span></div><a href="#" data-n="${it.name}">열기</a></div>`).join("");
+    body.querySelectorAll("a[data-n]").forEach(a=>{
+      a.addEventListener("click",async ev=>{
+        ev.preventDefault();a.textContent="여는 중…";
+        try{
+          const r=await fetch("/api/reports/link?name="+encodeURIComponent(a.dataset.n));
+          const jj=await r.json();
+          if(jj.url)window.open(jj.url,"_blank");else throw new Error("링크 없음");
+        }catch(e){alert("열기 실패: "+e.message);}
+        a.textContent="열기";
+      });
+    });
+  }catch(e){body.innerHTML='<div class="arch-empty">목록을 불러오지 못했습니다.<br>'+e.message+'</div>';}
+}
+$("archiveBtn").addEventListener("click",openArchive);
+$("archClose").addEventListener("click",()=>$("archBack").classList.remove("on"));
+$("archBack").addEventListener("click",e=>{if(e.target===$("archBack"))$("archBack").classList.remove("on");});
 $("pngBtn").addEventListener("click",async function(){
   const btn=$("pngBtn");
   btn.disabled=true;btn.textContent="생성 중…";

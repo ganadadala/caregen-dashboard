@@ -22,7 +22,7 @@ from xml.etree import ElementTree as ET
 
 import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -44,6 +44,11 @@ PHARM_CODE = (os.getenv("KOSDAQ_PHARM_CODE", "").strip() or "1024")
 if PHARM_CODE == os.getenv("STOCK_CODE", "214370"):
     PHARM_CODE = "1024"
 TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
+
+# 저장함(리포트 아카이브): Supabase Storage. 키는 Render 환경변수(sync:false)로만 주입.
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
+SUPABASE_BUCKET = (os.getenv("SUPABASE_BUCKET", "reports").strip() or "reports")
 
 # 코스닥 제약바이오 종목군 (code, 종목명). 미용/에스테틱주(클래시스·휴젤·파마리서치)는 제외.
 # 시총만 KIS 실시간으로 받아 top10 정렬. 랭킹에 없는 특수코드(코오롱티슈진 950160 등)는
@@ -2051,9 +2056,102 @@ def krx_rank_debug(code: str = DEFAULT_CODE, date: str = ""):
     return out
 
 
+# ── 저장함(리포트 아카이브): Supabase Storage REST ──────────────────────
+def _supabase_ready():
+    return bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
+
+
+def _sb_headers(extra=None):
+    h = {"Authorization": f"Bearer {SUPABASE_SERVICE_KEY}", "apikey": SUPABASE_SERVICE_KEY}
+    if extra:
+        h.update(extra)
+    return h
+
+
+@app.post("/api/reports")
+async def save_report(file: UploadFile = File(...), date: str = Form("")):
+    """브라우저에서 만든 리포트 PDF를 Supabase 버킷에 '{날짜}.pdf'로 업로드(덮어쓰기)."""
+    if not _supabase_ready():
+        raise HTTPException(503, "저장소(Supabase)가 설정되지 않았습니다. Render 환경변수를 확인하세요.")
+    d = (date or "").strip()
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", d):
+        from datetime import datetime
+        d = datetime.now().strftime("%Y-%m-%d")
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "빈 파일입니다.")
+    path = f"{d}.pdf"
+    url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{path}"
+    try:
+        r = requests.post(
+            url,
+            headers=_sb_headers({"Content-Type": "application/pdf", "x-upsert": "true"}),
+            data=data,
+            timeout=30,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"업로드 통신 실패: {str(e)[:200]}")
+    if r.status_code not in (200, 201):
+        raise HTTPException(502, f"업로드 실패: {r.status_code} {r.text[:200]}")
+    return {"ok": True, "name": path, "date": d, "size": len(data)}
+
+
+@app.get("/api/reports")
+def list_reports():
+    """저장된 리포트 목록(최신 날짜순)."""
+    if not _supabase_ready():
+        return {"ok": False, "configured": False, "items": []}
+    url = f"{SUPABASE_URL}/storage/v1/object/list/{SUPABASE_BUCKET}"
+    body = {"prefix": "", "limit": 1000, "sortBy": {"column": "name", "order": "desc"}}
+    try:
+        r = requests.post(url, headers=_sb_headers({"Content-Type": "application/json"}), json=body, timeout=15)
+        r.raise_for_status()
+        objs = r.json()
+    except Exception as e:
+        return {"ok": False, "configured": True, "items": [], "error": str(e)[:200]}
+    items = []
+    for o in (objs or []):
+        name = o.get("name", "")
+        if not name.endswith(".pdf"):
+            continue
+        meta = o.get("metadata") or {}
+        items.append({
+            "name": name,
+            "date": name[:-4],
+            "size": meta.get("size"),
+            "created_at": o.get("created_at") or o.get("updated_at"),
+        })
+    items.sort(key=lambda x: x["date"], reverse=True)
+    return {"ok": True, "configured": True, "items": items}
+
+
+@app.get("/api/reports/link")
+def report_link(name: str):
+    """비공개 버킷의 파일을 1시간 유효 서명 URL로 반환(다운로드/새탭)."""
+    if not _supabase_ready():
+        raise HTTPException(503, "저장소가 설정되지 않았습니다.")
+    if not re.match(r"^[\w\-.]+\.pdf$", name):
+        raise HTTPException(400, "잘못된 파일명")
+    url = f"{SUPABASE_URL}/storage/v1/object/sign/{SUPABASE_BUCKET}/{name}"
+    try:
+        r = requests.post(url, headers=_sb_headers({"Content-Type": "application/json"}), json={"expiresIn": 3600}, timeout=15)
+        r.raise_for_status()
+        signed = r.json().get("signedURL") or r.json().get("signedUrl") or ""
+    except Exception as e:
+        raise HTTPException(502, f"링크 생성 실패: {str(e)[:200]}")
+    if signed.startswith("/storage/v1"):
+        full = SUPABASE_URL + signed
+    elif signed.startswith("/"):
+        full = SUPABASE_URL + "/storage/v1" + signed
+    else:
+        full = signed
+    return {"url": full}
+
+
 @app.get("/api/health")
 def health():
-    return {"ok": True, "configured": bool(APPKEY and APPSECRET), "default_code": DEFAULT_CODE}
+    return {"ok": True, "configured": bool(APPKEY and APPSECRET), "default_code": DEFAULT_CODE,
+            "storage": _supabase_ready()}
 
 
 # 정적 대시보드 서빙 (맨 마지막에 마운트)
