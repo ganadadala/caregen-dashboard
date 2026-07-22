@@ -47,6 +47,11 @@ TOKEN_CACHE = Path(__file__).parent / ".token_cache.json"
 
 # 저장함(리포트 아카이브): Supabase Storage. 키는 Render 환경변수(sync:false)로만 주입.
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+# API URL을 복사하면 뒤에 /rest/v1 등이 딸려오는 경우가 많음 → 프로젝트 도메인만 남기도록 정리
+for _suf in ("/rest/v1", "/storage/v1", "/auth/v1", "/rest", "/storage", "/auth"):
+    if SUPABASE_URL.endswith(_suf):
+        SUPABASE_URL = SUPABASE_URL[: -len(_suf)]
+SUPABASE_URL = SUPABASE_URL.rstrip("/")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
 SUPABASE_BUCKET = (os.getenv("SUPABASE_BUCKET", "reports").strip() or "reports")
 
