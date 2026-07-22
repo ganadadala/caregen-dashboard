@@ -502,7 +502,7 @@
   <section class="ov2">
     <div class="ov2-cell chartwrap">
       <div class="head">
-        <div class="t">차트 <small>일봉 10일 · OHLC + 코스닥 제약지수</small></div>
+        <div class="t">차트 <small>일봉 10일 · 케어젠 + 코스닥 제약지수</small></div>
       </div>
       <div class="chartbox"><canvas id="chart"></canvas><div id="chartInfo" class="chart-info"></div></div>
       <div class="legend">
@@ -686,15 +686,9 @@ function drawCandleChart(ohlc){
 }
 function hideChartInfo(){const el=document.getElementById("chartInfo");if(el)el.classList.remove("show");}
 function updatePharmChip(pNums){
-  const chip=document.getElementById("pharmChip"),leg=document.getElementById("pharmLegend");
-  if(!chip)return;
-  if(!pNums||!pNums.length){chip.style.display="none";if(leg)leg.style.display="none";return;}
-  const last=pNums[pNums.length-1],prev=pNums.length>=2?pNums[pNums.length-2]:null;
-  const chg=prev?((last-prev)/prev*100):0;
-  const cls=chg>0?"up":chg<0?"down":"";
-  const vv=last.toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2});
-  document.getElementById("pharmVal").innerHTML=`${vv} <span class="${cls}">(${chg>0?"+":""}${chg.toFixed(2)}%)</span>`;
-  chip.style.display="";if(leg)leg.style.display="";
+  // 코스닥 제약지수(보라 점선) 범례 표시/숨김 (데이터 있을 때만)
+  const leg=document.getElementById("pharmLegend");
+  if(leg)leg.style.display=(pNums&&pNums.length>=2)?"inline-flex":"none";
 }
 function showChartInfo(d,caretX,area){
   const el=document.getElementById("chartInfo");if(!el||!d)return;
@@ -706,7 +700,10 @@ function showChartInfo(d,caretX,area){
     `<div class="crow"><span>${c("시가",won(d.o),clr)}</span><span>${c("종가",won(d.c),clr)}</span></div>`+
     `<div class="crow"><span>${c("고가",won(d.h),clr)}</span><span>${c("저가",won(d.l),clr)}</span></div>`;
   if(d.p!=null){
-    const pchg=pharmBase?((d.p-pharmBase)/pharmBase*100):0;
+    // 코스닥 제약지수 전일비(전 거래일 대비) — 차트 데이터에서 바로 앞 거래일 값과 비교
+    const arr=(chart&&chart._ohlc)||[];const idx=arr.indexOf(d);
+    let prevP=null;for(let j=idx-1;j>=0;j--){if(arr[j]&&arr[j].p!=null){prevP=arr[j].p;break;}}
+    const pchg=prevP?((d.p-prevP)/prevP*100):0;
     const pcls=pchg>0?"up":pchg<0?"down":"";
     const pv=Number(d.p).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2});
     html+=`<div class="crow"><span style="color:#8b5cf6;font-weight:600">코스닥 제약</span><span>${pv} <span class="${pcls}">(${pchg>0?"+":""}${pchg.toFixed(2)}%)</span></span></div>`;
