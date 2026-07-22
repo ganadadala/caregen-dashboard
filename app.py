@@ -1813,6 +1813,30 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
 
 
 
+@app.get("/api/frgn-debug")
+def frgn_debug(code: str = DEFAULT_CODE):
+    """외국인 지분율 소스 진단 — 네이버 일자별 보유율 series + KIS 값 + 계산 결과."""
+    from datetime import datetime, timezone, timedelta
+    kst = timezone(timedelta(hours=9))
+    series = _fetch_naver_frgn_ratio_series(code, pages=3)
+    try:
+        q = fetch_quote(code)
+    except Exception as e:
+        q = {"error": str(e)}
+    out = {
+        "code": code,
+        "today_kst": datetime.now(kst).strftime("%Y%m%d"),
+        "naver_rows": len(series),
+        "naver_series_head": series[:25],           # (YYYYMMDD, 보유율) 최신순
+        "kis_hts_frgn_ehrt": q.get("hts_frgn_ehrt", ""),
+    }
+    if len(series) > 20:
+        out["current_naver"] = series[0]
+        out["d20_naver"] = series[20]               # D-20 실측치(=6/23이어야 정상)
+        out["delta_naver"] = round(series[0][1] - series[20][1], 2)
+    return out
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "configured": bool(APPKEY and APPSECRET), "default_code": DEFAULT_CODE}
