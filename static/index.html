@@ -151,6 +151,10 @@
   .chart-info .crow{display:flex;gap:12px;}
   .chart-info .crow span{display:inline-block;}
   .chart-info .lbl{color:var(--muted);}
+  /* 차트 좌상단 범례(코스닥 제약지수) 오버레이 */
+  .chartbox .chart-legend{position:absolute;top:6px;left:8px;z-index:4;align-items:center;gap:5px;
+    font-size:10px;color:var(--ink2);background:rgba(255,255,255,.82);padding:1px 7px 1px 5px;border-radius:5px;pointer-events:none;}
+  .chartbox .chart-legend i{display:inline-block;width:16px;height:0;border-top:2px dashed #8b5cf6;vertical-align:middle;}
   .legend{display:flex;gap:18px;margin-top:10px;font-size:11px;color:var(--muted);}
   .legend span{display:inline-flex;align-items:center;gap:6px;}
   .legend i{width:18px;height:0;border-top:2px solid;}
@@ -504,10 +508,7 @@
       <div class="head">
         <div class="t">차트 <small>일봉 10일 · 케어젠 + 코스닥 제약지수</small></div>
       </div>
-      <div class="chartbox"><canvas id="chart"></canvas><div id="chartInfo" class="chart-info"></div></div>
-      <div class="legend">
-        <span id="pharmLegend" style="display:none"><i style="border-color:#8b5cf6;border-top-style:dashed"></i> 코스닥 제약지수</span>
-      </div>
+      <div class="chartbox"><canvas id="chart"></canvas><span id="pharmLegend" class="chart-legend" style="display:none"><i></i> 코스닥 제약지수</span><div id="chartInfo" class="chart-info"></div></div>
     </div>
     <div class="ov2-cell invpanel">
       <div class="inv-hd">투자자별 수급동향 <span style="font-weight:400;color:var(--muted)">· 최근 10거래일</span></div>
