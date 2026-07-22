@@ -1910,6 +1910,22 @@ def fx_debug():
             out["hana_sample"] = re.sub(r"\s+", " ", html[:1200])
     except Exception as e:
         out["hana_error"] = str(e)
+    # 사용자가 지목한 현재환율 표시 페이지에 데이터가 서버렌더로 들어있는지 확인
+    try:
+        r2 = requests.get(
+            "https://www.kebhana.com/cont/mall/mall15/mall1501/index.jsp",
+            headers={"User-Agent": "Mozilla/5.0"}, timeout=8,
+        )
+        h2 = r2.content.decode("euc-kr", "ignore")
+        out["jsp_status"] = r2.status_code
+        out["jsp_len"] = len(h2)
+        out["jsp_has_maemae"] = "매매기준율" in h2
+        m2 = re.search(r"[12],\d{3}\.\d{2}", h2)
+        out["jsp_has_rate_num"] = bool(m2)
+        # jsp가 참조하는 데이터 endpoint(.do) 후보 추출
+        out["jsp_do_refs"] = sorted(set(re.findall(r"[\w/]+\.do", h2)))[:20]
+    except Exception as e:
+        out["jsp_error"] = str(e)
     out["hana_parsed"] = _fetch_hana_usdkrw()
     out["naver_parsed"] = _fetch_naver_usdkrw()
     out["final_fetch_usdkrw"] = fetch_usdkrw()
