@@ -2057,6 +2057,28 @@ def krx_rank_debug(code: str = DEFAULT_CODE, date: str = ""):
         cg = next((r for r in rows if _krx_code(r).lstrip("0") == code.lstrip("0")), None)
         if cg:
             out["caregen_cap"] = _krx_cap(cg)
+            out["caregen_row"] = {k: cg.get(k) for k in ("ISU_NM", "MKT_NM", "SECT_TP_NM")}
+        # 섹션구분(SECT_TP_NM) 분포 — 보통주 외 우선주/스팩/리츠 등이 얼마나 섞였는지
+        sect = {}
+        for r in rows:
+            s = str(r.get("SECT_TP_NM", "") or "")
+            sect[s] = sect.get(s, 0) + 1
+        out["sect_tp_counts"] = dict(sorted(sect.items(), key=lambda t: -t[1]))
+        # 케어젠 순위 주변(±12) 종목 나열 — 뭐가 순위를 밀어내는지 확인
+        ranked = sorted(
+            [r for r in rows if _krx_cap(r) > 0],
+            key=lambda r: _krx_cap(r), reverse=True,
+        )
+        idx = next((i for i, r in enumerate(ranked)
+                    if _krx_code(r).lstrip("0") == code.lstrip("0")), None)
+        if idx is not None:
+            lo, hi = max(0, idx - 12), min(len(ranked), idx + 13)
+            out["neighbors"] = [
+                {"rank": i + 1, "nm": ranked[i].get("ISU_NM"),
+                 "mkt": ranked[i].get("MKT_NM"), "sect": ranked[i].get("SECT_TP_NM"),
+                 "cap_jo": round(_krx_cap(ranked[i]) / 1e12, 3)}
+                for i in range(lo, hi)
+            ]
     out.update(fetch_krx_overall_rank(code, basDd))
     return out
 
