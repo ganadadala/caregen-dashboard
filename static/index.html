@@ -176,10 +176,9 @@
   .chart-info .crow{display:flex;gap:12px;}
   .chart-info .crow span{display:inline-block;}
   .chart-info .lbl{color:var(--muted);}
-  /* 차트 좌상단 범례(코스닥 제약지수) 오버레이 */
-  .chartbox .chart-legend{position:absolute;top:6px;left:48px;z-index:4;align-items:center;gap:5px;
-    font-size:10px;color:var(--ink2);background:rgba(255,255,255,.82);padding:1px 7px 1px 5px;border-radius:5px;pointer-events:none;}
-  .chartbox .chart-legend i{display:inline-block;width:16px;height:0;border-top:2px dashed #8b5cf6;vertical-align:middle;}
+  /* 차트 헤더 우측 범례(코스닥 제약지수) — 차트 바디가 아닌 상단에 배치 */
+  .chartwrap .head .chart-legend{align-items:center;gap:5px;font-size:11px;color:var(--ink2);white-space:nowrap;}
+  .chartwrap .head .chart-legend i{display:inline-block;width:16px;height:0;border-top:2px dashed #8b5cf6;vertical-align:middle;}
   .legend{display:flex;gap:18px;margin-top:10px;font-size:11px;color:var(--muted);}
   .legend span{display:inline-flex;align-items:center;gap:6px;}
   .legend i{width:18px;height:0;border-top:2px solid;}
@@ -444,7 +443,7 @@
     /* 차트: 우측 칸이 좌측 지표 높이에 맞춰 채워지도록 + 넘침 방지 */
     .overview .chartbox{flex:1;height:auto;min-height:0;overflow:hidden;}
     .chartbox canvas{max-height:100%!important;width:100%!important;}
-    .legend{margin-top:5px;} .chart-info{display:none!important;}
+    .legend{margin-top:5px;}
     /* 내부 여백·간격 정리 */
     .wcard{padding:9px 11px;} .wcard .tag{margin-bottom:5px;} .wcard .body{font-size:11px;line-height:1.5;}
     .autoline{margin-bottom:4px;padding-bottom:4px;}
@@ -568,8 +567,9 @@
     <div class="ov2-cell chartwrap">
       <div class="head">
         <div class="t">차트 <small>일봉 10일 · 케어젠 + 코스닥 제약지수</small></div>
+        <span id="pharmLegend" class="chart-legend" style="display:none"><i></i> 코스닥 제약지수</span>
       </div>
-      <div class="chartbox"><canvas id="chart"></canvas><span id="pharmLegend" class="chart-legend" style="display:none"><i></i> 코스닥 제약지수</span><div id="chartInfo" class="chart-info"></div></div>
+      <div class="chartbox"><canvas id="chart"></canvas><div id="chartInfo" class="chart-info"></div></div>
     </div>
     <div class="ov2-cell invpanel">
       <div class="inv-hd">투자자별 수급동향 <span style="font-weight:400;color:var(--muted)">· 최근 10거래일</span></div>
@@ -754,9 +754,6 @@ function drawCandleChart(ohlc){
       const lastBar=meta&&meta.data&&meta.data[ohlc.length-1];
       const cx=lastBar?lastBar.x:chart.chartArea.right;
       showChartInfo(ohlc[ohlc.length-1],cx,chart.chartArea);
-      // 범례를 플롯 영역(chartArea) 안쪽에 배치 → 좌측 Y축 라벨을 가리지 않음
-      const leg=document.getElementById("pharmLegend");
-      if(leg&&chart.chartArea){leg.style.left=(chart.chartArea.left+6)+"px";leg.style.top=(chart.chartArea.top+3)+"px";}
     },0);
   }
 }
@@ -1197,6 +1194,12 @@ async function captureReport(){
   const scale=isMobile?1.5:2;
   const prevW=page.style.width, prevMW=page.style.maxWidth;
   if(!isMobile){page.style.width="1160px";page.style.maxWidth="1160px";void page.offsetHeight;}
+  // 캡처 직전 마지막 봉 주가정보를 강제 표시 → PDF/PNG에도 종가·시고저·거래량이 보이게
+  try{if(typeof chart!=="undefined"&&chart&&chart._ohlc&&chart._ohlc.length){
+    chart.resize();
+    const oh=chart._ohlc,mt=chart.getDatasetMeta(0),lb=mt&&mt.data&&mt.data[oh.length-1];
+    showChartInfo(oh[oh.length-1],lb?lb.x:chart.chartArea.right,chart.chartArea);
+  }}catch(e){}
   const pr=page.getBoundingClientRect();
   const links=[...page.querySelectorAll('.nhl a[href]')].map(a=>{
     const r=a.getBoundingClientRect();
