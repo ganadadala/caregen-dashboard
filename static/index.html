@@ -1202,7 +1202,14 @@ $("newsBtn").addEventListener("contextmenu",(e)=>{e.preventDefault();loadNews(tr
 async function captureReport(){
   const page=document.querySelector(".page");
   const isMobile=window.innerWidth<760;
-  const scale=isMobile?1.5:2;
+  // 모바일: 레이아웃은 그대로 두고 배율만 향상(1.5→최대 2.5). 단 iOS 캔버스 한계
+  // (세로 ~8000px·면적 ~16M px)를 넘으면 저장이 실패하므로 리포트 높이에 맞춰 자동 상한.
+  let scale=isMobile?2.5:2;
+  if(isMobile){
+    const w=page.getBoundingClientRect().width||window.innerWidth||390;
+    const h=page.scrollHeight||page.getBoundingClientRect().height||3000;
+    scale=Math.max(1.5,Math.min(2.5, 8000/h, Math.sqrt(16000000/(w*h))));
+  }
   const prevW=page.style.width, prevMW=page.style.maxWidth;
   if(!isMobile){page.style.width="1160px";page.style.maxWidth="1160px";void page.offsetHeight;}
   // 캡처 직전 마지막 봉 주가정보를 강제 표시 → PDF/PNG에도 종가·시고저·거래량이 보이게
