@@ -361,8 +361,8 @@
     .market5 .m5grid4{grid-template-columns:1fr;}
     /* 1열로 접히면 지수 컬럼의 높이 기준(옆 Top10 표)이 사라져 flex 차트가 0으로 무너짐
        → 모바일에선 지수 차트를 고정 높이로 전환해 확실히 보이게 */
-    .market5 .m5col-idx .m5box{flex:0 0 auto;}
-    .m5idx .mchart{flex:0 0 auto;height:150px;min-height:0;}
+    .market5 .m5col-idx .m5box{flex:0 0 auto !important;}
+    .m5idx .mchart{flex:0 0 auto !important;height:150px !important;min-height:150px !important;}
   }
 
   /* 시장 주요 질의 사항 */

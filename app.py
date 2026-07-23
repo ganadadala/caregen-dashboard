@@ -120,6 +120,17 @@ class _BasicAuth(BaseHTTPMiddleware):
         )
 
 
+class _NoCacheHTML(BaseHTTPMiddleware):
+    """HTML 문서는 항상 재검증하도록 no-cache — 배포 후 브라우저가 구버전 CSS/JS를
+    계속 쓰는 문제 방지(변경 없으면 304로 가볍게 처리됨). 정적 자산은 영향 없음."""
+    async def dispatch(self, request, call_next):
+        resp = await call_next(request)
+        if resp.headers.get("content-type", "").startswith("text/html"):
+            resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return resp
+
+
+app.add_middleware(_NoCacheHTML)
 app.add_middleware(_BasicAuth)
 
 
