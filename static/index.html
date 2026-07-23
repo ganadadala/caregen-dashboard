@@ -625,17 +625,19 @@
       <div class="nsub">
         <div class="nsub-hd">케어젠</div>
         <div class="secbox nhl edph" id="hlCaregen" data-k="hlCaregen" data-ph="뉴스·요약 채우기 시 자동 표시" contenteditable="true"></div>
+        <div class="news-win" id="winCaregen" data-k="winCaregen"></div>
       </div>
       <div class="nsub">
         <div class="nsub-hd">제약·바이오</div>
         <div class="secbox nhl edph" id="hlSector" data-k="hlSector" data-ph="뉴스·요약 채우기 시 자동 표시" contenteditable="true"></div>
+        <div class="news-win" id="winSector" data-k="winSector"></div>
       </div>
       <div class="nsub">
         <div class="nsub-hd">매크로</div>
         <div class="secbox nhl edph" id="hlMacro" data-k="hlMacro" data-ph="뉴스·요약 채우기 시 자동 표시" contenteditable="true"></div>
+        <div class="news-win" id="winMacro" data-k="winMacro"></div>
       </div>
     </div>
-    <div class="news-win" id="newsWin2"></div>
   </section>
 
   <div class="pg-footer"><strong>CAREGEN</strong> · ㈜케어젠 · KOSDAQ 214370 · IR Stock Daily · 본 자료는 내부 업무용입니다.</div>
@@ -1147,9 +1149,16 @@ async function loadNews(force=false){
     renderHl("hlCaregen",d.headlines_caregen);
     renderHl("hlSector",d.headlines_sector);
     renderHl("hlMacro",d.headlines_macro);
-    if(d.window){const t=`뉴스 조회기간 ${d.window.start} ~ ${d.window.end} KST`;
-      const w=$("newsWindow");if(w)w.textContent=t;
-      const w2=$("newsWin2");if(w2)w2.textContent=t+" · 케어젠은 최근 7일";}
+    if(d.window){
+      const t=`뉴스 조회기간 ${d.window.start} ~ ${d.window.end} KST`;
+      const wc=d.window_caregen;
+      const tc=wc?`뉴스 조회기간 ${wc.start} ~ ${wc.end} KST (최근 7일)`:t;
+      const setW=(id,txt)=>{const e=$(id);if(e)e.textContent=txt;};
+      setW("newsWindow",t);          // 툴바
+      setW("winCaregen",tc);         // 케어젠: 최근 7일
+      setW("winSector",t);           // 제약·바이오: 1일
+      setW("winMacro",t);            // 매크로: 1일
+    }
     saveAll();
     $("status").textContent="뉴스·핵심요약 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}

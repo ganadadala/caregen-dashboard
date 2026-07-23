@@ -1997,6 +1997,11 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
         "start": win_start.strftime("%m/%d %H:%M"),
         "end": win_end.strftime("%m/%d %H:%M"),
     }
+    # 케어젠은 최근 7일 구간 → 컬럼별 조회기간 표기용
+    result["window_caregen"] = {
+        "start": cg_start.strftime("%m/%d %H:%M"),
+        "end": win_end.strftime("%m/%d %H:%M"),
+    }
 
     _news_cache["ts"] = time.time()
     _news_cache["data"] = result
