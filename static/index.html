@@ -300,7 +300,15 @@
     .hidx{flex:0 0 100%;min-width:0;border-top:1px solid rgba(255,255,255,.18);}
     /* 시총 열을 조금 더 넓혀 KOSPI 통합 순위가 한 줄에 들어오게 */
     .hcap .meta{white-space:nowrap;font-size:10.5px;}
-    .hprice .chip{font-size:10.5px;padding:4px 8px;max-width:100%;}
+    /* 전일대비: 등락가격·등락률을 한 줄로 나란히 + 흰색 통일(음영 제거) */
+    .hprice .chip{font-size:10.5px;padding:0;margin-top:6px;white-space:nowrap;background:none;color:#fff;}
+    .hprice .chip.up,.hprice .chip.down,.hprice .chip.flat{background:none;color:#fff;}
+    /* 시가총액 값 크기·위치를 금일 종가와 동일하게 */
+    .hcap .hp-eyebrow{margin-bottom:4px;}
+    .hcap .cap-val{font-size:23px;line-height:.95;}
+    /* 시총 순위·지수/환율 등락색 → 등락 무관 흰색 통일 */
+    .hcap .meta.up,.hcap .meta.dn{color:#fff;}
+    .hidx .ixrow .rt.up,.hidx .ixrow .rt.down,.hidx .ixrow .rt.flat{color:#fff;}
   }
   /* ===== IR Daily 신규 레이아웃 ===== */
   /* 헤더 우측 지수·환율 */
