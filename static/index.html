@@ -290,13 +290,15 @@
     .hbrand{flex:0 0 100%;min-width:0;border-right:none;border-bottom:1px solid rgba(255,255,255,.18);}
     .hbrand-text .brand-lg{font-size:26px;} .hbrand-text .brand-title{font-size:16px;}
     header.rpt{flex-wrap:wrap;}
-    /* 금일 종가 · 시가총액을 2열로 나란히(공간 활용) → 지수/환율은 아래 전체폭 한 줄 */
-    .hprice{flex:1 1 0;width:auto;min-width:0;border-top:1px solid rgba(255,255,255,.18);border-right:1px solid rgba(255,255,255,.18);padding:12px 14px;}
-    .hcap{flex:1 1 0;min-width:0;border-top:1px solid rgba(255,255,255,.18);border-right:none;padding:12px 14px;}
+    /* 금일 종가 · 시가총액을 2열로 나란히(공간 활용) → 지수/환율은 아래 전체폭 한 줄.
+       가로 구분선은 hbrand의 border-bottom 하나로 통일하고(중복선 제거),
+       세로 구분선(hprice border-right)이 위(hbrand)·아래(hidx) 가로선과 정확히 맞게 함 */
+    .hprice{flex:1 1 0;width:auto;min-width:0;border-right:1px solid rgba(255,255,255,.18);padding:12px 12px;}
+    .hcap{flex:1.18 1 0;min-width:0;border-right:none;padding:12px 12px 12px 12px;}
     .hidx{flex:0 0 100%;min-width:0;border-top:1px solid rgba(255,255,255,.18);}
-    /* 2열 폭에 맞게 순위 줄바꿈 허용 + 전일대비 칩 축소 */
-    .hcap .meta{white-space:normal;}
-    .hprice .chip{font-size:11px;padding:4px 8px;max-width:100%;}
+    /* 시총 열을 조금 더 넓혀 KOSPI 통합 순위가 한 줄에 들어오게 */
+    .hcap .meta{white-space:nowrap;font-size:10.5px;}
+    .hprice .chip{font-size:10.5px;padding:4px 8px;max-width:100%;}
   }
   /* ===== IR Daily 신규 레이아웃 ===== */
   /* 헤더 우측 지수·환율 */
