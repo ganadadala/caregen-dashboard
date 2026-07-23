@@ -1309,6 +1309,22 @@ async function openArchive(){
 $("archiveBtn").addEventListener("click",openArchive);
 $("archClose").addEventListener("click",()=>$("archBack").classList.remove("on"));
 $("archBack").addEventListener("click",e=>{if(e.target===$("archBack"))$("archBack").classList.remove("on");});
+// 파일 저장: 모바일은 공유 시트(사진/파일에 저장), 데스크톱은 다운로드.
+// iOS Safari는 <a download>를 무시하므로 navigator.share(파일)를 우선 사용.
+async function saveOrShare(blob,filename,mime){
+  const canShareFiles=(()=>{try{return !!(navigator.canShare&&navigator.canShare({files:[new File([blob],filename,{type:mime})]}));}catch(e){return false;}})();
+  if(canShareFiles){
+    try{await navigator.share({files:[new File([blob],filename,{type:mime})],title:filename});return true;}
+    catch(e){if(e&&e.name==="AbortError")return true;/* 사용자가 취소 → 성공 취급 */}
+  }
+  // 데스크톱/폴백: blob URL 다운로드
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  return true;
+}
 $("pngBtn").addEventListener("click",async function(){
   const btn=$("pngBtn");
   btn.disabled=true;btn.textContent="생성 중…";
@@ -1316,10 +1332,10 @@ $("pngBtn").addEventListener("click",async function(){
     // 전체 페이지를 이미지 1장으로 캡처 → PNG 한 장에 모든 내용이 담김
     const {canvas}=await captureReport();
     const date=$("rptDate")?.textContent||new Date().toISOString().slice(0,10);
-    const a=document.createElement("a");
-    a.href=canvas.toDataURL("image/png");
-    a.download=`케어젠_IR_Stock_Daily_${date}.png`;
-    document.body.appendChild(a);a.click();a.remove();
+    const fname=`케어젠_IR_Stock_Daily_${date}.png`;
+    const blob=await new Promise(res=>{if(canvas.toBlob)canvas.toBlob(res,"image/png");else res(null);});
+    if(blob){await saveOrShare(blob,fname,"image/png");}
+    else{const a=document.createElement("a");a.href=canvas.toDataURL("image/png");a.download=fname;document.body.appendChild(a);a.click();a.remove();}
   }catch(e){alert("PNG 생성 오류: "+e.message);}
   finally{btn.disabled=false;btn.textContent="PNG 저장";}
 });
