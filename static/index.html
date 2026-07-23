@@ -1354,17 +1354,68 @@ async function saveOrShare(blob,filename,mime){
   setTimeout(()=>URL.revokeObjectURL(url),4000);
   return true;
 }
+// 여러 파일 저장: 모바일은 공유 시트에 한 번에(사진에 여러 장 저장), 폴백은 순차 다운로드
+async function saveOrShareMulti(blobs,baseName){
+  const files=blobs.map((b,i)=>new File([b],`${baseName}_${i+1}.png`,{type:"image/png"}));
+  const canShare=(()=>{try{return !!(navigator.canShare&&navigator.canShare({files}));}catch(e){return false;}})();
+  if(canShare){
+    try{await navigator.share({files,title:baseName});return;}
+    catch(e){if(e&&e.name==="AbortError")return;}
+  }
+  for(const f of files){
+    const url=URL.createObjectURL(f);
+    const a=document.createElement("a");a.href=url;a.download=f.name;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    await new Promise(r=>setTimeout(r,400));
+  }
+}
+// 모바일 고해상도: iOS 한 장 캔버스 한계(≈16.7M px)를 피해 리포트를 섹션 경계에서
+// 위/아래 2장으로 나눠 각 지정 배율로 캡처 → 각 조각이 한계 이내라 3배로도 선명.
+async function captureReportSlices(scale){
+  const page=document.querySelector(".page");
+  try{if(typeof chart!=="undefined"&&chart&&chart._ohlc&&chart._ohlc.length){
+    chart.resize();
+    const oh=chart._ohlc,mt=chart.getDatasetMeta(0),lb=mt&&mt.data&&mt.data[oh.length-1];
+    showChartInfo(oh[oh.length-1],lb?lb.x:chart.chartArea.right,chart.chartArea);
+  }}catch(e){}
+  await new Promise(r=>requestAnimationFrame(r));
+  const pr=page.getBoundingClientRect();
+  const w=pr.width, fullH=page.scrollHeight||pr.height;
+  // 자연스러운 분할점: 페이지 내 블록 상단 중 중앙에 가장 가까운 경계(텍스트 안 잘리게)
+  const tops=[...page.querySelectorAll("section,header.rpt")]
+    .map(b=>b.getBoundingClientRect().top-pr.top).filter(t=>t>40&&t<fullH-40);
+  const half=fullH/2;
+  let cut=tops.length?tops.reduce((a,b)=>Math.abs(b-half)<Math.abs(a-half)?b:a,tops[0]):half;
+  cut=Math.round(cut);
+  const opts={useCORS:true,logging:false,backgroundColor:"#F4F7F5",scale,width:w,windowWidth:Math.ceil(w)};
+  const blobs=[];
+  for(const [y,h] of [[0,cut],[cut,fullH-cut]]){
+    if(h<=0)continue;
+    const canvas=await html2canvas(page,{...opts,y,height:h});
+    const blob=await new Promise(res=>{if(canvas.toBlob)canvas.toBlob(res,"image/png");else res(null);});
+    if(blob)blobs.push(blob);
+  }
+  return blobs;
+}
 $("pngBtn").addEventListener("click",async function(){
   const btn=$("pngBtn");
   btn.disabled=true;btn.textContent="생성 중…";
   try{
-    // 전체 페이지를 이미지 1장으로 캡처 → PNG 한 장에 모든 내용이 담김
-    const {canvas}=await captureReport();
     const date=$("rptDate")?.textContent||new Date().toISOString().slice(0,10);
-    const fname=`케어젠_IR_Stock_Daily_${date}.png`;
-    const blob=await new Promise(res=>{if(canvas.toBlob)canvas.toBlob(res,"image/png");else res(null);});
-    if(blob){await saveOrShare(blob,fname,"image/png");}
-    else{const a=document.createElement("a");a.href=canvas.toDataURL("image/png");a.download=fname;document.body.appendChild(a);a.click();a.remove();}
+    const base=`케어젠_IR_Stock_Daily_${date}`;
+    if(window.innerWidth<760){
+      // 모바일: 2장 분할·각 3배 → iOS 한계 회피하며 선명도 최대(기존 1.5배 대비 100%↑)
+      const blobs=await captureReportSlices(3);
+      if(!blobs.length)throw new Error("캡처 실패");
+      await saveOrShareMulti(blobs,base);
+    }else{
+      // 데스크톱: 기존대로 한 장
+      const {canvas}=await captureReport();
+      const blob=await new Promise(res=>{if(canvas.toBlob)canvas.toBlob(res,"image/png");else res(null);});
+      if(blob){await saveOrShare(blob,base+".png","image/png");}
+      else{const a=document.createElement("a");a.href=canvas.toDataURL("image/png");a.download=base+".png";document.body.appendChild(a);a.click();a.remove();}
+    }
   }catch(e){alert("PNG 생성 오류: "+e.message);}
   finally{btn.disabled=false;btn.textContent="PNG 저장";}
 });
