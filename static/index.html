@@ -285,6 +285,9 @@
     .hero-stats{flex-direction:row;}
     .hero-stats .stat{flex:1;border-bottom:0;border-right:1px solid var(--line);}
     .hero-stats .stat:last-child{border-right:0;}
+    /* 외국인 지분율 '(날짜 기준)'이 좁은 칸을 넘치지 않게 → 숫자 아래 줄로 */
+    .ov-kpi .kpi-three .stat .big{white-space:normal;}
+    .ov-kpi .kpi-three .stat .frgn-basis{display:block;margin-left:0;margin-top:1px;}
     .chartbox{flex:none;height:220px;min-height:0;}
     .hbrand{flex:0 0 100%;min-width:0;border-right:none;border-bottom:1px solid rgba(255,255,255,.18);}
     .hbrand-text .brand-lg{font-size:26px;} .hbrand-text .brand-title{font-size:16px;}
