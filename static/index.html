@@ -79,12 +79,8 @@
   header.rpt{
     display:flex;align-items:center;gap:20px;
     padding:0;border-bottom:1px solid var(--line);
-    /* 장식용 원을 배경 그라디언트로 처리 → overflow:hidden 불필요.
-       (헤더를 별도 합성 레이어로 승격시켜 글자가 흐려지던 iOS Safari 현상 방지) */
-    background:
-      radial-gradient(circle 110px at calc(100% - 70px) 70px, rgba(255,255,255,.06) 0 99%, transparent 100%),
-      radial-gradient(circle 80px at calc(100% - 140px) calc(100% - 20px), rgba(255,255,255,.045) 0 99%, transparent 100%),
-      linear-gradient(135deg,#14224b 0%,#20386e 55%,#2e4f92 100%);
+    /* 장식 원 제거 — 단색 네이비 그라디언트만 */
+    background:linear-gradient(135deg,#14224b 0%,#20386e 55%,#2e4f92 100%);
     position:relative;
     border-radius:16px 16px 0 0;
   }
