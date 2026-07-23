@@ -1868,24 +1868,29 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     # 섹터: 국내외 제약·바이오 (임상·허가·딜·테마·자금·정책 + 주요 기업)
     sector_hl = _collect(SECTOR_QUERIES, per_query=5, cap=20)
 
-    # 케어젠: 사명·영문명·파이프라인/제품명 키워드로 검색, 관련 키워드 포함 기사만
+    # 케어젠: 사명·영문명·파이프라인/제품명 키워드로 검색, 관련 키워드 포함 기사만.
+    # 회사 기사는 하루 구간이면 0건이 잦음 → 최근 7일(1주일) 구간으로만 조회.
+    # (예전엔 0건 시 구간 제한 없이 재시도해 옛날 기사가 유입되던 문제를 제거)
+    from datetime import timedelta as _td
+    cg_start = win_end - _td(days=7)                      # 최근 1주일 시작점
+    cg_after_date = cg_start.date().strftime("%Y-%m-%d")
+
     def _is_caregen(item) -> bool:
         t = item["text"].lower()
         return any(kw in t for kw in CAREGEN_KEYWORDS)
 
-    company_hl = [it for it in _collect(CAREGEN_QUERIES, per_query=8, cap=20) if _is_caregen(it)]
-    if not company_hl:  # 구간 필터로 0건이면 구간 제한 없이 재시도(최신순)
-        seen_cg: set = set()
-        for q in CAREGEN_QUERIES:
-            for item in fetch_gnews(q, max_items=8):
-                if not _is_caregen(item):
-                    continue
-                title = item["text"].split("\n")[0]
-                if title not in seen_cg:
-                    seen_cg.add(title)
-                    company_hl.append(item)
-            if len(company_hl) >= 12:
-                break
+    seen_cg, company_hl = set(), []
+    for q in CAREGEN_QUERIES:
+        full_q = f"{q} after:{cg_after_date}"
+        for item in fetch_gnews(full_q, max_items=8, after_dt=cg_start, before_dt=win_end):
+            if not _is_caregen(item):
+                continue
+            title = item["text"].split("\n")[0]
+            if title not in seen_cg:
+                seen_cg.add(title)
+                company_hl.append(item)
+        if len(company_hl) >= 20:
+            break
 
     today_str = time.strftime("%Y-%m-%d")
     macro_lines = "\n".join(i["text"] for i in macro_hl) if macro_hl else "(없음)"
