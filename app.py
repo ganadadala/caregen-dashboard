@@ -1892,11 +1892,6 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
         if len(company_hl) >= 20:
             break
 
-    today_str = time.strftime("%Y-%m-%d")
-    macro_lines = "\n".join(i["text"] for i in macro_hl) if macro_hl else "(없음)"
-    sector_lines = "\n".join(i["text"] for i in sector_hl) if sector_hl else "(없음)"
-    company_lines = "\n".join(i["text"] for i in company_hl) if company_hl else "(없음)"
-
     # 주요 뉴스 헤드라인 — 카테고리별(케어젠 / 제약·바이오 / 매크로) 각 최대 5건.
     # 경제 메인 매체 우선, 스텁·중복 제거. 형식(제목·매체·링크)은 카테고리 무관 동일.
     def _title_of(item) -> str:
@@ -1952,71 +1947,9 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     headlines_macro = _cur["macro"]
     headlines = headlines_caregen + headlines_sector + headlines_macro  # 하위호환
 
-    # 프론트가 조회로 확보한 시황 수치(선택) — 핵심요약을 수치에 근거해 작성
-    _ctx = []
-    if px:
-        _ctx.append(f"케어젠 종가 {px}원" + (f" (전일대비 {rate}%)" if rate else ""))
-    if kospi:
-        _ctx.append(f"코스피 {kospi}%")
-    if kosdaq:
-        _ctx.append(f"코스닥 {kosdaq}%")
-    if pharm:
-        _ctx.append(f"코스닥 제약지수 {pharm}%")
-    market_ctx = " · ".join(_ctx) if _ctx else "(제공된 시황 수치 없음 — 뉴스 기반으로 정성 서술)"
-
-    prompt = (
-        f"오늘({today_str}) 아래 시황 수치와 뉴스를 바탕으로 기관투자자용 한국어 IR 브리핑 2개 항목을 작성하세요.\n\n"
-        "작성 규칙:\n"
-        "A. summary(핵심 요약): '금일 시황 핵심요약' 정확히 3개 불릿 — "
-        "① 당사(케어젠) 종가·전일대비와 그 배경(수급 쏠림·섹터 이슈 등) ② 코스피 시황 ③ 코스닥 시황. "
-        "각 불릿 2~4문장, [시황 데이터]의 수치를 반드시 반영하고 뉴스에서 원인·배경 근거를 찾아 서술.\n"
-        "B. sec_trend(당사 및 섹터 시장 동향): 2~3개 불릿 — 당사(케어젠) 주가 배경과 "
-        "바이오/제약 섹터의 금일 주요 이슈(구체 종목명·사건, 예: 임상 결과·허가·하한가 등)를 뉴스 근거로 서술. "
-        "IR 내부 정보(전화 문의 등)는 지어내지 말고, 시장에서 관찰되는 사실 위주로.\n"
-        "공통: 구체적 기업명·수치·정책명 포함, 단순 헤드라인 반복 금지, 단정 대신 '~로 풀이/보임' 등 완곡 표현. "
-        "관련 뉴스가 없으면 수치 기반으로만 간결히.\n\n"
-        f"[시황 데이터]\n{market_ctx}\n\n"
-        f"[증시·매크로 뉴스]\n{macro_lines}\n\n"
-        f"[바이오/제약 섹터 뉴스]\n{sector_lines}\n\n"
-        f"[케어젠(214370) 관련 뉴스]\n{company_lines}\n\n"
-        "아래 JSON만 출력 (다른 텍스트 없이):\n"
-        '{"summary":["당사 불릿","코스피 불릿","코스닥 불릿"],"sec_trend":["불릿1","불릿2"]}'
-    )
-
-    resp = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": ANTHROPIC_KEY,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-        json={
-            "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 3000,
-            "messages": [{"role": "user", "content": prompt}],
-        },
-        timeout=30,
-    )
-
-    if resp.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Claude API 오류 ({resp.status_code}): {resp.text[:200]}",
-        )
-
-    raw = resp.json()["content"][0]["text"].strip()
-    m = re.search(r'\{[\s\S]*\}', raw)
-    if not m:
-        raise HTTPException(status_code=502, detail="Claude 응답에서 JSON을 찾지 못했습니다.")
-
-    try:
-        result = json.loads(m.group())
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=502, detail=f"JSON 파싱 오류: {e}")
-
-    for key in ("summary", "sec_trend"):
-        if key not in result or not isinstance(result[key], list):
-            result[key] = ["데이터 없음"]
+    # 핵심 요약·당사 및 섹터 시장 동향은 수기 입력 전용으로 전환됨 →
+    # 이를 생성하던 Claude 호출을 제거(토큰 절약). 헤드라인 큐레이션 호출만 유지.
+    result = {}
 
     result["headlines"] = headlines
     result["headlines_caregen"] = headlines_caregen
