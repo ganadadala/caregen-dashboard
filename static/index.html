@@ -1149,7 +1149,7 @@ async function loadNews(force=false){
     renderHl("hlMacro",d.headlines_macro);
     if(d.window){const t=`뉴스 조회기간 ${d.window.start} ~ ${d.window.end} KST`;
       const w=$("newsWindow");if(w)w.textContent=t;
-      const w2=$("newsWin2");if(w2)w2.textContent=t;}
+      const w2=$("newsWin2");if(w2)w2.textContent=t+" · 케어젠은 최근 7일";}
     saveAll();
     $("status").textContent="뉴스·핵심요약 자동채우기 완료 · "+new Date().toLocaleTimeString("ko-KR");
   }catch(err){$("error").innerHTML=`<div class="err">${err.message}</div>`;}
