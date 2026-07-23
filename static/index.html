@@ -1202,13 +1202,13 @@ $("newsBtn").addEventListener("contextmenu",(e)=>{e.preventDefault();loadNews(tr
 async function captureReport(){
   const page=document.querySelector(".page");
   const isMobile=window.innerWidth<760;
-  // 모바일: 레이아웃은 그대로 두고 배율만 향상(1.5→최대 2.5). 단 iOS 캔버스 한계
-  // (세로 ~8000px·면적 ~16M px)를 넘으면 저장이 실패하므로 리포트 높이에 맞춰 자동 상한.
-  let scale=isMobile?2.5:2;
+  // 모바일: 레이아웃은 그대로 두고 배율만 향상(1.5→최대 3). iOS 캔버스 한계는 '세로'보다
+  // 총 면적(≈16.7M px)이 핵심 → 면적 기준으로 최대 배율 산출(세로는 16000px까지 여유).
+  let scale=isMobile?3:2;
   if(isMobile){
     const w=page.getBoundingClientRect().width||window.innerWidth||390;
     const h=page.scrollHeight||page.getBoundingClientRect().height||3000;
-    scale=Math.max(1.5,Math.min(2.5, 8000/h, Math.sqrt(16000000/(w*h))));
+    scale=Math.max(1.5,Math.min(3, 16000/h, Math.sqrt(16000000/(w*h))));
   }
   const prevW=page.style.width, prevMW=page.style.maxWidth;
   if(!isMobile){page.style.width="1160px";page.style.maxWidth="1160px";void page.offsetHeight;}
