@@ -1751,6 +1751,42 @@ def _curate_headlines(cands: dict) -> dict:
     return out
 
 
+def _summarize_sector(sector_headlines: list) -> list:
+    """당사 및 섹터 시장 동향 — 제약·바이오 헤드라인 섹션에 클리핑된 기사들을
+    2~3개 불릿으로 요약. 키 없음·기사 없음·호출 실패 시 빈 리스트."""
+    if not ANTHROPIC_KEY or not sector_headlines:
+        return []
+    lines = "\n".join(f"- {h['title']} ({h.get('source', '')})" for h in sector_headlines)
+    prompt = (
+        "아래는 오늘 '제약·바이오' 뉴스 헤드라인 섹션에 선별된 기사 목록입니다. "
+        "이 기사들의 내용을 종합해 기관투자자용 한국어 '당사 및 섹터 시장 동향'을 2~3개 불릿으로 요약하세요.\n"
+        "규칙: 구체적 기업명·사건(임상·허가·딜·정책·수급 등)을 살리고, 여러 기사를 주제별로 묶어 서술. "
+        "단순 제목 나열 금지, 단정 대신 '~로 풀이/보임' 등 완곡 표현. 헤드라인에 없는 내용은 지어내지 말 것. "
+        "케어젠 관련 내용이 있으면 우선 언급.\n\n"
+        f"[제약·바이오 헤드라인]\n{lines}\n\n"
+        "아래 JSON만 출력 (다른 텍스트 없이):\n"
+        '{"sec_trend":["불릿1","불릿2"]}'
+    )
+    try:
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"},
+            json={"model": "claude-haiku-4-5-20251001", "max_tokens": 800,
+                  "messages": [{"role": "user", "content": prompt}]},
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            return []
+        raw = resp.json()["content"][0]["text"].strip()
+        m = re.search(r'\{[\s\S]*\}', raw)
+        data = json.loads(m.group(0)) if m else {}
+        st = data.get("sec_trend")
+        return st if isinstance(st, list) and st else []
+    except Exception:
+        return []
+
+
 def _is_good_source(source: str) -> bool:
     sl = source.lower()
     return not any(kw in sl for kw in _BLOCKED_SOURCE_KW)
@@ -1947,9 +1983,10 @@ def news_summary(force: bool = False, px: str = "", rate: str = "",
     headlines_macro = _cur["macro"]
     headlines = headlines_caregen + headlines_sector + headlines_macro  # 하위호환
 
-    # 핵심 요약·당사 및 섹터 시장 동향은 수기 입력 전용으로 전환됨 →
-    # 이를 생성하던 Claude 호출을 제거(토큰 절약). 헤드라인 큐레이션 호출만 유지.
+    # 핵심 요약: 수기 입력 전용(생성 안 함).
+    # 당사 및 섹터 시장 동향: 제약·바이오 헤드라인 섹션 기사들을 요약해 자동 생성.
     result = {}
+    result["sec_trend"] = _summarize_sector(headlines_sector)
 
     result["headlines"] = headlines
     result["headlines_caregen"] = headlines_caregen

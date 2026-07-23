@@ -610,7 +610,7 @@
   <section class="flow twocol">
     <div class="tc-item">
       <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
-      <div class="secbox edph" id="secTrend" data-k="secTrend" data-ph="수기로 입력하세요." contenteditable="true"></div>
+      <div class="secbox edph" id="secTrend" data-k="secTrend" data-ph="'뉴스·요약 채우기' 시 제약·바이오 헤드라인 요약이 자동 생성됩니다. (수기 편집 가능)" contenteditable="true"></div>
     </div>
     <div class="tc-item">
       <div class="blkhd inq"><span class="dot"></span><h2>시장 주요 질의 사항</h2></div>
@@ -1123,7 +1123,9 @@ async function loadNews(force=false){
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||"뉴스 조회 오류 "+r.status);}
     const d=await r.json();
     const fillBullets=(id,items)=>{const el=$(id);if(!el||!items||!items.length)return;const lis=items.map(s=>`<li>${escH(s)}</li>`).join("");el.innerHTML=el.tagName==="UL"?lis:("<ul>"+lis+"</ul>");};
-    // 핵심 요약 · 당사 및 섹터 시장 동향 → 수기 입력 전용(자동 채우기 안 함)
+    // 핵심 요약 → 수기 입력 전용(자동 채우기 안 함)
+    // 당사 및 섹터 시장 동향 → 제약·바이오 헤드라인 요약으로 자동 채움
+    if(d.sec_trend&&d.sec_trend.length){fillBullets("secTrend",d.sec_trend);}
     // 주요 뉴스 헤드라인 3분류 (원본 제목 링크 + 매체) — 한 줄 말줄임, hover 전체 제목
     const renderHl=(id,arr)=>{
       const el=$(id);if(!el||!arr||!arr.length)return;
