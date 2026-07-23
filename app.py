@@ -1710,8 +1710,11 @@ def _curate_headlines(cands: dict) -> dict:
                          for i, it in enumerate(items)) or "(없음)"
 
     prompt = (
-        "아래 3개 섹션의 뉴스 헤드라인 후보 중, 각 섹션 기준에 부합하는 기사만 관련성 높은 순으로 "
-        "최대 5건씩 선별하세요. 기준에 맞지 않거나(광고성·과거 재게시·단순 등락 등) 관련성이 불확실하면 제외합니다.\n\n"
+        "아래 3개 섹션의 뉴스 헤드라인 후보 중, 각 섹션 기준에 부합하는 기사를 관련성 높은 순으로 "
+        "최대 5건씩 선별하세요. 기준에 부합하는 기사가 5건 이상이면 5건을 모두 채우고, "
+        "부합하는 기사가 그보다 적으면(예: 3건) 그만큼만 선별합니다. "
+        "기준에 맞지 않거나(광고성·과거 재게시·단순 등락 등) 관련성이 불확실한 기사는 제외하되, "
+        "억지로 5건을 채우려고 부적합한 기사를 넣지는 마세요.\n\n"
         f"[케어젠 기준]\n{_CURATION_CRITERIA['caregen']}\n후보:\n{_fmt(cands.get('caregen') or [])}\n\n"
         f"[제약·바이오 기준]\n{_CURATION_CRITERIA['sector']}\n후보:\n{_fmt(cands.get('sector') or [])}\n\n"
         f"[매크로 기준]\n{_CURATION_CRITERIA['macro']}\n후보:\n{_fmt(cands.get('macro') or [])}\n\n"
