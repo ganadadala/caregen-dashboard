@@ -290,7 +290,13 @@
     .hbrand{flex:0 0 100%;min-width:0;border-right:none;border-bottom:1px solid rgba(255,255,255,.18);}
     .hbrand-text .brand-lg{font-size:26px;} .hbrand-text .brand-title{font-size:16px;}
     header.rpt{flex-wrap:wrap;}
-    .hprice{border-right:none;border-top:1px solid rgba(255,255,255,.18);width:100%;padding:12px 20px;}
+    /* 금일 종가 · 시가총액을 2열로 나란히(공간 활용) → 지수/환율은 아래 전체폭 한 줄 */
+    .hprice{flex:1 1 0;width:auto;min-width:0;border-top:1px solid rgba(255,255,255,.18);border-right:1px solid rgba(255,255,255,.18);padding:12px 14px;}
+    .hcap{flex:1 1 0;min-width:0;border-top:1px solid rgba(255,255,255,.18);border-right:none;padding:12px 14px;}
+    .hidx{flex:0 0 100%;min-width:0;border-top:1px solid rgba(255,255,255,.18);}
+    /* 2열 폭에 맞게 순위 줄바꿈 허용 + 전일대비 칩 축소 */
+    .hcap .meta{white-space:normal;}
+    .hprice .chip{font-size:11px;padding:4px 8px;max-width:100%;}
   }
   /* ===== IR Daily 신규 레이아웃 ===== */
   /* 헤더 우측 지수·환율 */
