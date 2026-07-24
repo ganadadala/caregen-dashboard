@@ -406,6 +406,9 @@
   .secbox li::before{content:"•";position:absolute;left:2px;color:var(--brand);}
   .secbox p{font-size:12.5px;color:var(--ink2);line-height:1.7;margin:3px 0;}
   .edph:empty::before{content:attr(data-ph);color:var(--muted);font-style:italic;font-size:12.5px;pointer-events:none;}
+  /* 시장 동향: 자동 요약(위) + 수기 메모(아래) 분리 — 수기는 자동 채우기에 안 지워짐 */
+  .st-auto:empty{display:none;}
+  .st-auto:not(:empty) + .st-manual{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
   .hl-src{color:var(--muted);font-size:11px;flex:0 0 auto;}
   .nhl a{color:var(--indigo);text-decoration:none;}
   .nhl a:hover{text-decoration:underline;}
@@ -638,7 +641,12 @@
   <section class="flow twocol">
     <div class="tc-item">
       <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
-      <div class="secbox edph" id="secTrend" data-k="secTrend" data-ph="'뉴스·요약 채우기' 시 제약·바이오 헤드라인 요약이 자동 생성됩니다. 수기로 추가한 내용은 유지되고 자동 요약만 갱신됩니다." contenteditable="true"></div>
+      <div class="secbox" id="secTrendBox">
+        <!-- 자동 요약(뉴스 채우기 시 교체) -->
+        <div class="st-auto" id="secTrendAuto" data-k="secTrendAuto" contenteditable="true"></div>
+        <!-- 수기 메모(자동 채우기가 절대 건드리지 않음 → 항상 보존) -->
+        <div class="st-manual edph" id="secTrend" data-k="secTrend" data-ph="＋ 수기 메모를 입력하세요 (뉴스 요약과 별도로 항상 유지됩니다)" contenteditable="true"></div>
+      </div>
     </div>
     <div class="tc-item">
       <div class="blkhd inq"><span class="dot"></span><h2>시장 주요 질의 사항</h2></div>
@@ -1194,13 +1202,10 @@ async function loadNews(force=false){
     const d=await r.json();
     const fillBullets=(id,items)=>{const el=$(id);if(!el||!items||!items.length)return;const lis=items.map(s=>`<li>${escH(s)}</li>`).join("");el.innerHTML=el.tagName==="UL"?lis:("<ul>"+lis+"</ul>");};
     // 핵심 요약 → 수기 입력 전용(자동 채우기 안 함)
-    // 당사 및 섹터 시장 동향 → 제약·바이오 헤드라인 요약 자동 채움(수기 내용은 보존, 이전 자동분만 교체)
+    // 당사 및 섹터 시장 동향 → 자동 요약(secTrendAuto)만 교체. 수기 메모(secTrend)는 별도 영역이라 절대 안 지워짐.
     const fillSecTrend=(items)=>{
-      const el=$("secTrend");if(!el||!items||!items.length)return;
-      el.querySelectorAll('[data-auto="1"]').forEach(n=>n.remove());   // 이전 자동 요약만 제거
-      const auto='<ul data-auto="1">'+items.map(s=>`<li>${escH(s)}</li>`).join("")+'</ul>';
-      const hasManual=el.textContent.trim().length>0;                 // 남은 건 수기 내용
-      el.innerHTML=hasManual?(el.innerHTML+auto):auto;                // 있으면 아래에 덧붙임
+      const el=$("secTrendAuto");if(!el||!items||!items.length)return;
+      el.innerHTML='<ul>'+items.map(s=>`<li>${escH(s)}</li>`).join("")+'</ul>';
     };
     if(d.sec_trend&&d.sec_trend.length){fillSecTrend(d.sec_trend);}
     // 주요 뉴스 헤드라인 3분류 (원본 제목 링크 + 매체) — 한 줄 말줄임, hover 전체 제목
