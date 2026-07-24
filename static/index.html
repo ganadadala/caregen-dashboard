@@ -483,6 +483,7 @@
   <div class="statuswrap">
     <span class="sp" id="status">조회 시 주가·시총·차트가 자동 반영됩니다.</span>
     <span class="toolbar-sub" id="newsWindow"></span>
+    <span class="toolbar-sub" id="cloudState" title="수기 입력은 클라우드에 저장되어 다른 기기에서도 이어서 작업할 수 있습니다."></span>
   </div>
 </div>
 <div id="error"></div>
@@ -671,8 +672,9 @@ function eds(){return [...document.querySelectorAll("[data-k]")];}
 // frgnRatio는 KIS 현재값으로 매 조회 갱신 → localStorage 저장/복원 대상에서 제외(저장값이 최신값을 덮어쓰는 것 방지)
 // ixFxV(USD환율)는 매 조회 시 자동 갱신 → 저장/복원 제외(저장값이 최신값 덮어쓰기 방지)
 function autos(){return ["closeKrx","closeNxt","mcap","usDow","usNas","usSp"].map(id=>$(id)).filter(Boolean);}
-function saveAll(){const o={};eds().forEach(el=>o[el.dataset.k]=el.innerHTML);autos().forEach(el=>o["#"+el.id]=el.innerHTML);localStorage.setItem(keyName(),JSON.stringify(o));}
-function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;const o=JSON.parse(raw);eds().forEach(el=>{if(o[el.dataset.k]==null)return;
+function collectState(){const o={};eds().forEach(el=>o[el.dataset.k]=el.innerHTML);autos().forEach(el=>o["#"+el.id]=el.innerHTML);return o;}
+function saveAll(){localStorage.setItem(keyName(),JSON.stringify(collectState()));serverSave();}
+function applyState(o){if(!o)return;eds().forEach(el=>{if(o[el.dataset.k]==null)return;
     // rk2(KOSPI 통합 순위): 구버전 'KRX 통합 …' 형식 저장값은 폐기하고 기본 문구 유지
     if(el.dataset.k==="rk2"&&!/KOSPI\s*통합/.test(String(o.rk2||"")))return;
     let v=o[el.dataset.k];
@@ -680,8 +682,37 @@ function restoreAll(){const raw=localStorage.getItem(keyName());if(!raw)return;c
     if(el.classList.contains("edph")&&!String(v).replace(/<br\s*\/?>|&nbsp;| |\s/gi,""))v="";
     if(el.classList.contains("ws-list")){const bare=String(v).replace(/<[^>]*>|&nbsp;|\s/gi,"");if(!bare)v="<li></li>";else if(!/<li/i.test(String(v)))v="<li>"+v+"</li>";}
     el.innerHTML=v;});autos().forEach(el=>{if(o["#"+el.id]!=null)el.innerHTML=o["#"+el.id];});const _q=document.getElementById("ksqVal");if(_q)updateKsqColor(_q);}
+function restoreAll(){_dirty=false;const raw=localStorage.getItem(keyName());if(raw){try{applyState(JSON.parse(raw));}catch(e){}}serverLoad();}
 function updateKsqColor(el){const t=(el.textContent||"").trim();el.style.color=t.startsWith("-")?"var(--down)":t.startsWith("+")||parseFloat(t)>0?"var(--up)":"";}
 document.addEventListener("input",(e)=>{if(e.target.closest("[contenteditable]"))saveAll();});
+
+/* ── 공유 작업 상태(Supabase) — 다른 기기/사람이 이어서 작업 ──────────────
+   편집 시 디바운스 저장, 접속·날짜변경 시 서버 공유본을 불러옴. 마지막 저장 우선. */
+let _dirty=false,_saveT=null,_cloudOn=true;
+function cloudMsg(t){const e=$("cloudState");if(e)e.textContent=t;}
+function serverSave(){
+  if(!_cloudOn)return;
+  _dirty=true;clearTimeout(_saveT);
+  _saveT=setTimeout(async()=>{
+    try{
+      cloudMsg("클라우드 저장 중…");
+      const r=await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({code:$("code").value,date:$("date").value,data:collectState()})});
+      cloudMsg(r.ok?"클라우드 저장됨 · "+new Date().toLocaleTimeString("ko-KR"):"클라우드 저장 실패");
+    }catch(e){cloudMsg("클라우드 오프라인");}
+  },1200);
+}
+async function serverLoad(){
+  try{
+    const r=await fetch("/api/state?code="+encodeURIComponent($("code").value)+"&date="+encodeURIComponent($("date").value));
+    if(!r.ok)return;const j=await r.json();
+    if(j&&j.configured===false){_cloudOn=false;cloudMsg("");return;}   // 저장소 미설정 → 로컬만
+    // 사용자가 이미 편집 중이면 덮어쓰지 않음(로컬 편집 보호)
+    if(j&&j.ok&&j.data&&!_dirty){applyState(j.data);localStorage.setItem(keyName(),JSON.stringify(j.data));cloudMsg("공유본 불러옴 · 다른 기기 작업 반영");}
+  }catch(e){}
+}
+// 탭 이탈/전환 직전 확실히 저장(디바운스 대기분 flush)
+window.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&_dirty){try{navigator.sendBeacon&&navigator.sendBeacon("/api/state",new Blob([JSON.stringify({code:$("code").value,date:$("date").value,data:collectState()})],{type:"application/json"}));}catch(e){}}});
 
 /* 봉차트 */
 let chart=null;

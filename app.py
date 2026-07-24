@@ -22,7 +22,7 @@ from xml.etree import ElementTree as ET
 
 import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -2188,6 +2188,61 @@ def delete_report(name: str):
     if r.status_code not in (200, 204):
         raise HTTPException(502, f"삭제 실패: {r.status_code} {r.text[:200]}")
     return {"ok": True}
+
+
+# ── 공유 작업 상태(수기 입력) 저장: Supabase Storage에 JSON으로 보관 ──────────
+def _state_key(code: str, date: str) -> str:
+    return f"state/{code}_{date}.json"
+
+
+@app.get("/api/state")
+def get_state(code: str = DEFAULT_CODE, date: str = ""):
+    """해당 종목·날짜의 공유 작업 상태(JSON)를 반환. 없으면 data=None."""
+    if not _supabase_ready():
+        return {"ok": False, "configured": False, "data": None}
+    if not re.match(r"^\d{4,6}$", code or ""):
+        code = DEFAULT_CODE
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date or ""):
+        return {"ok": False, "data": None}
+    url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{_state_key(code, date)}"
+    try:
+        r = requests.get(url, headers=_sb_headers(), timeout=10)
+        if r.status_code == 200:
+            try:
+                return {"ok": True, "data": r.json()}
+            except Exception:
+                return {"ok": True, "data": None}
+        return {"ok": True, "data": None}   # 없음
+    except Exception as e:
+        return {"ok": False, "data": None, "error": str(e)[:200]}
+
+
+@app.post("/api/state")
+def post_state(payload: dict = Body(...)):
+    """공유 작업 상태(JSON)를 저장(덮어쓰기). 마지막 저장이 우선(last-write-wins)."""
+    if not _supabase_ready():
+        raise HTTPException(503, "저장소(Supabase)가 설정되지 않았습니다.")
+    code = str(payload.get("code") or "").strip()
+    date = str(payload.get("date") or "").strip()
+    data = payload.get("data")
+    if not re.match(r"^\d{4,6}$", code):
+        code = DEFAULT_CODE
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+        raise HTTPException(400, "날짜 형식 오류")
+    if not isinstance(data, dict):
+        raise HTTPException(400, "data는 객체여야 합니다.")
+    body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    if len(body) > 2_000_000:
+        raise HTTPException(413, "상태가 너무 큽니다.")
+    url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{_state_key(code, date)}"
+    try:
+        r = requests.post(url, headers=_sb_headers({"Content-Type": "application/json", "x-upsert": "true"}),
+                          data=body, timeout=15)
+    except Exception as e:
+        raise HTTPException(502, f"저장 통신 실패: {str(e)[:200]}")
+    if r.status_code not in (200, 201):
+        raise HTTPException(502, f"저장 실패: {r.status_code} {r.text[:200]}")
+    return {"ok": True, "size": len(body)}
 
 
 @app.get("/api/health")
