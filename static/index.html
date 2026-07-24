@@ -406,9 +406,9 @@
   .secbox li::before{content:"•";position:absolute;left:2px;color:var(--brand);}
   .secbox p{font-size:12.5px;color:var(--ink2);line-height:1.7;margin:3px 0;}
   .edph:empty::before{content:attr(data-ph);color:var(--muted);font-style:italic;font-size:12.5px;pointer-events:none;}
-  /* 시장 동향: 자동 요약(위) + 수기 메모(아래) 분리 — 수기는 자동 채우기에 안 지워짐 */
+  /* 시장 동향: 수기 메모(위) + 자동 요약(아래) 분리 — 수기는 자동 채우기에 안 지워짐 */
   .st-auto:empty{display:none;}
-  .st-auto:not(:empty) + .st-manual{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
+  .st-manual + .st-auto:not(:empty){margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
   .hl-src{color:var(--muted);font-size:11px;flex:0 0 auto;}
   .nhl a{color:var(--indigo);text-decoration:none;}
   .nhl a:hover{text-decoration:underline;}
@@ -642,10 +642,10 @@
     <div class="tc-item">
       <div class="blkhd"><span class="dot"></span><h2>당사 및 섹터 시장 동향</h2></div>
       <div class="secbox" id="secTrendBox">
-        <!-- 자동 요약(뉴스 채우기 시 교체) -->
-        <div class="st-auto" id="secTrendAuto" data-k="secTrendAuto" contenteditable="true"></div>
-        <!-- 수기 메모(자동 채우기가 절대 건드리지 않음 → 항상 보존) -->
+        <!-- 수기 메모(위): 자동 채우기가 절대 건드리지 않음 → 항상 보존 -->
         <div class="st-manual edph" id="secTrend" data-k="secTrend" data-ph="＋ 수기 메모를 입력하세요 (뉴스 요약과 별도로 항상 유지됩니다)" contenteditable="true"></div>
+        <!-- 자동 요약(아래): 뉴스 채우기 시 교체 -->
+        <div class="st-auto" id="secTrendAuto" data-k="secTrendAuto" contenteditable="true"></div>
       </div>
     </div>
     <div class="tc-item">
