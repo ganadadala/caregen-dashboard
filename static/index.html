@@ -1225,19 +1225,23 @@ $("newsBtn").addEventListener("contextmenu",(e)=>{e.preventDefault();loadNews(tr
 async function captureReport(){
   const page=document.querySelector(".page");
   const isMobile=window.innerWidth<760;
-  // 모바일: 레이아웃은 그대로 두고 배율만 향상(1.5→최대 3). iOS 캔버스 한계는 '세로'보다
-  // 총 면적(≈16.7M px)이 핵심 → 면적 기준으로 최대 배율 산출(세로는 16000px까지 여유).
-  let scale=isMobile?3:2;
-  if(isMobile){
-    const w=page.getBoundingClientRect().width||window.innerWidth||390;
-    const h=page.scrollHeight||page.getBoundingClientRect().height||3000;
-    scale=Math.max(1.5,Math.min(3, 16000/h, Math.sqrt(16000000/(w*h))));
-  }
+  // 기기와 무관하게 '일정한 저장 비율'을 위해 캡처 폭을 고정.
+  // 모바일: 400px(모바일 레이아웃 유지) / 데스크톱: 1160px. → 폰마다 폭이 달라지던 문제 해결.
+  const capW=isMobile?400:1160;
   const prevW=page.style.width, prevMW=page.style.maxWidth;
-  if(!isMobile){page.style.width="1160px";page.style.maxWidth="1160px";void page.offsetHeight;}
+  page.style.width=capW+"px";page.style.maxWidth=capW+"px";void page.offsetHeight;
+  // 폭 변경에 맞춰 차트(메인+미니) 재렌더 후 한 프레임 대기
+  try{if(chart)chart.resize();}catch(e){}
+  try{Object.keys(miniCharts).forEach(k=>{try{miniCharts[k]&&miniCharts[k].resize();}catch(e){}});}catch(e){}
+  await new Promise(r=>requestAnimationFrame(r));
+  // 배율: 모바일은 iOS 캔버스 면적 한계(≈16.7M px) 안에서 최대(≤3), 데스크톱 2
+  let scale=2;
+  if(isMobile){
+    const h=page.scrollHeight||page.getBoundingClientRect().height||3000;
+    scale=Math.max(1.5,Math.min(3, 16000/h, Math.sqrt(16000000/(capW*h))));
+  }
   // 캡처 직전 마지막 봉 주가정보를 강제 표시 → PDF/PNG에도 종가·시고저·거래량이 보이게
   try{if(typeof chart!=="undefined"&&chart&&chart._ohlc&&chart._ohlc.length){
-    chart.resize();
     const oh=chart._ohlc,mt=chart.getDatasetMeta(0),lb=mt&&mt.data&&mt.data[oh.length-1];
     showChartInfo(oh[oh.length-1],lb?lb.x:chart.chartArea.right,chart.chartArea);
   }}catch(e){}
@@ -1248,10 +1252,11 @@ async function captureReport(){
       x:(r.left-pr.left)/pr.width, y:(r.top-pr.top)/pr.height,
       w:r.width/pr.width, h:r.height/pr.height};
   }).filter(l=>l.w>0&&l.h>0&&l.x>=0&&l.y>=0);
-  const opts={scale,useCORS:true,logging:false,backgroundColor:"#F4F7F5"};
-  if(!isMobile)opts.windowWidth=1200;
+  const opts={scale,useCORS:true,logging:false,backgroundColor:"#F4F7F5",windowWidth:isMobile?capW:1200};
   const canvas=await html2canvas(page,opts);
-  if(!isMobile){page.style.width=prevW;page.style.maxWidth=prevMW;}
+  page.style.width=prevW;page.style.maxWidth=prevMW;
+  try{if(chart)chart.resize();}catch(e){}
+  try{Object.keys(miniCharts).forEach(k=>{try{miniCharts[k]&&miniCharts[k].resize();}catch(e){}});}catch(e){}
   return {canvas,links,cssW:pr.width,cssH:pr.height};
 }
 $("printBtn").addEventListener("click",async function(){
