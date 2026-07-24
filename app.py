@@ -1652,7 +1652,8 @@ SECTOR_QUERIES = [
     "약물전달 플랫폼 OR siRNA OR ADC",
     "바이오 유상증자 OR 전환사채 OR 바이오 관리종목 OR 바이오 자금조달",
     "제약 바이오 규제 OR 약가 정책",
-    "삼성바이오로직스 OR 셀트리온 OR SK바이오팜 OR 한미약품 OR 유한양행",
+    "삼성바이오로직스 OR Samsung Biologics OR 삼바",
+    "셀트리온 OR SK바이오팜 OR 한미약품 OR 유한양행",
     "알테오젠 OR 리가켐바이오 OR 펩트론 OR 에이비엘바이오 OR 올릭스",
     "노보노디스크 OR 일라이릴리 OR 글로벌 제약 실적",
 ]
