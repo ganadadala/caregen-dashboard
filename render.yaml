@@ -30,8 +30,13 @@ services:
       # KRX OpenAPI 인증키 (시가총액 순위 진단/조회용)
       - key: KRX_API_KEY
         sync: false
-      # 접근 비밀번호 (Basic Auth)
+      # 접근 비밀번호 (Basic Auth) — 편집 권한 계정
       - key: AUTH_USERNAME
         value: "caregen"
       - key: AUTH_PASSWORD
+        sync: false
+      # 읽기 전용(뷰어) 계정 — 설정 시 이 계정은 조회·열람만 가능(편집·저장·뉴스생성 불가)
+      - key: VIEW_USERNAME
+        value: "viewer"
+      - key: VIEW_PASSWORD
         sync: false

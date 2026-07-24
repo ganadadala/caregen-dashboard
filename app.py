@@ -22,7 +22,7 @@ from xml.etree import ElementTree as ET
 
 import requests
 from dotenv import load_dotenv
-from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -33,6 +33,9 @@ load_dotenv()
 # 환경변수에 실수로 끼어든 양끝 공백·줄바꿈 제거 (Render 대시보드 붙여넣기 시 흔함)
 AUTH_USER = os.getenv("AUTH_USERNAME", "caregen").strip()
 AUTH_PASS = os.getenv("AUTH_PASSWORD", "").strip()
+# 읽기 전용(뷰어) 계정 — 설정 시 이 계정으로 접속하면 조회/열람만 가능(편집·저장·뉴스생성 차단)
+VIEW_USER = os.getenv("VIEW_USERNAME", "").strip()
+VIEW_PASS = os.getenv("VIEW_PASSWORD", "").strip()
 
 BASE_URL = os.getenv("KIS_BASE_URL", "https://openapi.koreainvestment.com:9443")
 APPKEY = os.getenv("KIS_APPKEY", "")
@@ -101,23 +104,42 @@ OHLC_CACHE_TTL = 300  # 5분
 app = FastAPI(title="케어젠 일일 동향 대시보드")
 
 
+def _is_write_request(request) -> bool:
+    """뷰어(읽기 전용)에게 막을 요청: 모든 변경(POST/PUT/DELETE/PATCH) + 뉴스 생성(토큰 소모)."""
+    if request.method.upper() in ("POST", "PUT", "DELETE", "PATCH"):
+        return True
+    if request.url.path.startswith("/api/news"):
+        return True
+    return False
+
+
 class _BasicAuth(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        if not AUTH_PASS:
+        # 편집·뷰어 비번이 둘 다 없으면 인증 비활성(로컬 개발)
+        if not AUTH_PASS and not VIEW_PASS:
+            request.state.role = "editor"
             return await call_next(request)
+        role = None
         auth = request.headers.get("Authorization", "")
         if auth.startswith("Basic "):
             try:
                 user, pw = base64.b64decode(auth[6:]).decode().split(":", 1)
-                if secrets.compare_digest(user, AUTH_USER) and secrets.compare_digest(pw, AUTH_PASS):
-                    return await call_next(request)
+                if AUTH_PASS and secrets.compare_digest(user, AUTH_USER) and secrets.compare_digest(pw, AUTH_PASS):
+                    role = "editor"
+                elif VIEW_PASS and secrets.compare_digest(user, VIEW_USER) and secrets.compare_digest(pw, VIEW_PASS):
+                    role = "viewer"
             except Exception:
                 pass
-        return Response(
-            "Unauthorized",
-            status_code=401,
-            headers={"WWW-Authenticate": 'Basic realm="Caregen Dashboard"'},
-        )
+        if role is None:
+            return Response(
+                "Unauthorized",
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Caregen Dashboard"'},
+            )
+        request.state.role = role
+        if role == "viewer" and _is_write_request(request):
+            return Response("Forbidden — 읽기 전용 계정입니다.", status_code=403)
+        return await call_next(request)
 
 
 class _NoCacheHTML(BaseHTTPMiddleware):
@@ -2245,10 +2267,16 @@ def post_state(payload: dict = Body(...)):
     return {"ok": True, "size": len(body)}
 
 
+@app.get("/api/whoami")
+def whoami(request: Request):
+    """현재 접속 계정의 역할: editor(편집 가능) / viewer(읽기 전용)."""
+    return {"role": getattr(request.state, "role", "editor")}
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "configured": bool(APPKEY and APPSECRET), "default_code": DEFAULT_CODE,
-            "storage": _supabase_ready()}
+            "storage": _supabase_ready(), "viewer_enabled": bool(VIEW_PASS)}
 
 
 # 정적 대시보드 서빙 (맨 마지막에 마운트)
